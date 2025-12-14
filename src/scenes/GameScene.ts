@@ -13,6 +13,7 @@ import {
   SKILL_CONFIG,
   DAMAGE_PER_TILE,
   ULT_CHARGE_REQUIRED,
+  BOSS_ATTACK_DAMAGE,
 } from "../game/config";
 import type { SkillId } from "../game/config";
 import { Match3Board, baseCountTemplate } from "../match3/Board";
@@ -44,8 +45,11 @@ export class GameScene extends Phaser.Scene {
   private manaBar?: Meter;
   private skillButtons: Partial<Record<SkillId, SkillButton>> = {};
   private victoryContainer?: Phaser.GameObjects.Container;
+  private defeatContainer?: Phaser.GameObjects.Container;
 
   private boardOrigin = { x: 0, y: 0 };
+  private currentTurn: "player" | "boss" = "player";
+  private gameOver = false;
 
   constructor() {
     super("GameScene");
@@ -73,6 +77,8 @@ export class GameScene extends Phaser.Scene {
     this.playerHp = PLAYER_HP_MAX;
     this.mana = 0;
     this.ultimateCharges = 0;
+    this.currentTurn = "player";
+    this.gameOver = false;
     this.board = new Match3Board(BOARD_SIZE, BOARD_SIZE);
     this.rebuildPositionMap();
   }
@@ -180,7 +186,15 @@ export class GameScene extends Phaser.Scene {
 
   private setupInputHandlers() {
     this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
-      if (!this.dragStart || this.busy || this.bossHp <= 0) return;
+      if (
+        !this.dragStart ||
+        this.busy ||
+        this.bossHp <= 0 ||
+        this.playerHp <= 0 ||
+        this.currentTurn !== "player" ||
+        this.gameOver
+      )
+        return;
       const start = this.dragStart;
       const dx = pointer.x - start.point.x;
       const dy = pointer.y - start.point.y;
@@ -201,16 +215,29 @@ export class GameScene extends Phaser.Scene {
 
   private handleTap(pos: Position) {
     const tile = this.board.getTile(pos);
-    if (tile && this.board.isSpecial(tile.kind)) {
+    if (
+      tile &&
+      this.board.isSpecial(tile.kind) &&
+      this.currentTurn === "player" &&
+      !this.gameOver
+    ) {
       this.busy = true;
-      this.resolveBoard([], [pos], []).finally(() => {
-        this.busy = false;
+      this.resolveBoard([], [pos], [], true).finally(() => {
+        if (!this.gameOver && this.currentTurn === "player") {
+          this.busy = false;
+        }
       });
     }
   }
 
   private attemptSwap(a: Position, b: Position) {
-    if (this.busy || !this.board.inBounds(a) || !this.board.inBounds(b)) {
+    if (
+      this.busy ||
+      !this.board.inBounds(a) ||
+      !this.board.inBounds(b) ||
+      this.currentTurn !== "player" ||
+      this.gameOver
+    ) {
       return;
     }
     const tileA = this.board.getTile(a);
@@ -238,17 +265,20 @@ export class GameScene extends Phaser.Scene {
           this.rebuildPositionMap();
           return this.animateSwap(tileA.id, tileB.id);
         }
-        return this.resolveBoard(matches, specials, [a, b]);
+        return this.resolveBoard(matches, specials, [a, b], true);
       })
       .finally(() => {
-        this.busy = false;
+        if (!this.gameOver && this.currentTurn === "player") {
+          this.busy = false;
+        }
       });
   }
 
   private async resolveBoard(
     matches: Match[],
     manualSpecials: Position[],
-    swapTargets: Position[]
+    swapTargets: Position[],
+    endTurnAfter = false
   ) {
     const totals: CountTotals = baseCountTemplate();
     let loopMatches = matches;
@@ -289,6 +319,9 @@ export class GameScene extends Phaser.Scene {
       loopSpecials.length === 0 &&
       Object.values(totals).every((v) => v === 0)
     ) {
+      if (endTurnAfter) {
+        await this.finishPlayerTurn();
+      }
       return;
     }
 
@@ -298,6 +331,10 @@ export class GameScene extends Phaser.Scene {
     );
 
     this.applyMatchResults(totals);
+
+    if (endTurnAfter) {
+      await this.finishPlayerTurn();
+    }
   }
 
   private applyMatchResults(totals: CountTotals) {
@@ -526,14 +563,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   private activateSkill(id: SkillId) {
-    if (this.busy || this.bossHp <= 0) return;
+    if (
+      this.busy ||
+      this.bossHp <= 0 ||
+      this.playerHp <= 0 ||
+      this.currentTurn !== "player" ||
+      this.gameOver
+    )
+      return;
     switch (id) {
       case "skill1":
         if (this.mana < SKILL_CONFIG.skill1.cost) return;
         this.mana -= SKILL_CONFIG.skill1.cost;
         this.bossHp = Math.max(0, this.bossHp - 120);
         this.updateHud();
-        if (this.bossHp <= 0) this.showVictory();
+        if (this.bossHp <= 0) {
+          this.showVictory();
+          return;
+        }
+        this.finishPlayerTurn();
         break;
       case "skill2":
         if (this.mana < SKILL_CONFIG.skill2.cost) return;
@@ -545,6 +593,7 @@ export class GameScene extends Phaser.Scene {
         this.mana -= SKILL_CONFIG.skill3.cost;
         this.playerHp = clamp(this.playerHp + 30, 0, PLAYER_HP_MAX);
         this.updateHud();
+        this.finishPlayerTurn();
         break;
       case "skill4":
         if (this.ultimateCharges < ULT_CHARGE_REQUIRED) return;
@@ -562,7 +611,9 @@ export class GameScene extends Phaser.Scene {
     }));
     this.busy = true;
     this.resolveManualClear(positions).finally(() => {
-      this.busy = false;
+      if (!this.gameOver && this.currentTurn === "player") {
+        this.busy = false;
+      }
     });
   }
 
@@ -576,7 +627,9 @@ export class GameScene extends Phaser.Scene {
     }
     this.busy = true;
     this.resolveManualClear(positions).finally(() => {
-      this.busy = false;
+      if (!this.gameOver && this.currentTurn === "player") {
+        this.busy = false;
+      }
     });
   }
 
@@ -597,8 +650,9 @@ export class GameScene extends Phaser.Scene {
     this.applyMatchResults(totals);
     const nextMatches = this.board.findMatches();
     if (nextMatches.length) {
-      await this.resolveBoard(nextMatches, [], []);
+      await this.resolveBoard(nextMatches, [], [], false);
     }
+    await this.finishPlayerTurn();
   }
 
   private showVictory() {
@@ -607,10 +661,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.busy = true;
+    this.gameOver = true;
     const overlay = this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.65)
       .setOrigin(0, 0)
-      .setDepth(10);
+      .setDepth(999);
     const text = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, "Victory!", {
         fontSize: "36px",
@@ -618,7 +673,7 @@ export class GameScene extends Phaser.Scene {
         fontFamily: "Arial, sans-serif",
       })
       .setOrigin(0.5)
-      .setDepth(10);
+      .setDepth(999);
     const btn = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, "Restart", {
         fontSize: "20px",
@@ -628,13 +683,15 @@ export class GameScene extends Phaser.Scene {
         fontFamily: "Arial, sans-serif",
       })
       .setOrigin(0.5)
-      .setDepth(10)
+      .setDepth(999)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => {
         this.scene.restart();
       });
 
-    this.victoryContainer = this.add.container(0, 0, [overlay, text, btn]);
+    this.victoryContainer = this.add
+      .container(0, 0, [overlay, text, btn])
+      .setDepth(999);
   }
 
   private toWorld(pos: Position) {
@@ -643,7 +700,131 @@ export class GameScene extends Phaser.Scene {
       y: this.boardOrigin.y + pos.y * CELL_SIZE + CELL_SIZE / 2,
     };
   }
+
+  private async finishPlayerTurn() {
+    if (this.gameOver) return;
+    if (this.bossHp <= 0) {
+      this.showVictory();
+      return;
+    }
+    if (this.playerHp <= 0) {
+      this.showDefeat();
+      return;
+    }
+    this.currentTurn = "boss";
+    this.busy = true;
+    await wait(this, 350);
+    await this.executeBossTurn();
+    await wait(this, 200);
+    if (this.playerHp <= 0) {
+      this.showDefeat();
+      return;
+    }
+    this.currentTurn = "player";
+    this.busy = false;
+  }
+
+  private async executeBossTurn() {
+    const move = this.findBossMove();
+    if (!move) {
+      // fallback damage if no move found
+      this.cameras.main.shake(120, 0.004);
+      this.playerHp = clamp(
+        this.playerHp - BOSS_ATTACK_DAMAGE,
+        0,
+        PLAYER_HP_MAX
+      );
+      this.updateHud();
+      return;
+    }
+    const { a, b } = move;
+    const tileA = this.board.getTile(a);
+    const tileB = this.board.getTile(b);
+    if (!tileA || !tileB) return;
+
+    this.board.swap(a, b);
+    this.rebuildPositionMap();
+    const specials: Position[] = [];
+    const tileAfterA = this.board.getTile(a);
+    const tileAfterB = this.board.getTile(b);
+    if (tileAfterA && this.board.isSpecial(tileAfterA.kind)) specials.push(a);
+    if (tileAfterB && this.board.isSpecial(tileAfterB.kind)) specials.push(b);
+    const matches = this.board.findMatches();
+    // Animate then resolve
+    await this.animateSwap(tileA.id, tileB.id);
+    await this.resolveBoard(matches, specials, [a, b], false);
+    this.updateHud();
+  }
+
+  private findBossMove():
+    | { a: Position; b: Position }
+    | null {
+    const dirs = [
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ];
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        for (const dir of dirs) {
+          const a = { x, y };
+          const b = { x: x + dir.x, y: y + dir.y };
+          if (!this.board.inBounds(b)) continue;
+          this.board.swap(a, b);
+          const matches = this.board.findMatches();
+          this.board.swap(a, b);
+          if (matches.length) {
+            return { a, b };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private showDefeat() {
+    if (this.defeatContainer) {
+      this.defeatContainer.setVisible(true);
+      return;
+    }
+    this.busy = true;
+    this.gameOver = true;
+    const overlay = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.7)
+      .setOrigin(0, 0)
+      .setDepth(999);
+    const text = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, "Defeat", {
+        fontSize: "36px",
+        color: "#ffb4b4",
+        fontFamily: "Arial, sans-serif",
+      })
+      .setOrigin(0.5)
+      .setDepth(999);
+    const btn = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, "Retry", {
+        fontSize: "20px",
+        backgroundColor: "#2d5bff",
+        padding: { x: 16, y: 8 },
+        color: "#ffffff",
+        fontFamily: "Arial, sans-serif",
+      })
+      .setOrigin(0.5)
+      .setDepth(999)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => {
+        this.scene.restart();
+      });
+
+    this.defeatContainer = this.add
+      .container(0, 0, [overlay, text, btn])
+      .setDepth(999);
+  }
 }
 
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
+
+const wait = (scene: Phaser.Scene, ms: number) =>
+  new Promise<void>((resolve) => {
+    scene.time.delayedCall(ms, () => resolve());
+  });

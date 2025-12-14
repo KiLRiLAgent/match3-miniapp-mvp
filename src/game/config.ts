@@ -12,6 +12,7 @@ export const BOSS_HP_MAX = 1000;
 export const PLAYER_HP_MAX = 100;
 export const PLAYER_MANA_MAX = 100;
 export const ULT_CHARGE_REQUIRED = 1;
+export const BOSS_ATTACK_DAMAGE = 18;
 
 export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Sword,
