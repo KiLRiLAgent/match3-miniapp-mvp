@@ -8,6 +8,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
+  "dependencies": {
+    "phaser": "^3.88.2"
+  },
   "devDependencies": {
     "typescript": "~5.9.3",
     "vite": "^7.2.4"

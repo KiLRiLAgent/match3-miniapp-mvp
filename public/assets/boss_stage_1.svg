@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320">
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a4463"/>
+      <stop offset="100%" stop-color="#131a2a"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" rx="24" fill="url(#bg1)"/>
+  <circle cx="160" cy="150" r="105" fill="#6578c9" opacity="0.45"/>
+  <circle cx="160" cy="150" r="92" fill="#9caef5" opacity="0.65"/>
+  <rect x="110" y="90" width="100" height="120" rx="18" fill="#3d4f7b"/>
+  <rect x="120" y="100" width="80" height="100" rx="14" fill="#4b5f95"/>
+  <path d="M120 210 L200 210" stroke="#e6f0ff" stroke-width="6" stroke-linecap="round"/>
+  <path d="M120 128 L140 144 L125 162" stroke="#f3f6ff" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M180 120 L200 134 L182 156" stroke="#f3f6ff" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <rect x="95" y="200" width="130" height="28" rx="14" fill="#c4d4ff" opacity="0.8"/>
+  <text x="160" y="252" font-size="20" font-family="Arial, sans-serif" fill="#ffffff" text-anchor="middle">Boss</text>
+  <text x="160" y="278" font-size="16" font-family="Arial, sans-serif" fill="#d0dbff" text-anchor="middle">HP: 75%</text>
+</svg>
