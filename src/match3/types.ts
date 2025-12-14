@@ -1,0 +1,34 @@
+export enum TileKind {
+  Sword = "sword",
+  Star = "star",
+  Mana = "mana",
+  Heal = "heal",
+  BoosterRow = "boosterRow",
+  BoosterCol = "boosterCol",
+  Ultimate = "ultimate",
+}
+
+export type BaseTileKind =
+  | TileKind.Sword
+  | TileKind.Star
+  | TileKind.Mana
+  | TileKind.Heal;
+
+export type Position = {
+  x: number;
+  y: number;
+};
+
+export type Tile = {
+  id: number;
+  kind: TileKind;
+  base: BaseTileKind;
+};
+
+export type MatchDirection = "row" | "col";
+
+export type Match = {
+  positions: Position[];
+  kind: BaseTileKind;
+  direction: MatchDirection;
+};
