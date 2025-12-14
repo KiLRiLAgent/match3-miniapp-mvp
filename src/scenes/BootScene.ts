@@ -10,10 +10,10 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.load.image("vite", "/vite.svg");
-    this.load.image(ASSET_KEYS.boss.stage0, "assets/boss_stage_0.svg");
-    this.load.image(ASSET_KEYS.boss.stage1, "assets/boss_stage_1.svg");
-    this.load.image(ASSET_KEYS.boss.stage2, "assets/boss_stage_2.svg");
-    this.load.image(ASSET_KEYS.boss.stage3, "assets/boss_stage_3.svg");
+    this.load.image(ASSET_KEYS.boss.stage100, "assets/hero_1_100.png");
+    this.load.image(ASSET_KEYS.boss.stage75, "assets/hero_1_75.png");
+    this.load.image(ASSET_KEYS.boss.stage50, "assets/hero_1_50.png");
+    this.load.image(ASSET_KEYS.boss.stage25, "assets/hero_1_25.png");
   }
 
   create() {
