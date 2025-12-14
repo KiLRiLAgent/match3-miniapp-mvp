@@ -90,8 +90,8 @@ export class GameScene extends Phaser.Scene {
     const bossY = 110;
 
     this.bossImage = this.add
-      .image(bossX, bossY, ASSET_KEYS.boss.stage0)
-      .setDisplaySize(160, 160)
+      .image(bossX, bossY, ASSET_KEYS.boss.stage100)
+      .setDisplaySize(180, 180)
       .setOrigin(0.5);
 
     this.bossHpBar = new Meter(
@@ -518,10 +518,10 @@ export class GameScene extends Phaser.Scene {
   private updateBossArt() {
     if (!this.bossImage) return;
     const ratio = this.bossHp / BOSS_HP_MAX;
-    let key = ASSET_KEYS.boss.stage0;
-    if (ratio <= 0.25) key = ASSET_KEYS.boss.stage3;
-    else if (ratio <= 0.5) key = ASSET_KEYS.boss.stage2;
-    else if (ratio <= 0.75) key = ASSET_KEYS.boss.stage1;
+    let key = ASSET_KEYS.boss.stage100;
+    if (ratio <= 0.25) key = ASSET_KEYS.boss.stage25;
+    else if (ratio <= 0.5) key = ASSET_KEYS.boss.stage50;
+    else if (ratio <= 0.75) key = ASSET_KEYS.boss.stage75;
     this.bossImage.setTexture(key);
   }
 

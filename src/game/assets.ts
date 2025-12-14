@@ -2,10 +2,10 @@ import { TileKind } from "../match3/types";
 
 export const ASSET_KEYS = {
   boss: {
-    stage0: "boss_stage_0",
-    stage1: "boss_stage_1",
-    stage2: "boss_stage_2",
-    stage3: "boss_stage_3",
+    stage100: "boss_stage_100",
+    stage75: "boss_stage_75",
+    stage50: "boss_stage_50",
+    stage25: "boss_stage_25",
   },
   tiles: {
     [TileKind.Sword]: "tile_sword",
