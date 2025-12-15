@@ -222,7 +222,7 @@ export class GameScene extends Phaser.Scene {
       !this.gameOver
     ) {
       this.busy = true;
-      this.resolveBoard([], [pos], [], true).finally(() => {
+      this.resolveBoard([], [pos], [], true, "player").finally(() => {
         if (!this.gameOver && this.currentTurn === "player") {
           this.busy = false;
         }
@@ -265,7 +265,7 @@ export class GameScene extends Phaser.Scene {
           this.rebuildPositionMap();
           return this.animateSwap(tileA.id, tileB.id);
         }
-        return this.resolveBoard(matches, specials, [a, b], true);
+        return this.resolveBoard(matches, specials, [a, b], true, "player");
       })
       .finally(() => {
         if (!this.gameOver && this.currentTurn === "player") {
@@ -278,7 +278,8 @@ export class GameScene extends Phaser.Scene {
     matches: Match[],
     manualSpecials: Position[],
     swapTargets: Position[],
-    endTurnAfter = false
+    endTurnAfter = false,
+    actor: "player" | "boss" = "player"
   ) {
     const totals: CountTotals = baseCountTemplate();
     let loopMatches = matches;
@@ -330,27 +331,36 @@ export class GameScene extends Phaser.Scene {
       3
     );
 
-    this.applyMatchResults(totals);
+    this.applyMatchResults(totals, actor);
 
     if (endTurnAfter) {
       await this.finishPlayerTurn();
     }
   }
 
-  private applyMatchResults(totals: CountTotals) {
+  private applyMatchResults(totals: CountTotals, actor: "player" | "boss") {
     const damage =
       totals[TileKind.Sword] * DAMAGE_PER_TILE[TileKind.Sword] +
       totals[TileKind.Star] * DAMAGE_PER_TILE[TileKind.Star];
     const manaGain = totals[TileKind.Mana] * MATCH_GAINS.mana;
     const healGain = totals[TileKind.Heal] * MATCH_GAINS.heal;
 
-    this.bossHp = Math.max(0, this.bossHp - damage);
-    this.mana = clamp(this.mana + manaGain, 0, PLAYER_MANA_MAX);
-    this.playerHp = clamp(this.playerHp + healGain, 0, PLAYER_HP_MAX);
-
-    this.updateHud();
-    if (this.bossHp <= 0) {
-      this.showVictory();
+    if (actor === "player") {
+      this.bossHp = Math.max(0, this.bossHp - damage);
+      this.mana = clamp(this.mana + manaGain, 0, PLAYER_MANA_MAX);
+      this.playerHp = clamp(this.playerHp + healGain, 0, PLAYER_HP_MAX);
+      this.updateHud();
+      if (this.bossHp <= 0) {
+        this.showVictory();
+      }
+    } else {
+      this.playerHp = clamp(this.playerHp - damage, 0, PLAYER_HP_MAX);
+      // Boss can heal from heal tiles; mana ignored for boss in MVP.
+      this.bossHp = clamp(this.bossHp + healGain, 0, BOSS_HP_MAX);
+      this.updateHud();
+      if (this.playerHp <= 0) {
+        this.showDefeat();
+      }
     }
   }
 
@@ -647,10 +657,10 @@ export class GameScene extends Phaser.Scene {
     (Object.keys(outcome.counts) as BaseTileKind[]).forEach((key) => {
       totals[key] += outcome.counts[key];
     });
-    this.applyMatchResults(totals);
+    this.applyMatchResults(totals, "player");
     const nextMatches = this.board.findMatches();
     if (nextMatches.length) {
-      await this.resolveBoard(nextMatches, [], [], false);
+      await this.resolveBoard(nextMatches, [], [], false, "player");
     }
     await this.finishPlayerTurn();
   }
@@ -752,7 +762,7 @@ export class GameScene extends Phaser.Scene {
     const matches = this.board.findMatches();
     // Animate then resolve
     await this.animateSwap(tileA.id, tileB.id);
-    await this.resolveBoard(matches, specials, [a, b], false);
+    await this.resolveBoard(matches, specials, [a, b], false, "boss");
     this.updateHud();
   }
 
