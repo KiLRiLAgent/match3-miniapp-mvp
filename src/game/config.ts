@@ -1,18 +1,32 @@
 import { TileKind } from "../match3/types";
 import type { BaseTileKind } from "../match3/types";
 
-export const BOARD_SIZE = 8;
+// Размер поля (8 ширина x 7 высота согласно прототипу)
+export const BOARD_WIDTH = 8;
+export const BOARD_HEIGHT = 7;
 export const CELL_SIZE = 56;
 export const BOARD_PADDING = 12;
 
 export const GAME_WIDTH = 480;
 export const GAME_HEIGHT = 800;
 
-export const BOSS_HP_MAX = 1000;
-export const PLAYER_HP_MAX = 100;
-export const PLAYER_MANA_MAX = 100;
+// Параметры игрока
+export const PLAYER_HP_MAX = 200;
+export const PLAYER_MANA_MAX = 200;
+export const PLAYER_PHYS_ATTACK = 10;
+export const PLAYER_MAG_ATTACK = 10;
+export const HP_PER_TILE = 10;
+export const MP_PER_TILE = 10;
+
+// Параметры противника
+export const BOSS_HP_MAX = 500;
+export const BOSS_PHYS_ATTACK = 10;
+export const BOSS_ABILITY_COOLDOWN = 3;
+export const BOSS_ABILITY_MULTIPLIER = 10;
+
+// Устаревшие (для обратной совместимости, удалить позже)
 export const ULT_CHARGE_REQUIRED = 1;
-export const BOSS_ATTACK_DAMAGE = 18;
+export const BOSS_ATTACK_DAMAGE = BOSS_PHYS_ATTACK * BOSS_ABILITY_MULTIPLIER;
 
 export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Sword,
@@ -21,46 +35,60 @@ export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Heal,
 ];
 
+// Урон за фишку = атака игрока (физ/маг) * 1
 export const DAMAGE_PER_TILE: Record<BaseTileKind, number> = {
-  [TileKind.Sword]: 10,
-  [TileKind.Star]: 12,
+  [TileKind.Sword]: PLAYER_PHYS_ATTACK,
+  [TileKind.Star]: PLAYER_MAG_ATTACK,
   [TileKind.Mana]: 0,
   [TileKind.Heal]: 0,
 };
 
 export const MATCH_GAINS = {
-  mana: 3,
-  heal: 2,
+  mana: MP_PER_TILE,
+  heal: HP_PER_TILE,
 };
+
+// Способность игрока "Мощный удар"
+export const POWER_STRIKE_COST = 50;
+export const POWER_STRIKE_MULTIPLIER = 10;
 
 export type SkillId = "skill1" | "skill2" | "skill3" | "skill4";
 
-export const SKILL_CONFIG: Record<
-  SkillId,
-  {
-    name: string;
-    cost: number;
-    description: string;
-  }
-> = {
+export interface SkillDef {
+  name: string;
+  cost: number;
+  damage: number;
+  heal: number;
+  description: string;
+}
+
+export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   skill1: {
-    name: "Attack Boost",
-    cost: 30,
-    description: "120 dmg",
+    name: "Attack",
+    cost: 50,
+    damage: 50,
+    heal: 0,
+    description: "50 урона",
   },
   skill2: {
-    name: "Magic Blast",
-    cost: 50,
-    description: "Clear row",
+    name: "Blast",
+    cost: 100,
+    damage: 100,
+    heal: 0,
+    description: "100 урона",
   },
   skill3: {
     name: "Heal",
-    cost: 40,
-    description: "+30 HP",
+    cost: 30,
+    damage: 0,
+    heal: 50,
+    description: "+50 HP",
   },
   skill4: {
-    name: "Ultimate",
-    cost: 0,
-    description: "Clear 5",
+    name: "Ult",
+    cost: 200,
+    damage: 200,
+    heal: 0,
+    description: "200 урона",
   },
 };
