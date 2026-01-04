@@ -6,6 +6,7 @@ export class Meter extends Phaser.GameObjects.Container {
   private label: Phaser.GameObjects.Text;
   private widthPx: number;
   private color: number;
+  private title: Phaser.GameObjects.Text;
 
   constructor(
     scene: Phaser.Scene,
@@ -21,21 +22,30 @@ export class Meter extends Phaser.GameObjects.Container {
     this.color = color;
 
     this.border = scene.add
-      .rectangle(0, 0, width, height, 0x000000, 0.35)
+      .rectangle(0, 0, width, height, 0x0a0c16, 0.65)
       .setOrigin(0, 0)
-      .setStrokeStyle(2, 0xffffff, 0.35);
+      .setStrokeStyle(2, 0xffffff, 0.4);
     this.fill = scene.add
       .rectangle(0, 0, width, height, color, 0.9)
       .setOrigin(0, 0);
-    this.label = scene.add
-      .text(width / 2, height / 2, label, {
+    this.fill.setScale(1, 1);
+    this.fill.setAlpha(0.95);
+    this.title = scene.add
+      .text(0, -18, label, {
         fontSize: "14px",
+        color: "#cfd8ff",
+        fontFamily: "Arial, sans-serif",
+      })
+      .setOrigin(0, 0.5);
+    this.label = scene.add
+      .text(width - 6, height / 2, "0/0", {
+        fontSize: "13px",
         color: "#ffffff",
         fontFamily: "Arial, sans-serif",
       })
-      .setOrigin(0.5);
+      .setOrigin(1, 0.5);
 
-    this.add([this.border, this.fill, this.label]);
+    this.add([this.border, this.fill, this.title, this.label]);
     scene.add.existing(this);
   }
 

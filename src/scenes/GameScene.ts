@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
 import {
   BOARD_PADDING,
-  BOARD_SIZE,
+  BOARD_WIDTH,
+  BOARD_HEIGHT,
   BOSS_HP_MAX,
   CELL_SIZE,
   GAME_HEIGHT,
@@ -12,8 +13,6 @@ import {
   PLAYER_MANA_MAX,
   SKILL_CONFIG,
   DAMAGE_PER_TILE,
-  ULT_CHARGE_REQUIRED,
-  BOSS_ATTACK_DAMAGE,
 } from "../game/config";
 import type { SkillId } from "../game/config";
 import { Match3Board, baseCountTemplate } from "../match3/Board";
@@ -21,6 +20,11 @@ import { TileKind } from "../match3/types";
 import type { Match, Position, Tile, BaseTileKind } from "../match3/types";
 import { Meter } from "../ui/Meter";
 import { SkillButton } from "../ui/SkillButton";
+import { CooldownIcon } from "../ui/CooldownIcon";
+import { showDamageNumber } from "../ui/DamageNumber";
+import { BossAbility } from "../game/BossAbility";
+import { flyTilesToTarget } from "../ui/FlyingTile";
+import type { FlyTarget } from "../ui/FlyingTile";
 import { initTelegram } from "../telegram/telegram";
 
 type CountTotals = Record<BaseTileKind, number>;
@@ -47,9 +51,15 @@ export class GameScene extends Phaser.Scene {
   private victoryContainer?: Phaser.GameObjects.Container;
   private defeatContainer?: Phaser.GameObjects.Container;
 
+  // Новые элементы для Этапа 1
+  private bossAbility!: BossAbility;
+  private cooldownIcon?: CooldownIcon;
+  private playerAvatar?: Phaser.GameObjects.Rectangle;
+
   private boardOrigin = { x: 0, y: 0 };
   private currentTurn: "player" | "boss" = "player";
   private gameOver = false;
+  private turnText?: Phaser.GameObjects.Text;
 
   constructor() {
     super("GameScene");
@@ -58,7 +68,7 @@ export class GameScene extends Phaser.Scene {
   create() {
     initTelegram();
     this.cameras.main.setBackgroundColor("#0d0f1a");
-    const boardWidth = BOARD_SIZE * CELL_SIZE;
+    const boardWidth = BOARD_WIDTH * CELL_SIZE;
     this.boardOrigin = {
       x: (GAME_WIDTH - boardWidth) / 2,
       y: 200,
@@ -79,65 +89,121 @@ export class GameScene extends Phaser.Scene {
     this.ultimateCharges = 0;
     this.currentTurn = "player";
     this.gameOver = false;
-    this.board = new Match3Board(BOARD_SIZE, BOARD_SIZE);
+    this.board = new Match3Board(BOARD_WIDTH, BOARD_HEIGHT);
+    this.bossAbility = BossAbility.createPowerStrike();
     this.rebuildPositionMap();
   }
 
   private buildHud() {
+    const topPanel = this.add
+      .rectangle(
+        GAME_WIDTH / 2,
+        90,
+        GAME_WIDTH - 32,
+        150,
+        0x131a2d,
+        0.9
+      )
+      .setStrokeStyle(2, 0xffffff, 0.1)
+      .setDepth(1);
+    topPanel.setOrigin(0.5, 0.5);
+
     this.add
-      .text(24, 20, "Lv. 30", {
+      .text(20, 28, "Lv. 30", {
         fontSize: "20px",
-        color: "#ffffff",
+        color: "#9fb7ff",
         fontFamily: "Arial, sans-serif",
       })
-      .setDepth(2);
+      .setDepth(3);
 
     const bossX = GAME_WIDTH / 2;
-    const bossY = 110;
+    const bossY = 90;
 
     this.bossImage = this.add
       .image(bossX, bossY, ASSET_KEYS.boss.stage100)
       .setDisplaySize(180, 180)
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(3);
 
     this.bossHpBar = new Meter(
       this,
-      GAME_WIDTH / 2 - 140,
-      bossY + 90,
-      280,
-      14,
+      GAME_WIDTH / 2 - 150,
+      bossY + 110,
+      300,
+      16,
       "Boss HP",
       0xde3e3e
-    );
+    ).setDepth(4);
 
+    // Иконка кулдауна способности босса
+    this.cooldownIcon = new CooldownIcon(
+      this,
+      GAME_WIDTH / 2 + 180,
+      bossY + 110,
+      48
+    );
+    this.cooldownIcon.setDepth(4);
+
+    const bottomPanel = this.add
+      .rectangle(
+        GAME_WIDTH / 2,
+        GAME_HEIGHT - 95,
+        GAME_WIDTH - 32,
+        70,
+        0x111726,
+        0.92
+      )
+      .setStrokeStyle(2, 0xffffff, 0.08)
+      .setDepth(1);
+    bottomPanel.setOrigin(0.5, 0.5);
+
+    // Аватар игрока слева
+    this.playerAvatar = this.add
+      .rectangle(45, GAME_HEIGHT - 95, 44, 44, 0x4caf50, 0.8)
+      .setStrokeStyle(2, 0xffffff, 0.5)
+      .setDepth(4);
+
+    // HP бар справа от аватара (зелёный)
     this.playerHpBar = new Meter(
       this,
-      24,
-      GAME_HEIGHT - 170,
-      160,
-      14,
+      80,
+      GAME_HEIGHT - 105,
+      170,
+      12,
       "HP",
       0x4caf50
-    );
+    ).setDepth(4);
+
+    // Mana бар под HP (синий)
     this.manaBar = new Meter(
       this,
-      24,
-      GAME_HEIGHT - 145,
-      160,
-      14,
-      "Mana",
+      80,
+      GAME_HEIGHT - 78,
+      170,
+      12,
+      "MP",
       0x3b82f6
-    );
+    ).setDepth(4);
+
+    this.turnText = this.add
+      .text(GAME_WIDTH - 32, 26, "Your Turn", {
+        fontSize: "18px",
+        color: "#ffffff",
+        fontFamily: "Arial, sans-serif",
+      })
+      .setOrigin(1, 0)
+      .setDepth(4);
   }
 
   private buildBoard() {
-    const sizePx = BOARD_SIZE * CELL_SIZE;
+    const widthPx = BOARD_WIDTH * CELL_SIZE;
+    const heightPx = BOARD_HEIGHT * CELL_SIZE;
     const bg = this.add
       .rectangle(
         this.boardOrigin.x - BOARD_PADDING,
         this.boardOrigin.y - BOARD_PADDING,
-        sizePx + BOARD_PADDING * 2,
-        sizePx + BOARD_PADDING * 2,
+        widthPx + BOARD_PADDING * 2,
+        heightPx + BOARD_PADDING * 2,
         0x161820,
         0.9
       )
@@ -145,8 +211,8 @@ export class GameScene extends Phaser.Scene {
       .setStrokeStyle(2, 0xffffff, 0.08);
     bg.setDepth(0);
 
-    for (let y = 0; y < BOARD_SIZE; y++) {
-      for (let x = 0; x < BOARD_SIZE; x++) {
+    for (let y = 0; y < BOARD_HEIGHT; y++) {
+      for (let x = 0; x < BOARD_WIDTH; x++) {
         const tile = this.board.getTile({ x, y });
         if (tile) {
           this.spawnTileSprite(tile, { x, y });
@@ -156,11 +222,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildSkills() {
-    const btnSize = 80;
+    const btnSize = 70;
     const spacing = 8;
     const totalWidth = btnSize * 4 + spacing * 3;
     const startX = GAME_WIDTH / 2 - totalWidth / 2;
-    const y = GAME_HEIGHT - 100;
+    const y = GAME_HEIGHT - 45;
     const titles: [SkillId, string, string][] = [
       ["skill1", "Attack", `${SKILL_CONFIG.skill1.cost} MP`],
       ["skill2", "Blast", `${SKILL_CONFIG.skill2.cost} MP`],
@@ -174,7 +240,7 @@ export class GameScene extends Phaser.Scene {
         startX + idx * (btnSize + spacing),
         y,
         btnSize,
-        btnSize,
+        btnSize - 10,
         title,
         subtitle,
         () => this.activateSkill(id)
@@ -346,17 +412,82 @@ export class GameScene extends Phaser.Scene {
     const healGain = totals[TileKind.Heal] * MATCH_GAINS.heal;
 
     if (actor === "player") {
-      this.bossHp = Math.max(0, this.bossHp - damage);
-      this.mana = clamp(this.mana + manaGain, 0, PLAYER_MANA_MAX);
-      this.playerHp = clamp(this.playerHp + healGain, 0, PLAYER_HP_MAX);
+      // Урон боссу
+      if (damage > 0) {
+        this.bossHp = Math.max(0, this.bossHp - damage);
+        if (this.bossImage) {
+          showDamageNumber(
+            this,
+            this.bossImage.x,
+            this.bossImage.y + 60,
+            damage,
+            "damage"
+          );
+          // Вспышка и тряска босса
+          this.tweens.add({
+            targets: this.bossImage,
+            x: this.bossImage.x + 5,
+            duration: 50,
+            yoyo: true,
+            repeat: 2,
+          });
+        }
+      }
+
+      // Мана игроку
+      if (manaGain > 0) {
+        const oldMana = this.mana;
+        this.mana = clamp(this.mana + manaGain, 0, PLAYER_MANA_MAX);
+        const actualGain = this.mana - oldMana;
+        if (actualGain > 0 && this.playerAvatar) {
+          showDamageNumber(
+            this,
+            this.playerAvatar.x,
+            this.playerAvatar.y - 20,
+            actualGain,
+            "mana"
+          );
+        }
+      }
+
+      // Хил игроку
+      if (healGain > 0) {
+        const oldHp = this.playerHp;
+        this.playerHp = clamp(this.playerHp + healGain, 0, PLAYER_HP_MAX);
+        const actualHeal = this.playerHp - oldHp;
+        if (actualHeal > 0 && this.playerAvatar) {
+          showDamageNumber(
+            this,
+            this.playerAvatar.x,
+            this.playerAvatar.y - 40,
+            actualHeal,
+            "heal"
+          );
+        }
+      }
+
       this.updateHud();
       if (this.bossHp <= 0) {
         this.showVictory();
       }
     } else {
-      this.playerHp = clamp(this.playerHp - damage, 0, PLAYER_HP_MAX);
-      // Boss can heal from heal tiles; mana ignored for boss in MVP.
-      this.bossHp = clamp(this.bossHp + healGain, 0, BOSS_HP_MAX);
+      // Урон игроку от босса (через match-3 не используется в Этапе 1)
+      if (damage > 0) {
+        this.playerHp = clamp(this.playerHp - damage, 0, PLAYER_HP_MAX);
+        if (this.playerAvatar) {
+          showDamageNumber(
+            this,
+            this.playerAvatar.x,
+            this.playerAvatar.y - 30,
+            damage,
+            "damage"
+          );
+        }
+      }
+      // Boss can heal from heal tiles
+      if (healGain > 0) {
+        this.bossHp = clamp(this.bossHp + healGain, 0, BOSS_HP_MAX);
+      }
       this.updateHud();
       if (this.playerHp <= 0) {
         this.showDefeat();
@@ -389,8 +520,8 @@ export class GameScene extends Phaser.Scene {
 
   private rebuildPositionMap() {
     this.tilePositions.clear();
-    for (let y = 0; y < BOARD_SIZE; y++) {
-      for (let x = 0; x < BOARD_SIZE; x++) {
+    for (let y = 0; y < BOARD_HEIGHT; y++) {
+      for (let x = 0; x < BOARD_WIDTH; x++) {
         const tile = this.board.getTile({ x, y });
         if (tile) {
           this.tilePositions.set(tile.id, { x, y });
@@ -456,16 +587,31 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    outcome.cleared.forEach(({ tile }) => {
+    // Группируем фишки по целям для полёта
+    const tilesToBoss: Array<{ x: number; y: number; kind: TileKind }> = [];
+    const tilesToPlayer: Array<{ x: number; y: number; kind: TileKind }> = [];
+
+    outcome.cleared.forEach(({ pos, tile }) => {
       const sprite = this.tileSprites.get(tile.id);
       if (!sprite) return;
+
+      const worldPos = this.toWorld(pos);
+
+      // Определяем цель по типу фишки
+      if (tile.kind === TileKind.Sword || tile.kind === TileKind.Star) {
+        tilesToBoss.push({ x: worldPos.x, y: worldPos.y, kind: tile.kind });
+      } else if (tile.kind === TileKind.Mana || tile.kind === TileKind.Heal) {
+        tilesToPlayer.push({ x: worldPos.x, y: worldPos.y, kind: tile.kind });
+      }
+
+      // Быстро скрываем оригинальный спрайт
       tweens.push(
         new Promise<void>((resolve) => {
           this.tweens.add({
             targets: sprite,
             alpha: 0,
-            scale: 0.2,
-            duration: 140,
+            scale: 0.5,
+            duration: 80,
             ease: "Quad.easeIn",
             onComplete: () => {
               sprite.destroy();
@@ -476,6 +622,23 @@ export class GameScene extends Phaser.Scene {
         })
       );
     });
+
+    // Цели для полёта
+    const bossTarget: FlyTarget = this.bossImage
+      ? { x: this.bossImage.x, y: this.bossImage.y + 40 }
+      : { x: GAME_WIDTH / 2, y: 100 };
+
+    const playerTarget: FlyTarget = this.playerAvatar
+      ? { x: this.playerAvatar.x, y: this.playerAvatar.y }
+      : { x: GAME_WIDTH - 60, y: GAME_HEIGHT - 175 };
+
+    // Запускаем полёт фишек
+    if (tilesToBoss.length > 0) {
+      tweens.push(flyTilesToTarget(this, tilesToBoss, bossTarget, 350));
+    }
+    if (tilesToPlayer.length > 0) {
+      tweens.push(flyTilesToTarget(this, tilesToPlayer, playerTarget, 350));
+    }
 
     return Promise.all(tweens);
   }
@@ -535,30 +698,27 @@ export class GameScene extends Phaser.Scene {
     this.manaBar?.setValue(this.mana, PLAYER_MANA_MAX);
     this.updateBossArt();
 
-    const skill1Enabled = this.mana >= SKILL_CONFIG.skill1.cost;
-    const skill2Enabled = this.mana >= SKILL_CONFIG.skill2.cost;
-    const skill3Enabled = this.mana >= SKILL_CONFIG.skill3.cost;
-    const skill4Enabled = this.ultimateCharges >= ULT_CHARGE_REQUIRED;
+    // Обновляем иконку кулдауна босса
+    this.cooldownIcon?.setCooldown(this.bossAbility.currentCooldown);
 
-    this.skillButtons.skill1?.applyState({
-      enabled: skill1Enabled,
-      ready: skill1Enabled,
-      info: `${this.mana}/${SKILL_CONFIG.skill1.cost}`,
-    });
-    this.skillButtons.skill2?.applyState({
-      enabled: skill2Enabled,
-      ready: skill2Enabled,
-      info: `${this.mana}/${SKILL_CONFIG.skill2.cost}`,
-    });
-    this.skillButtons.skill3?.applyState({
-      enabled: skill3Enabled,
-      ready: skill3Enabled,
-      info: `${this.mana}/${SKILL_CONFIG.skill3.cost}`,
-    });
-    this.skillButtons.skill4?.applyState({
-      enabled: skill4Enabled,
-      ready: skill4Enabled,
-      info: `${this.ultimateCharges}/${ULT_CHARGE_REQUIRED}`,
+    if (this.turnText) {
+      this.turnText.setText(
+        this.currentTurn === "player" ? "Ваш ход" : "Ход босса"
+      );
+      this.turnText.setColor(
+        this.currentTurn === "player" ? "#9ef7a5" : "#ffb347"
+      );
+    }
+
+    // Обновляем состояние всех 4 кнопок способностей
+    (["skill1", "skill2", "skill3", "skill4"] as SkillId[]).forEach((id) => {
+      const cfg = SKILL_CONFIG[id];
+      const canUse = this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
+      this.skillButtons[id]?.applyState({
+        enabled: canUse,
+        ready: canUse,
+        info: `${cfg.cost} MP`,
+      });
     });
   }
 
@@ -581,88 +741,58 @@ export class GameScene extends Phaser.Scene {
       this.gameOver
     )
       return;
-    switch (id) {
-      case "skill1":
-        if (this.mana < SKILL_CONFIG.skill1.cost) return;
-        this.mana -= SKILL_CONFIG.skill1.cost;
-        this.bossHp = Math.max(0, this.bossHp - 120);
-        this.updateHud();
-        if (this.bossHp <= 0) {
-          this.showVictory();
-          return;
-        }
-        this.finishPlayerTurn();
-        break;
-      case "skill2":
-        if (this.mana < SKILL_CONFIG.skill2.cost) return;
-        this.mana -= SKILL_CONFIG.skill2.cost;
-        this.castRowClear();
-        break;
-      case "skill3":
-        if (this.mana < SKILL_CONFIG.skill3.cost) return;
-        this.mana -= SKILL_CONFIG.skill3.cost;
-        this.playerHp = clamp(this.playerHp + 30, 0, PLAYER_HP_MAX);
-        this.updateHud();
-        this.finishPlayerTurn();
-        break;
-      case "skill4":
-        if (this.ultimateCharges < ULT_CHARGE_REQUIRED) return;
-        this.ultimateCharges -= ULT_CHARGE_REQUIRED;
-        this.castRandomCells();
-        break;
-    }
-  }
 
-  private castRowClear() {
-    const row = Phaser.Math.Between(0, BOARD_SIZE - 1);
-    const positions = Array.from({ length: BOARD_SIZE }, (_, x) => ({
-      x,
-      y: row,
-    }));
-    this.busy = true;
-    this.resolveManualClear(positions).finally(() => {
-      if (!this.gameOver && this.currentTurn === "player") {
-        this.busy = false;
+    const cfg = SKILL_CONFIG[id];
+    if (this.mana < cfg.cost) return;
+
+    this.mana -= cfg.cost;
+
+    // Урон боссу
+    if (cfg.damage > 0) {
+      this.bossHp = Math.max(0, this.bossHp - cfg.damage);
+      if (this.bossImage) {
+        showDamageNumber(
+          this,
+          this.bossImage.x,
+          this.bossImage.y + 60,
+          cfg.damage,
+          "damage"
+        );
+        // Тряска босса
+        this.tweens.add({
+          targets: this.bossImage,
+          x: this.bossImage.x + 8,
+          duration: 50,
+          yoyo: true,
+          repeat: 3,
+        });
       }
-    });
-  }
-
-  private castRandomCells() {
-    const positions: Position[] = [];
-    for (let i = 0; i < 5; i++) {
-      positions.push({
-        x: Phaser.Math.Between(0, BOARD_SIZE - 1),
-        y: Phaser.Math.Between(0, BOARD_SIZE - 1),
-      });
     }
-    this.busy = true;
-    this.resolveManualClear(positions).finally(() => {
-      if (!this.gameOver && this.currentTurn === "player") {
-        this.busy = false;
-      }
-    });
-  }
 
-  private async resolveManualClear(positions: Position[]) {
-    const outcome = this.board.clearPositions(positions);
-    if (!outcome.cleared.length) {
-      this.updateHud();
+    // Хил игрока
+    if (cfg.heal > 0) {
+      const oldHp = this.playerHp;
+      this.playerHp = Math.min(PLAYER_HP_MAX, this.playerHp + cfg.heal);
+      const actualHeal = this.playerHp - oldHp;
+      if (actualHeal > 0 && this.playerAvatar) {
+        showDamageNumber(
+          this,
+          this.playerAvatar.x,
+          this.playerAvatar.y - 30,
+          actualHeal,
+          "heal"
+        );
+      }
+    }
+
+    this.updateHud();
+
+    if (this.bossHp <= 0) {
+      this.showVictory();
       return;
     }
-    await this.animateClear(outcome);
-    const collapse = this.board.applyClearOutcome(outcome);
-    this.rebuildPositionMap();
-    await this.animateCollapse(collapse);
-    const totals: CountTotals = baseCountTemplate();
-    (Object.keys(outcome.counts) as BaseTileKind[]).forEach((key) => {
-      totals[key] += outcome.counts[key];
-    });
-    this.applyMatchResults(totals, "player");
-    const nextMatches = this.board.findMatches();
-    if (nextMatches.length) {
-      await this.resolveBoard(nextMatches, [], [], false, "player");
-    }
-    await this.finishPlayerTurn();
+
+    this.finishPlayerTurn();
   }
 
   private showVictory() {
@@ -721,60 +851,158 @@ export class GameScene extends Phaser.Scene {
       this.showDefeat();
       return;
     }
+
+    // Ход босса
     this.currentTurn = "boss";
     this.busy = true;
-    await wait(this, 350);
+    this.updateHud();
+    await wait(this, 300);
+
+    // 1. Босс делает match-3 ход
     await this.executeBossTurn();
-    await wait(this, 200);
+
+    // Проверка после хода босса
     if (this.playerHp <= 0) {
       this.showDefeat();
       return;
     }
+
+    // 2. Тик кулдауна способности босса
+    const abilityReady = this.bossAbility.tick();
+    this.updateHud();
+
+    // 3. Если способность босса готова — выполняем cutscene
+    if (abilityReady) {
+      await wait(this, 200);
+      await this.executeBossAbility();
+      this.bossAbility.reset();
+      this.updateHud();
+      await wait(this, 300);
+
+      if (this.playerHp <= 0) {
+        this.showDefeat();
+        return;
+      }
+    }
+
+    // Возвращаем ход игроку
     this.currentTurn = "player";
     this.busy = false;
-  }
-
-  private async executeBossTurn() {
-    const move = this.findBossMove();
-    if (!move) {
-      // fallback damage if no move found
-      this.cameras.main.shake(120, 0.004);
-      this.playerHp = clamp(
-        this.playerHp - BOSS_ATTACK_DAMAGE,
-        0,
-        PLAYER_HP_MAX
-      );
-      this.updateHud();
-      return;
-    }
-    const { a, b } = move;
-    const tileA = this.board.getTile(a);
-    const tileB = this.board.getTile(b);
-    if (!tileA || !tileB) return;
-
-    this.board.swap(a, b);
-    this.rebuildPositionMap();
-    const specials: Position[] = [];
-    const tileAfterA = this.board.getTile(a);
-    const tileAfterB = this.board.getTile(b);
-    if (tileAfterA && this.board.isSpecial(tileAfterA.kind)) specials.push(a);
-    if (tileAfterB && this.board.isSpecial(tileAfterB.kind)) specials.push(b);
-    const matches = this.board.findMatches();
-    // Animate then resolve
-    await this.animateSwap(tileA.id, tileB.id);
-    await this.resolveBoard(matches, specials, [a, b], false, "boss");
     this.updateHud();
   }
 
-  private findBossMove():
-    | { a: Position; b: Position }
-    | null {
+  /**
+   * Выполняет способность босса с cutscene.
+   */
+  private async executeBossAbility() {
+    const damage = this.bossAbility.damage;
+
+    // Cutscene: затемнение экрана
+    const overlay = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+      .setOrigin(0, 0)
+      .setDepth(500);
+
+    // Полноэкранное изображение босса (используем существующее)
+    const fullscreenBoss = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, ASSET_KEYS.boss.stage100)
+      .setDisplaySize(300, 300)
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(501);
+
+    // Название способности
+    const abilityText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, this.bossAbility.name, {
+        fontSize: "32px",
+        fontFamily: "Arial, sans-serif",
+        color: "#ff4444",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(501);
+
+    // Анимация появления cutscene
+    await new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: overlay,
+        alpha: 0.7,
+        duration: 200,
+        ease: "Quad.easeOut",
+      });
+      this.tweens.add({
+        targets: [fullscreenBoss, abilityText],
+        alpha: 1,
+        duration: 300,
+        delay: 100,
+        ease: "Quad.easeOut",
+        onComplete: () => resolve(),
+      });
+    });
+
+    await wait(this, 600);
+
+    // Тряска камеры и урон
+    this.cameras.main.shake(200, 0.01);
+
+    // Урон игроку
+    this.playerHp = clamp(this.playerHp - damage, 0, PLAYER_HP_MAX);
+
+    // Показываем число урона над аватаром игрока
+    if (this.playerAvatar) {
+      showDamageNumber(
+        this,
+        this.playerAvatar.x,
+        this.playerAvatar.y - 30,
+        damage,
+        "damage"
+      );
+    }
+
+    // Вспышка на аватаре игрока
+    if (this.playerAvatar) {
+      const originalColor = 0x4caf50;
+      this.playerAvatar.setFillStyle(0xffffff, 1);
+      this.time.delayedCall(100, () => {
+        this.playerAvatar?.setFillStyle(originalColor, 0.8);
+      });
+    }
+
+    this.updateHud();
+
+    await wait(this, 400);
+
+    // Скрываем cutscene
+    await new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: [overlay, fullscreenBoss, abilityText],
+        alpha: 0,
+        duration: 300,
+        ease: "Quad.easeIn",
+        onComplete: () => {
+          overlay.destroy();
+          fullscreenBoss.destroy();
+          abilityText.destroy();
+          resolve();
+        },
+      });
+    });
+  }
+
+  /**
+   * Greedy поиск хода для босса.
+   * Возвращает первый найденный валидный свап.
+   */
+  private findBossMove(): { a: Position; b: Position } | null {
     const dirs = [
       { x: 1, y: 0 },
       { x: 0, y: 1 },
     ];
-    for (let y = 0; y < BOARD_SIZE; y++) {
-      for (let x = 0; x < BOARD_SIZE; x++) {
+    for (let y = 0; y < BOARD_HEIGHT; y++) {
+      for (let x = 0; x < BOARD_WIDTH; x++) {
         for (const dir of dirs) {
           const a = { x, y };
           const b = { x: x + dir.x, y: y + dir.y };
@@ -789,6 +1017,35 @@ export class GameScene extends Phaser.Scene {
       }
     }
     return null;
+  }
+
+  /**
+   * Выполняет ход босса — находит и делает match-3 свап.
+   */
+  private async executeBossTurn() {
+    const move = this.findBossMove();
+    if (!move) {
+      // Нет валидного хода — босс пропускает
+      return;
+    }
+
+    const { a, b } = move;
+    const tileA = this.board.getTile(a);
+    const tileB = this.board.getTile(b);
+    if (!tileA || !tileB) return;
+
+    this.board.swap(a, b);
+    this.rebuildPositionMap();
+    await this.animateSwap(tileA.id, tileB.id);
+
+    const specials: Position[] = [];
+    const tileAfterA = this.board.getTile(a);
+    const tileAfterB = this.board.getTile(b);
+    if (tileAfterA && this.board.isSpecial(tileAfterA.kind)) specials.push(a);
+    if (tileAfterB && this.board.isSpecial(tileAfterB.kind)) specials.push(b);
+
+    const matches = this.board.findMatches();
+    await this.resolveBoard(matches, specials, [a, b], false, "boss");
   }
 
   private showDefeat() {
