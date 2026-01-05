@@ -24,10 +24,6 @@ export const BOSS_PHYS_ATTACK = 10;
 export const BOSS_ABILITY_COOLDOWN = 3;
 export const BOSS_ABILITY_MULTIPLIER = 10;
 
-// Устаревшие (для обратной совместимости, удалить позже)
-export const ULT_CHARGE_REQUIRED = 1;
-export const BOSS_ATTACK_DAMAGE = BOSS_PHYS_ATTACK * BOSS_ABILITY_MULTIPLIER;
-
 export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Sword,
   TileKind.Star,

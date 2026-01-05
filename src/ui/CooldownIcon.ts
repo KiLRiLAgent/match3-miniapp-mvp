@@ -5,6 +5,7 @@ export class CooldownIcon extends Phaser.GameObjects.Container {
   private border: Phaser.GameObjects.Rectangle;
   private cooldownText: Phaser.GameObjects.Text;
   private iconText: Phaser.GameObjects.Text;
+  private isPulsing = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -71,12 +72,18 @@ export class CooldownIcon extends Phaser.GameObjects.Container {
    * Анимация пульсации когда способность готова.
    */
   private pulseAnimation(): void {
+    if (this.isPulsing) return;
+    this.isPulsing = true;
+    this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
       targets: this,
       scale: 1.15,
       duration: 200,
       yoyo: true,
       ease: "Sine.easeInOut",
+      onComplete: () => {
+        this.isPulsing = false;
+      },
     });
   }
 

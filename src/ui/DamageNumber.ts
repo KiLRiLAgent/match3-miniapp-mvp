@@ -70,7 +70,10 @@ export class DamageNumber extends Phaser.GameObjects.Container {
       delay: 200,
       ease: "Quad.easeOut",
       onComplete: () => {
-        this.destroy();
+        if (this.scene) {
+          this.scene.tweens.killTweensOf(this);
+          this.destroy();
+        }
       },
     });
   }

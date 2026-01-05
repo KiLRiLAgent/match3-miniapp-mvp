@@ -54,7 +54,20 @@ export function flyTileToTarget(
     let progress = 0;
     const startTime = scene.time.now + delay;
 
+    const cleanup = () => {
+      scene.events.off("update", updateHandler);
+      scene.events.off("shutdown", cleanup);
+      if (tile.scene) tile.destroy();
+      if (trailGraphics.scene) trailGraphics.destroy();
+      resolve();
+    };
+
     const updateHandler = () => {
+      if (!scene.sys.isActive()) {
+        cleanup();
+        return;
+      }
+
       const now = scene.time.now;
       if (now < startTime) return;
 
@@ -100,6 +113,7 @@ export function flyTileToTarget(
 
       if (progress >= 1) {
         scene.events.off("update", updateHandler);
+        scene.events.off("shutdown", cleanup);
         tile.destroy();
 
         // Финальная очистка трейла с анимацией затухания
@@ -108,7 +122,7 @@ export function flyTileToTarget(
           alpha: 0,
           duration: 150,
           onComplete: () => {
-            trailGraphics.destroy();
+            if (trailGraphics.scene) trailGraphics.destroy();
           },
         });
 
@@ -117,6 +131,7 @@ export function flyTileToTarget(
     };
 
     scene.events.on("update", updateHandler);
+    scene.events.once("shutdown", cleanup);
   });
 }
 
