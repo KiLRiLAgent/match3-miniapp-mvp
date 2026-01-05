@@ -15,11 +15,22 @@ export interface FlyTarget {
   y: number;
 }
 
-/**
- * Анимация полёта фишки к цели с трейлом.
- * Фишка летит по кривой Безье, уменьшаясь в размере.
- * За ней остаётся цветной след.
- */
+function calculateBezierPoint(
+  t: number,
+  startX: number,
+  startY: number,
+  midX: number,
+  midY: number,
+  endX: number,
+  endY: number
+): { x: number; y: number } {
+  const oneMinusT = 1 - t;
+  return {
+    x: oneMinusT * oneMinusT * startX + 2 * oneMinusT * t * midX + t * t * endX,
+    y: oneMinusT * oneMinusT * startY + 2 * oneMinusT * t * midY + t * t * endY,
+  };
+}
+
 export function flyTileToTarget(
   scene: Phaser.Scene,
   startX: number,
@@ -33,89 +44,64 @@ export function flyTileToTarget(
     const color = TILE_COLORS[tileKind] ?? 0xffffff;
     const size = 32;
 
-    // Рандомизация точки попадания
-    const offsetX = Phaser.Math.Between(-15, 15);
-    const offsetY = Phaser.Math.Between(-15, 15);
-    const endX = target.x + offsetX;
-    const endY = target.y + offsetY;
-
-    // Контрольная точка для кривой Безье (дуга)
+    const endX = target.x + Phaser.Math.Between(-15, 15);
+    const endY = target.y + Phaser.Math.Between(-15, 15);
     const midX = (startX + endX) / 2;
     const midY = Math.min(startY, endY) - 60 - Phaser.Math.Between(0, 30);
 
-    // Получаем текстуру тайла
     const textureKey = ASSET_KEYS.tiles[tileKind] ?? tileKind;
-
-    // Основной спрайт фишки (PNG картинка)
     const tile = scene.add
       .image(startX, startY, textureKey)
       .setDisplaySize(size, size)
       .setDepth(200);
 
-    // Сохраняем базовый масштаб после setDisplaySize
     const baseScale = tile.scaleX;
-
-    // Контейнер для трейла
     const trailGraphics = scene.add.graphics().setDepth(199);
     const trailPoints: { x: number; y: number; alpha: number }[] = [];
 
-    // Анимация полёта по кривой
     let progress = 0;
     const startTime = scene.time.now + delay;
 
     const cleanup = () => {
       scene.events.off("update", updateHandler);
       scene.events.off("shutdown", cleanup);
-      if (tile.scene) tile.destroy();
-      if (trailGraphics.scene) trailGraphics.destroy();
+      tile.destroy();
+      trailGraphics.destroy();
       resolve();
     };
 
     const updateHandler = () => {
-      if (!scene.sys.isActive()) {
-        cleanup();
-        return;
-      }
+      if (!scene.sys.isActive()) return cleanup();
 
       const now = scene.time.now;
       if (now < startTime) return;
 
       progress = Math.min(1, (now - startTime) / duration);
 
-      // Квадратичная кривая Безье: B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2
-      const t = progress;
-      const oneMinusT = 1 - t;
-      const x =
-        oneMinusT * oneMinusT * startX +
-        2 * oneMinusT * t * midX +
-        t * t * endX;
-      const y =
-        oneMinusT * oneMinusT * startY +
-        2 * oneMinusT * t * midY +
-        t * t * endY;
+      const { x, y } = calculateBezierPoint(
+        progress,
+        startX,
+        startY,
+        midX,
+        midY,
+        endX,
+        endY
+      );
 
       tile.setPosition(x, y);
+      tile.setScale(baseScale * (1 - progress * 0.6));
 
-      // Уменьшение размера во время полёта (относительно базового масштаба)
-      const scaleFactor = 1 - progress * 0.6;
-      tile.setScale(baseScale * scaleFactor);
-
-      // Добавляем точку в трейл
       trailPoints.push({ x, y, alpha: 1 });
 
-      // Рисуем трейл
       trailGraphics.clear();
-      for (let i = 0; i < trailPoints.length; i++) {
-        const point = trailPoints[i];
+      for (const point of trailPoints) {
         point.alpha -= 0.08;
         if (point.alpha > 0) {
-          const pointSize = 6 * point.alpha;
           trailGraphics.fillStyle(color, point.alpha * 0.7);
-          trailGraphics.fillCircle(point.x, point.y, pointSize);
+          trailGraphics.fillCircle(point.x, point.y, 6 * point.alpha);
         }
       }
 
-      // Удаляем старые точки
       while (trailPoints.length > 0 && trailPoints[0].alpha <= 0) {
         trailPoints.shift();
       }
@@ -125,14 +111,11 @@ export function flyTileToTarget(
         scene.events.off("shutdown", cleanup);
         tile.destroy();
 
-        // Финальная очистка трейла с анимацией затухания
         scene.tweens.add({
           targets: trailGraphics,
           alpha: 0,
           duration: 150,
-          onComplete: () => {
-            if (trailGraphics.scene) trailGraphics.destroy();
-          },
+          onComplete: () => trailGraphics.destroy(),
         });
 
         resolve();
@@ -144,32 +127,17 @@ export function flyTileToTarget(
   });
 }
 
-/**
- * Запускает полёт нескольких фишек к цели одновременно.
- */
 export function flyTilesToTarget(
   scene: Phaser.Scene,
   tiles: Array<{ x: number; y: number; kind: TileKind }>,
   target: FlyTarget,
   baseDuration = 400
 ): Promise<void> {
-  if (tiles.length === 0) {
-    return Promise.resolve();
-  }
+  if (tiles.length === 0) return Promise.resolve();
 
-  // Небольшая задержка между фишками для каскадного эффекта
-  const promises = tiles.map((tile, index) => {
-    const delay = index * 30;
-    return flyTileToTarget(
-      scene,
-      tile.x,
-      tile.y,
-      target,
-      tile.kind,
-      baseDuration,
-      delay
-    );
-  });
+  const promises = tiles.map((tile, index) =>
+    flyTileToTarget(scene, tile.x, tile.y, target, tile.kind, baseDuration, index * 30)
+  );
 
-  return Promise.all(promises).then(() => {});
+  return Promise.all(promises).then(() => undefined);
 }

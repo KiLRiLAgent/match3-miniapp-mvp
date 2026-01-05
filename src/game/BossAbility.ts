@@ -14,44 +14,32 @@ export class BossAbility {
   readonly name: string;
   readonly maxCooldown: number;
   readonly damage: number;
-  private _currentCooldown: number;
+  private cooldown: number;
 
   constructor(config: BossAbilityConfig) {
     this.name = config.name;
     this.maxCooldown = config.maxCooldown;
     this.damage = config.damage;
-    this._currentCooldown = config.maxCooldown;
+    this.cooldown = config.maxCooldown;
   }
 
   get currentCooldown(): number {
-    return this._currentCooldown;
+    return this.cooldown;
   }
 
   get isReady(): boolean {
-    return this._currentCooldown <= 0;
+    return this.cooldown <= 0;
   }
 
-  /**
-   * Уменьшает кулдаун на 1. Вызывается после каждого хода игрока.
-   * @returns true если способность готова к активации
-   */
   tick(): boolean {
-    if (this._currentCooldown > 0) {
-      this._currentCooldown--;
-    }
+    if (this.cooldown > 0) this.cooldown--;
     return this.isReady;
   }
 
-  /**
-   * Сбрасывает кулдаун после использования способности.
-   */
   reset(): void {
-    this._currentCooldown = this.maxCooldown;
+    this.cooldown = this.maxCooldown;
   }
 
-  /**
-   * Создаёт способность "Мощный удар" с параметрами из конфига.
-   */
   static createPowerStrike(): BossAbility {
     return new BossAbility({
       name: "Мощный удар",

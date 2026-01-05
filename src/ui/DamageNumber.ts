@@ -48,11 +48,9 @@ export class DamageNumber extends Phaser.GameObjects.Container {
   }
 
   private playAnimation() {
-    // Начальный масштаб и небольшой случайный сдвиг
     this.setScale(0.5);
     const offsetX = Phaser.Math.Between(-20, 20);
 
-    // Анимация появления
     this.scene.tweens.add({
       targets: this,
       scale: 1,
@@ -60,7 +58,6 @@ export class DamageNumber extends Phaser.GameObjects.Container {
       ease: "Back.easeOut",
     });
 
-    // Анимация движения вверх и исчезновения
     this.scene.tweens.add({
       targets: this,
       x: this.x + offsetX,
@@ -69,25 +66,17 @@ export class DamageNumber extends Phaser.GameObjects.Container {
       duration: 800,
       delay: 200,
       ease: "Quad.easeOut",
-      onComplete: () => {
-        if (this.scene) {
-          this.scene.tweens.killTweensOf(this);
-          this.destroy();
-        }
-      },
+      onComplete: () => this.destroy(),
     });
   }
 }
 
-/**
- * Утилита для показа числа урона/хила/маны.
- */
 export function showDamageNumber(
   scene: Phaser.Scene,
   x: number,
   y: number,
   value: number,
   type: DamageNumberType = "damage"
-): DamageNumber {
-  return new DamageNumber(scene, x, y, value, type);
+): void {
+  new DamageNumber(scene, x, y, value, type);
 }

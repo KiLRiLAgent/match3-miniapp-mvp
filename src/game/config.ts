@@ -15,6 +15,7 @@ export const PLAYER_HP_MAX = 200;
 export const PLAYER_MANA_MAX = 100;
 export const PLAYER_PHYS_ATTACK = 10;
 export const PLAYER_MAG_ATTACK = 10;
+export const PLAYER_MAG_DAMAGE_MULTIPLIER = 0.5; // Магическая атака наносит 50% урона
 export const HP_PER_TILE = 10;
 export const MP_PER_TILE = 10;
 
@@ -23,6 +24,7 @@ export const BOSS_HP_MAX = 500;
 export const BOSS_PHYS_ATTACK = 10;
 export const BOSS_ABILITY_COOLDOWN = 3;
 export const BOSS_ABILITY_MULTIPLIER = 10;
+export const BOSS_DAMAGED_HP_THRESHOLD = 0.5; // Переход на damaged спрайт при HP < 50%
 
 export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Sword,

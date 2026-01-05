@@ -162,7 +162,7 @@ export class Match3Board {
           matches.push({
             positions,
             kind: tile.base,
-            direction: "row",  // используем row для совместимости
+            direction: "row", // используем row для совместимости
           });
         }
       }
