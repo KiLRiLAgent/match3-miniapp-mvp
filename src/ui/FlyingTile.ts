@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import { TileKind } from "../match3/types";
+import { ASSET_KEYS } from "../game/assets";
 
+// Цвета для трейла
 const TILE_COLORS: Partial<Record<TileKind, number>> = {
   [TileKind.Sword]: 0xff6644,
   [TileKind.Star]: 0xaa66ff,
@@ -41,10 +43,17 @@ export function flyTileToTarget(
     const midX = (startX + endX) / 2;
     const midY = Math.min(startY, endY) - 60 - Phaser.Math.Between(0, 30);
 
-    // Основной спрайт фишки (квадрат с цветом)
+    // Получаем текстуру тайла
+    const textureKey = ASSET_KEYS.tiles[tileKind] ?? tileKind;
+
+    // Основной спрайт фишки (PNG картинка)
     const tile = scene.add
-      .rectangle(startX, startY, size, size, color, 1)
+      .image(startX, startY, textureKey)
+      .setDisplaySize(size, size)
       .setDepth(200);
+
+    // Сохраняем базовый масштаб после setDisplaySize
+    const baseScale = tile.scaleX;
 
     // Контейнер для трейла
     const trailGraphics = scene.add.graphics().setDepth(199);
@@ -87,9 +96,9 @@ export function flyTileToTarget(
 
       tile.setPosition(x, y);
 
-      // Уменьшение размера во время полёта
-      const scale = 1 - progress * 0.6;
-      tile.setScale(scale);
+      // Уменьшение размера во время полёта (относительно базового масштаба)
+      const scaleFactor = 1 - progress * 0.6;
+      tile.setScale(baseScale * scaleFactor);
 
       // Добавляем точку в трейл
       trailPoints.push({ x, y, alpha: 1 });
