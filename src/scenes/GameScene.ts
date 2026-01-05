@@ -87,8 +87,11 @@ export class GameScene extends Phaser.Scene {
     this.mana = 0;
     this.currentTurn = "player";
     this.gameOver = false;
+    this.busy = false;
     this.board = new Match3Board(BOARD_WIDTH, BOARD_HEIGHT);
     this.bossAbility = BossAbility.createPowerStrike();
+    this.tileSprites.clear();
+    this.tilePositions.clear();
     this.rebuildPositionMap();
   }
 
