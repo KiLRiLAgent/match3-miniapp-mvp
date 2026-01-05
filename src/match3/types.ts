@@ -32,3 +32,5 @@ export type Match = {
   kind: BaseTileKind;
   direction: MatchDirection;
 };
+
+export type CountTotals = Record<BaseTileKind, number>;

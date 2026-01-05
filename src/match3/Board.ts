@@ -134,6 +134,40 @@ export class Match3Board {
     const matches: Match[] = [];
     matches.push(...this.findMatchesInDirection("row"));
     matches.push(...this.findMatchesInDirection("col"));
+    matches.push(...this.findSquareMatches());
+    return matches;
+  }
+
+  private findSquareMatches(): Match[] {
+    const matches: Match[] = [];
+
+    for (let y = 0; y < this.height - 1; y++) {
+      for (let x = 0; x < this.width - 1; x++) {
+        const tile = this.getTile({ x, y });
+        if (!tile) continue;
+
+        const positions: Position[] = [
+          { x, y },
+          { x: x + 1, y },
+          { x, y: y + 1 },
+          { x: x + 1, y: y + 1 }
+        ];
+
+        const allSame = positions.every(pos => {
+          const t = this.getTile(pos);
+          return t && t.base === tile.base;
+        });
+
+        if (allSame) {
+          matches.push({
+            positions,
+            kind: tile.base,
+            direction: "row",  // используем row для совместимости
+          });
+        }
+      }
+    }
+
     return matches;
   }
 
