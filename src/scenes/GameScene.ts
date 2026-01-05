@@ -15,9 +15,9 @@ import {
   DAMAGE_PER_TILE,
 } from "../game/config";
 import type { SkillId } from "../game/config";
-import { Match3Board, baseCountTemplate } from "../match3/Board";
+import { Match3Board } from "../match3/Board";
 import { TileKind } from "../match3/types";
-import type { Match, Position, Tile, BaseTileKind } from "../match3/types";
+import type { Match, Position, Tile, CountTotals } from "../match3/types";
 import { Meter } from "../ui/Meter";
 import { SkillButton } from "../ui/SkillButton";
 import { CooldownIcon } from "../ui/CooldownIcon";
@@ -26,8 +26,6 @@ import { BossAbility } from "../game/BossAbility";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
 import { initTelegram } from "../telegram/telegram";
-
-type CountTotals = Record<BaseTileKind, number>;
 
 export class GameScene extends Phaser.Scene {
   private board!: Match3Board;
@@ -121,7 +119,7 @@ export class GameScene extends Phaser.Scene {
     const bossY = 90;
 
     this.bossImage = this.add
-      .image(bossX, bossY, ASSET_KEYS.boss.stage100)
+      .image(bossX, bossY, ASSET_KEYS.boss.normal)
       .setDisplaySize(180, 180)
       .setOrigin(0.5)
       .setDepth(3);
@@ -337,7 +335,6 @@ export class GameScene extends Phaser.Scene {
     endTurnAfter = false,
     actor: "player" | "boss" = "player"
   ) {
-    const totals: CountTotals = baseCountTemplate();
     let loopMatches = matches;
     let loopSpecials = manualSpecials;
 
@@ -350,32 +347,18 @@ export class GameScene extends Phaser.Scene {
       if (!outcome.cleared.length && !outcome.transforms.length) break;
 
       await this.animateClear(outcome, actor);
+
+      // Применяем эффекты СРАЗУ после полёта фишек (не в конце!)
+      this.applyMatchResults(outcome.counts, actor);
+
       const collapse = this.board.applyClearOutcome(outcome);
       this.rebuildPositionMap();
       await this.animateCollapse(collapse);
-
-      // merge counts
-      (Object.keys(outcome.counts) as BaseTileKind[]).forEach((key) => {
-        totals[key] += outcome.counts[key];
-      });
 
       loopMatches = this.board.findMatches();
       loopSpecials = [];
       swapTargets = [];
     }
-
-    if (
-      loopMatches.length === 0 &&
-      loopSpecials.length === 0 &&
-      Object.values(totals).every((v) => v === 0)
-    ) {
-      if (endTurnAfter) {
-        await this.finishPlayerTurn();
-      }
-      return;
-    }
-
-    this.applyMatchResults(totals, actor);
 
     if (endTurnAfter) {
       await this.finishPlayerTurn();
@@ -408,6 +391,7 @@ export class GameScene extends Phaser.Scene {
 
     this.bossHp = Math.max(0, this.bossHp - damage);
     if (this.bossImage) {
+      this.flashBoss();
       showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, damage, "damage");
       this.shakeTarget(this.bossImage, 5);
     }
@@ -584,9 +568,11 @@ export class GameScene extends Phaser.Scene {
       const sprite = this.tileSprites.get(tile.id);
       if (sprite) {
         sprite.setTexture(this.getTileTexture(tile));
+        const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
-          scale: 1.08,
+          scaleX: baseScale * 1.08,
+          scaleY: baseScale * 1.08,
           duration: 80,
           yoyo: true,
           ease: "Sine.easeInOut",
@@ -615,16 +601,16 @@ export class GameScene extends Phaser.Scene {
 
       if (actor === "player") {
         // Игрок атакует: Sword/Star → босс, Mana/Heal → игрок
-        if (tile.kind === TileKind.Sword || tile.kind === TileKind.Star) {
+        if (tile.base === TileKind.Sword || tile.base === TileKind.Star) {
           tilesToBoss.push(tileData);
-        } else if (tile.kind === TileKind.Mana || tile.kind === TileKind.Heal) {
+        } else if (tile.base === TileKind.Mana || tile.base === TileKind.Heal) {
           tilesToPlayer.push(tileData);
         }
       } else {
         // Босс атакует: Sword/Star → игрок, Mana/Heal → босс
-        if (tile.kind === TileKind.Sword || tile.kind === TileKind.Star) {
+        if (tile.base === TileKind.Sword || tile.base === TileKind.Star) {
           tilesToPlayer.push(tileData);
-        } else if (tile.kind === TileKind.Mana || tile.kind === TileKind.Heal) {
+        } else if (tile.base === TileKind.Mana || tile.base === TileKind.Heal) {
           tilesToBoss.push(tileData);
         }
       }
@@ -637,10 +623,12 @@ export class GameScene extends Phaser.Scene {
 
   private fadeOutTile(sprite: Phaser.GameObjects.Image, tileId: number): Promise<void> {
     return new Promise<void>((resolve) => {
+      const baseScale = sprite.scaleX;
       this.tweens.add({
         targets: sprite,
         alpha: 0,
-        scale: 0.5,
+        scaleX: baseScale * 0.5,
+        scaleY: baseScale * 0.5,
         duration: 80,
         ease: "Quad.easeIn",
         onComplete: () => {
@@ -725,10 +713,8 @@ export class GameScene extends Phaser.Scene {
   private updateBossArt() {
     if (!this.bossImage) return;
     const ratio = this.bossHp / BOSS_HP_MAX;
-    let key = ASSET_KEYS.boss.stage100;
-    if (ratio <= 0.25) key = ASSET_KEYS.boss.stage25;
-    else if (ratio <= 0.5) key = ASSET_KEYS.boss.stage50;
-    else if (ratio <= 0.75) key = ASSET_KEYS.boss.stage75;
+    // normal (kristi_1) при HP >= 50%, damaged (kristi_2) при HP < 50%
+    const key = ratio >= 0.5 ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.damaged;
     this.bossImage.setTexture(key);
   }
 
@@ -788,32 +774,26 @@ export class GameScene extends Phaser.Scene {
     this.checkGameOver();
     if (this.gameOver) return;
 
-    this.currentTurn = "boss";
-    this.busy = true;
-    this.updateHud();
-    await wait(this, 300);
-
-    await this.executeBossTurn();
-
-    if (this.playerHp <= 0) {
-      this.showDefeat();
-      return;
-    }
-
+    // Тикаем кулдаун абилки босса
     const abilityReady = this.bossAbility.tick();
     this.updateHud();
 
     if (abilityReady) {
+      this.currentTurn = "boss";
+      this.busy = true;
+      this.updateHud();
       await wait(this, 200);
+
       await this.executeBossAbility();
       this.bossAbility.reset();
       this.updateHud();
-      await wait(this, 300);
 
       if (this.playerHp <= 0) {
         this.showDefeat();
         return;
       }
+
+      await wait(this, 300);
     }
 
     this.currentTurn = "player";
@@ -844,7 +824,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(500);
 
     const fullscreenBoss = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, ASSET_KEYS.boss.stage100)
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, ASSET_KEYS.boss.ulta)
       .setDisplaySize(300, 300)
       .setOrigin(0.5)
       .setAlpha(0)
@@ -918,62 +898,6 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(100, () => {
       this.playerAvatar?.setFillStyle(originalColor, 0.8);
     });
-  }
-
-  /**
-   * Greedy поиск хода для босса.
-   * Возвращает первый найденный валидный свап.
-   */
-  private findBossMove(): { a: Position; b: Position } | null {
-    const dirs = [
-      { x: 1, y: 0 },
-      { x: 0, y: 1 },
-    ];
-    for (let y = 0; y < BOARD_HEIGHT; y++) {
-      for (let x = 0; x < BOARD_WIDTH; x++) {
-        for (const dir of dirs) {
-          const a = { x, y };
-          const b = { x: x + dir.x, y: y + dir.y };
-          if (!this.board.inBounds(b)) continue;
-          this.board.swap(a, b);
-          const matches = this.board.findMatches();
-          this.board.swap(a, b);
-          if (matches.length) {
-            return { a, b };
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Выполняет ход босса — находит и делает match-3 свап.
-   */
-  private async executeBossTurn() {
-    const move = this.findBossMove();
-    if (!move) {
-      // Нет валидного хода — босс пропускает
-      return;
-    }
-
-    const { a, b } = move;
-    const tileA = this.board.getTile(a);
-    const tileB = this.board.getTile(b);
-    if (!tileA || !tileB) return;
-
-    this.board.swap(a, b);
-    this.rebuildPositionMap();
-    await this.animateSwap(tileA.id, tileB.id);
-
-    const specials: Position[] = [];
-    const tileAfterA = this.board.getTile(a);
-    const tileAfterB = this.board.getTile(b);
-    if (tileAfterA && this.board.isSpecial(tileAfterA.kind)) specials.push(a);
-    if (tileAfterB && this.board.isSpecial(tileAfterB.kind)) specials.push(b);
-
-    const matches = this.board.findMatches();
-    await this.resolveBoard(matches, specials, [a, b], false, "boss");
   }
 
   private showDefeat() {

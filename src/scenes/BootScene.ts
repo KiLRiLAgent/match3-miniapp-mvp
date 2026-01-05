@@ -9,11 +9,10 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Boss sprites
-    this.load.image(ASSET_KEYS.boss.stage100, "assets/hero_1_100.png");
-    this.load.image(ASSET_KEYS.boss.stage75, "assets/hero_1_75.png");
-    this.load.image(ASSET_KEYS.boss.stage50, "assets/hero_1_50.png");
-    this.load.image(ASSET_KEYS.boss.stage25, "assets/hero_1_25.png");
+    // Boss sprites (Kristi)
+    this.load.image(ASSET_KEYS.boss.normal, "assets/kristi_1.png");
+    this.load.image(ASSET_KEYS.boss.damaged, "assets/kristi_2.png");
+    this.load.image(ASSET_KEYS.boss.ulta, "assets/kristi_ulta.png");
 
     // Tile sprites from PNG files
     this.load.image(ASSET_KEYS.tiles[TileKind.Sword], "assets/tiles/tile_sword.png");
