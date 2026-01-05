@@ -82,18 +82,23 @@ export class Match3Board {
   private createsImmediateMatch(x: number, y: number): boolean {
     const tile = this.grid[y][x];
     if (!tile) return false;
-    const base = tile.base;
-    const left1 = x > 0 ? this.grid[y][x - 1] : null;
-    const left2 = x > 1 ? this.grid[y][x - 2] : null;
-    if (left1 && left2 && left1.base === base && left2.base === base) {
-      return true;
-    }
-    const up1 = y > 0 ? this.grid[y - 1][x] : null;
-    const up2 = y > 1 ? this.grid[y - 2][x] : null;
-    if (up1 && up2 && up1.base === base && up2.base === base) {
-      return true;
-    }
-    return false;
+
+    return (
+      this.hasMatchInDirection(x, y, tile.base, [-1, 0], [-2, 0]) ||
+      this.hasMatchInDirection(x, y, tile.base, [0, -1], [0, -2])
+    );
+  }
+
+  private hasMatchInDirection(
+    x: number,
+    y: number,
+    base: BaseTileKind,
+    offset1: [number, number],
+    offset2: [number, number]
+  ): boolean {
+    const tile1 = this.getTile({ x: x + offset1[0], y: y + offset1[1] });
+    const tile2 = this.getTile({ x: x + offset2[0], y: y + offset2[1] });
+    return tile1?.base === base && tile2?.base === base;
   }
 
   getTile(pos: Position): Tile | null {
@@ -127,73 +132,82 @@ export class Match3Board {
 
   findMatches(): Match[] {
     const matches: Match[] = [];
-    // rows
-    for (let y = 0; y < this.height; y++) {
-      let x = 0;
-      while (x < this.width) {
-        const tile = this.grid[y][x];
-        if (!tile) {
-          x++;
-          continue;
-        }
-        let runEnd = x + 1;
-        while (
-          runEnd < this.width &&
-          this.grid[y][runEnd] &&
-          this.grid[y][runEnd]!.base === tile.base
-        ) {
-          runEnd++;
-        }
-        const length = runEnd - x;
-        if (length >= 3) {
-          const positions: Position[] = [];
-          for (let i = x; i < runEnd; i++) {
-            positions.push({ x: i, y });
-          }
-          matches.push({
-            positions,
-            kind: tile.base,
-            direction: "row",
-          });
-        }
-        x = runEnd;
-      }
-    }
+    matches.push(...this.findMatchesInDirection("row"));
+    matches.push(...this.findMatchesInDirection("col"));
+    return matches;
+  }
 
-    // columns
-    for (let x = 0; x < this.width; x++) {
-      let y = 0;
-      while (y < this.height) {
-        const tile = this.grid[y][x];
+  private findMatchesInDirection(direction: "row" | "col"): Match[] {
+    const matches: Match[] = [];
+    const [outerLimit, innerLimit] =
+      direction === "row" ? [this.height, this.width] : [this.width, this.height];
+
+    for (let outer = 0; outer < outerLimit; outer++) {
+      let inner = 0;
+      while (inner < innerLimit) {
+        const pos =
+          direction === "row" ? { x: inner, y: outer } : { x: outer, y: inner };
+        const tile = this.getTile(pos);
+
         if (!tile) {
-          y++;
+          inner++;
           continue;
         }
-        let runEnd = y + 1;
-        while (
-          runEnd < this.height &&
-          this.grid[runEnd][x] &&
-          this.grid[runEnd][x]!.base === tile.base
-        ) {
-          runEnd++;
-        }
-        const length = runEnd - y;
+
+        const runEnd = this.findRunEnd(pos, direction, tile.base);
+        const length = runEnd - inner;
+
         if (length >= 3) {
-          const positions: Position[] = [];
-          for (let i = y; i < runEnd; i++) {
-            positions.push({ x, y: i });
-          }
           matches.push({
-            positions,
+            positions: this.buildRunPositions(inner, runEnd, outer, direction),
             kind: tile.base,
-            direction: "col",
+            direction,
           });
         }
-        y = runEnd;
+
+        inner = runEnd;
       }
     }
 
     return matches;
+  }
+
+  private findRunEnd(
+    start: Position,
+    direction: "row" | "col",
+    base: BaseTileKind
+  ): number {
+    const limit = direction === "row" ? this.width : this.height;
+    const index = direction === "row" ? start.x : start.y;
+    let runEnd = index + 1;
+
+    while (runEnd < limit) {
+      const pos =
+        direction === "row"
+          ? { x: runEnd, y: start.y }
+          : { x: start.x, y: runEnd };
+      const tile = this.getTile(pos);
+
+      if (!tile || tile.base !== base) break;
+      runEnd++;
+    }
+
+    return runEnd;
+  }
+
+  private buildRunPositions(
+    start: number,
+    end: number,
+    fixed: number,
+    direction: "row" | "col"
+  ): Position[] {
+    const positions: Position[] = [];
+    for (let i = start; i < end; i++) {
+      positions.push(
+        direction === "row" ? { x: i, y: fixed } : { x: fixed, y: i }
+      );
+    }
+    return positions;
   }
 
   computeClearOutcome(
@@ -203,7 +217,6 @@ export class Match3Board {
   ): ClearOutcome {
     const clearSet = new Set<string>();
     const transforms: SpecialTransform[] = [];
-    const counts = baseCountTemplate();
     const addPos = (pos: Position) => {
       if (this.inBounds(pos)) {
         clearSet.add(this.key(pos));
@@ -233,7 +246,7 @@ export class Match3Board {
         : null;
 
       for (const pos of match.positions) {
-        if (specialPos && pos.x === specialPos.x && pos.y === specialPos.y) {
+        if (specialPos && this.positionsEqual(pos, specialPos)) {
           continue;
         }
         addPos(pos);
@@ -250,29 +263,52 @@ export class Match3Board {
       }
     }
 
-    const processedSpecials = new Set<string>();
-    let expanded = true;
-    while (expanded) {
-      expanded = false;
-      for (const posKey of Array.from(clearSet)) {
-        if (processedSpecials.has(posKey)) continue;
-        const pos = this.fromKey(posKey);
-        const tile = this.getTile(pos);
-        if (tile && this.isSpecial(tile.kind)) {
-          const additions = this.blastArea(pos, tile.kind);
-          additions.forEach(addPos);
-          processedSpecials.add(posKey);
-          expanded = true;
-        }
-      }
-    }
+    this.expandSpecialsCascade(clearSet, addPos);
 
     // Do not clear tiles that transform into specials
     for (const transform of transforms) {
       clearSet.delete(this.key(transform.pos));
     }
 
+    const { cleared, counts: finalCounts } = this.buildClearOutcome(clearSet);
+    return { cleared, transforms, counts: finalCounts };
+  }
+
+  private expandSpecialsCascade(
+    clearSet: Set<string>,
+    addPos: (pos: Position) => void
+  ): void {
+    const processedSpecials = new Set<string>();
+    const queue = Array.from(clearSet);
+
+    while (queue.length > 0) {
+      const posKey = queue.shift()!;
+      if (processedSpecials.has(posKey)) continue;
+
+      const pos = this.fromKey(posKey);
+      const tile = this.getTile(pos);
+
+      if (tile && this.isSpecial(tile.kind)) {
+        processedSpecials.add(posKey);
+        const additions = this.blastArea(pos, tile.kind);
+        additions.forEach((p) => {
+          addPos(p);
+          const key = this.key(p);
+          if (!processedSpecials.has(key)) {
+            queue.push(key);
+          }
+        });
+      }
+    }
+  }
+
+  private buildClearOutcome(clearSet: Set<string>): {
+    cleared: Array<{ pos: Position; tile: Tile }>;
+    counts: Record<BaseTileKind, number>;
+  } {
     const cleared: Array<{ pos: Position; tile: Tile }> = [];
+    const counts = baseCountTemplate();
+
     for (const key of clearSet) {
       const pos = this.fromKey(key);
       const tile = this.getTile(pos);
@@ -282,7 +318,7 @@ export class Match3Board {
       }
     }
 
-    return { cleared, transforms, counts };
+    return { cleared, counts };
   }
 
   applyClearOutcome(outcome: ClearOutcome): CollapseResult {
@@ -341,23 +377,15 @@ export class Match3Board {
     if (!tile || !this.isSpecial(tile.kind)) {
       return { cleared: [], transforms: [], counts: baseCountTemplate() };
     }
+
     const clearSet = new Set<string>();
     this.blastArea(pos, tile.kind).forEach((p) => clearSet.add(this.key(p)));
-    const cleared: Array<{ pos: Position; tile: Tile }> = [];
-    const counts = baseCountTemplate();
-    for (const key of Array.from(clearSet)) {
-      const p = this.fromKey(key);
-      const t = this.getTile(p);
-      if (t) {
-        cleared.push({ pos: p, tile: t });
-        counts[t.base] += 1;
-      }
-    }
+
+    const { cleared, counts } = this.buildClearOutcome(clearSet);
     return { cleared, transforms: [], counts };
   }
 
   clearPositions(positions: Position[]): ClearOutcome {
-    const counts = baseCountTemplate();
     const clearSet = new Set<string>();
     positions.forEach((pos) => {
       if (this.inBounds(pos)) {
@@ -365,12 +393,14 @@ export class Match3Board {
       }
     });
 
+    // Expand to include triggered specials
     const queue = Array.from(clearSet);
     const visited = new Set<string>();
     while (queue.length) {
       const key = queue.pop();
       if (!key || visited.has(key)) continue;
       visited.add(key);
+
       const pos = this.fromKey(key);
       const tile = this.getTile(pos);
       if (tile && this.isSpecial(tile.kind)) {
@@ -384,48 +414,42 @@ export class Match3Board {
       }
     }
 
-    const cleared: Array<{ pos: Position; tile: Tile }> = [];
-    for (const key of clearSet) {
-      const pos = this.fromKey(key);
-      const tile = this.getTile(pos);
-      if (tile) {
-        cleared.push({ pos, tile });
-        counts[tile.base] += 1;
-      }
-    }
-
+    const { cleared, counts } = this.buildClearOutcome(clearSet);
     return { cleared, transforms: [], counts };
   }
 
   blastArea(pos: Position, kind: TileKind): Position[] {
     if (kind === TileKind.BoosterRow) {
-      return Array.from({ length: this.width }, (_, x) => ({ x, y: pos.y }));
+      return this.buildRowPositions(pos.y);
     }
     if (kind === TileKind.BoosterCol) {
-      return Array.from({ length: this.height }, (_, y) => ({ x: pos.x, y }));
+      return this.buildColumnPositions(pos.x);
     }
-    // Ultimate clears full row + column (plus pattern).
-    const positions: Position[] = [];
-    for (let x = 0; x < this.width; x++) {
-      positions.push({ x, y: pos.y });
-    }
-    for (let y = 0; y < this.height; y++) {
-      if (y !== pos.y) {
-        positions.push({ x: pos.x, y });
-      }
-    }
-    return positions;
+    // Ultimate: row + column (plus pattern)
+    return [
+      ...this.buildRowPositions(pos.y),
+      ...this.buildColumnPositions(pos.x).filter((p) => p.y !== pos.y),
+    ];
+  }
+
+  private buildRowPositions(y: number): Position[] {
+    return Array.from({ length: this.width }, (_, x) => ({ x, y }));
+  }
+
+  private buildColumnPositions(x: number): Position[] {
+    return Array.from({ length: this.height }, (_, y) => ({ x, y }));
   }
 
   private chooseSpecialAnchor(match: Match, swapTargets: Position[]): Position {
-    if (swapTargets.length) {
-      for (const target of swapTargets) {
-        if (match.positions.find((p) => p.x === target.x && p.y === target.y)) {
-          return target;
-        }
-      }
-    }
-    return match.positions[Math.floor(match.positions.length / 2)];
+    const swappedPosition = swapTargets.find((target) =>
+      match.positions.some((p) => this.positionsEqual(p, target))
+    );
+
+    return swappedPosition ?? match.positions[Math.floor(match.positions.length / 2)];
+  }
+
+  private positionsEqual(a: Position, b: Position): boolean {
+    return a.x === b.x && a.y === b.y;
   }
 
   private key(pos: Position): string {
