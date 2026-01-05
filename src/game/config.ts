@@ -50,6 +50,28 @@ export const MATCH_GAINS = {
 export const POWER_STRIKE_COST = 50;
 export const POWER_STRIKE_MULTIPLIER = 10;
 
+// UI Layout constants
+export const UI_LAYOUT = {
+  topPanelY: 90,
+  topPanelHeight: 150,
+  bottomPanelY: 95, // from bottom
+  bottomPanelHeight: 70,
+  bossImageSize: 180,
+  boardOriginY: 220,
+  skillButtonSize: 70,
+  skillButtonSpacing: 8,
+  panelMargin: 32,
+} as const;
+
+// Input thresholds
+export const INPUT_THRESHOLD = {
+  tapDistance: 10,
+} as const;
+
+// Tile classification helpers
+export const DAMAGE_TILES: readonly TileKind[] = [TileKind.Sword, TileKind.Star] as const;
+export const RESOURCE_TILES: readonly TileKind[] = [TileKind.Mana, TileKind.Heal] as const;
+
 export type SkillId = "skill1" | "skill2" | "skill3" | "skill4";
 
 export interface SkillDef {
