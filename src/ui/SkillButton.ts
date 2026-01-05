@@ -26,39 +26,34 @@ export class SkillButton extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.clickCallback = onClick;
 
-    // Фон кнопки - позиционируем абсолютно и делаем интерактивным
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+
     this.bg = scene.add
-      .rectangle(x + width / 2, y + height / 2, width, height, 0x1c1c28, 0.95)
+      .rectangle(centerX, centerY, width, height, 0x1c1c28, 0.95)
       .setStrokeStyle(2, 0xffffff, 0.3)
       .setInteractive({ useHandCursor: true })
-      .setDepth(10);
-
-    // Обрабатываем клик на фоне
-    this.bg.on("pointerdown", () => {
-      if (this.isEnabled) {
-        this.clickCallback();
-      }
-    });
+      .setDepth(10)
+      .on("pointerdown", () => this.isEnabled && this.clickCallback());
 
     this.label = scene.add
-      .text(x + width / 2, y + height / 2 - 6, title, {
+      .text(centerX, centerY - 6, title, {
         fontSize: "14px",
         color: "#ffffff",
         fontFamily: "Arial, sans-serif",
       })
-      .setOrigin(0.5, 0.5)
+      .setOrigin(0.5)
       .setDepth(11);
 
     this.sub = scene.add
-      .text(x + width / 2, y + height - 18, subtitle, {
+      .text(centerX, y + height - 18, subtitle, {
         fontSize: "12px",
         color: "#cbd5ff",
         fontFamily: "Arial, sans-serif",
       })
-      .setOrigin(0.5, 0.5)
+      .setOrigin(0.5)
       .setDepth(11);
 
-    // Не добавляем в контейнер - позиционируем абсолютно
     this.setSize(width, height);
     scene.add.existing(this);
   }
@@ -66,13 +61,16 @@ export class SkillButton extends Phaser.GameObjects.Container {
   applyState(state: SkillState) {
     const { enabled, ready, info } = state;
     this.isEnabled = enabled;
+
     const alpha = enabled ? 1 : 0.35;
-    this.bg.setFillStyle(ready ? 0x3355ff : 0x1c1c28, 0.95 * alpha);
-    this.bg.setStrokeStyle(2, 0xffffff, enabled ? 0.8 : 0.3);
+    const bgColor = ready ? 0x3355ff : 0x1c1c28;
+    const strokeAlpha = enabled ? 0.8 : 0.3;
+
+    this.bg.setFillStyle(bgColor, 0.95 * alpha);
+    this.bg.setStrokeStyle(2, 0xffffff, strokeAlpha);
     this.label.setAlpha(alpha);
     this.sub.setAlpha(alpha);
-    if (info) {
-      this.sub.setText(info);
-    }
+
+    if (info) this.sub.setText(info);
   }
 }

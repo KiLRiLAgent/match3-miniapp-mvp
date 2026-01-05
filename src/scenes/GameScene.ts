@@ -5,12 +5,14 @@ import {
   BOARD_WIDTH,
   BOARD_HEIGHT,
   BOSS_HP_MAX,
+  BOSS_DAMAGED_HP_THRESHOLD,
   CELL_SIZE,
   GAME_HEIGHT,
   GAME_WIDTH,
   MATCH_GAINS,
   PLAYER_HP_MAX,
   PLAYER_MANA_MAX,
+  PLAYER_MAG_DAMAGE_MULTIPLIER,
   SKILL_CONFIG,
   DAMAGE_PER_TILE,
 } from "../game/config";
@@ -26,6 +28,7 @@ import { BossAbility } from "../game/BossAbility";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
 import { initTelegram } from "../telegram/telegram";
+import { clamp, wait } from "../utils/helpers";
 
 export class GameScene extends Phaser.Scene {
   private board!: Match3Board;
@@ -48,7 +51,6 @@ export class GameScene extends Phaser.Scene {
   private victoryContainer?: Phaser.GameObjects.Container;
   private defeatContainer?: Phaser.GameObjects.Container;
 
-  // Новые элементы для Этапа 1
   private bossAbility!: BossAbility;
   private cooldownIcon?: CooldownIcon;
   private playerAvatar?: Phaser.GameObjects.Rectangle;
@@ -185,7 +187,7 @@ export class GameScene extends Phaser.Scene {
     ).setDepth(4);
 
     this.turnText = this.add
-      .text(GAME_WIDTH - 32, 26, "Your Turn", {
+      .text(GAME_WIDTH - 32, 26, "Ваш ход", {
         fontSize: "18px",
         color: "#ffffff",
         fontFamily: "Arial, sans-serif",
@@ -351,6 +353,9 @@ export class GameScene extends Phaser.Scene {
       // Применяем эффекты СРАЗУ после полёта фишек (не в конце!)
       this.applyMatchResults(outcome.counts, actor);
 
+      // Если игра закончилась - прекращаем цикл
+      if (this.gameOver) break;
+
       const collapse = this.board.applyClearOutcome(outcome);
       this.rebuildPositionMap();
       await this.animateCollapse(collapse);
@@ -360,7 +365,7 @@ export class GameScene extends Phaser.Scene {
       swapTargets = [];
     }
 
-    if (endTurnAfter) {
+    if (endTurnAfter && !this.gameOver) {
       await this.finishPlayerTurn();
     }
   }
@@ -368,8 +373,7 @@ export class GameScene extends Phaser.Scene {
   private applyMatchResults(totals: CountTotals, actor: "player" | "boss") {
     const physDamage = totals[TileKind.Sword] * DAMAGE_PER_TILE[TileKind.Sword];
     const magDamage = totals[TileKind.Star] * DAMAGE_PER_TILE[TileKind.Star];
-    // Магическая атака наносит 50% урона
-    const damage = physDamage + Math.floor(magDamage * 0.5);
+    const damage = physDamage + Math.floor(magDamage * PLAYER_MAG_DAMAGE_MULTIPLIER);
     const manaGain = totals[TileKind.Mana] * MATCH_GAINS.mana;
     const healGain = totals[TileKind.Heal] * MATCH_GAINS.heal;
 
@@ -563,19 +567,24 @@ export class GameScene extends Phaser.Scene {
 
   private animateTransforms(transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position }>) {
     transforms.forEach((transform) => {
+      // Получаем тайл на позиции (ещё не трансформирован в Board)
       const tile = this.board.getTile(transform.pos);
       if (!tile) return;
       const sprite = this.tileSprites.get(tile.id);
       if (sprite) {
-        sprite.setTexture(this.getTileTexture(tile));
+        // Используем kind из transform, а не из tile (tile ещё не обновлён)
+        const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
+        sprite.setTexture(textureKey);
+        // ВАЖНО: пересчитываем размер после смены текстуры
+        sprite.setDisplaySize(CELL_SIZE - 6, CELL_SIZE - 6);
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
-          scaleX: baseScale * 1.08,
-          scaleY: baseScale * 1.08,
-          duration: 80,
+          scaleX: baseScale * 1.2,
+          scaleY: baseScale * 1.2,
+          duration: 150,
           yoyo: true,
-          ease: "Sine.easeInOut",
+          ease: "Back.easeOut",
         });
       }
     });
@@ -713,8 +722,7 @@ export class GameScene extends Phaser.Scene {
   private updateBossArt() {
     if (!this.bossImage) return;
     const ratio = this.bossHp / BOSS_HP_MAX;
-    // normal (kristi_1) при HP >= 50%, damaged (kristi_2) при HP < 50%
-    const key = ratio >= 0.5 ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.damaged;
+    const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.damaged;
     this.bossImage.setTexture(key);
   }
 
@@ -945,11 +953,3 @@ export class GameScene extends Phaser.Scene {
     this.add.container(0, 0, [overlay, text, btn]).setDepth(999);
   }
 }
-
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
-
-const wait = (scene: Phaser.Scene, ms: number) =>
-  new Promise<void>((resolve) => {
-    scene.time.delayedCall(ms, () => resolve());
-  });
