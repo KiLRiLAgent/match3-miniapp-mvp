@@ -10,6 +10,8 @@ export class SkillButton extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Rectangle;
   private label: Phaser.GameObjects.Text;
   private sub: Phaser.GameObjects.Text;
+  private clickCallback: () => void;
+  private isEnabled = true;
 
   constructor(
     scene: Phaser.Scene,
@@ -22,42 +24,48 @@ export class SkillButton extends Phaser.GameObjects.Container {
     onClick: () => void
   ) {
     super(scene, x, y);
+    this.clickCallback = onClick;
+
+    // Фон кнопки - позиционируем абсолютно и делаем интерактивным
     this.bg = scene.add
-      .rectangle(0, 0, width, height, 0x1c1c28, 0.95)
-      .setOrigin(0, 0)
-      .setStrokeStyle(2, 0xffffff, 0.3);
+      .rectangle(x + width / 2, y + height / 2, width, height, 0x1c1c28, 0.95)
+      .setStrokeStyle(2, 0xffffff, 0.3)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(10);
+
+    // Обрабатываем клик на фоне
+    this.bg.on("pointerdown", () => {
+      if (this.isEnabled) {
+        this.clickCallback();
+      }
+    });
 
     this.label = scene.add
-      .text(width / 2, height / 2 - 6, title, {
+      .text(x + width / 2, y + height / 2 - 6, title, {
         fontSize: "14px",
         color: "#ffffff",
         fontFamily: "Arial, sans-serif",
       })
-      .setOrigin(0.5, 0.5);
+      .setOrigin(0.5, 0.5)
+      .setDepth(11);
 
     this.sub = scene.add
-      .text(width / 2, height - 18, subtitle, {
+      .text(x + width / 2, y + height - 18, subtitle, {
         fontSize: "12px",
         color: "#cbd5ff",
         fontFamily: "Arial, sans-serif",
       })
-      .setOrigin(0.5, 0.5);
+      .setOrigin(0.5, 0.5)
+      .setDepth(11);
 
-    this.add([this.bg, this.label, this.sub]);
+    // Не добавляем в контейнер - позиционируем абсолютно
     this.setSize(width, height);
-    this.setInteractive(
-      new Phaser.Geom.Rectangle(0, 0, width, height),
-      Phaser.Geom.Rectangle.Contains
-    );
-    this.on("pointerdown", () => {
-      onClick();
-    });
-
     scene.add.existing(this);
   }
 
   applyState(state: SkillState) {
     const { enabled, ready, info } = state;
+    this.isEnabled = enabled;
     const alpha = enabled ? 1 : 0.35;
     this.bg.setFillStyle(ready ? 0x3355ff : 0x1c1c28, 0.95 * alpha);
     this.bg.setStrokeStyle(2, 0xffffff, enabled ? 0.8 : 0.3);
