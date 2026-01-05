@@ -15,7 +15,16 @@ import {
   PLAYER_MAG_DAMAGE_MULTIPLIER,
   SKILL_CONFIG,
   DAMAGE_PER_TILE,
+  UI_LAYOUT,
+  INPUT_THRESHOLD,
+  DAMAGE_TILES,
+  RESOURCE_TILES,
 } from "../game/config";
+import {
+  ANIMATION_DURATIONS,
+  ANIMATION_EASING,
+  VISUAL_EFFECTS,
+} from "../game/animations";
 import type { SkillId } from "../game/config";
 import { Match3Board } from "../match3/Board";
 import { TileKind } from "../match3/types";
@@ -48,8 +57,6 @@ export class GameScene extends Phaser.Scene {
   private playerHpBar?: Meter;
   private manaBar?: Meter;
   private skillButtons: Partial<Record<SkillId, SkillButton>> = {};
-  private victoryContainer?: Phaser.GameObjects.Container;
-  private defeatContainer?: Phaser.GameObjects.Container;
 
   private bossAbility!: BossAbility;
   private cooldownIcon?: CooldownIcon;
@@ -70,7 +77,7 @@ export class GameScene extends Phaser.Scene {
     const boardWidth = BOARD_WIDTH * CELL_SIZE;
     this.boardOrigin = {
       x: (GAME_WIDTH - boardWidth) / 2,
-      y: 220,
+      y: UI_LAYOUT.boardOriginY,
     };
 
     this.buildHud();
@@ -260,7 +267,7 @@ export class GameScene extends Phaser.Scene {
 
       const dx = pointer.x - start.point.x;
       const dy = pointer.y - start.point.y;
-      const isTap = Math.abs(dx) < 10 && Math.abs(dy) < 10;
+      const isTap = Math.abs(dx) < INPUT_THRESHOLD.tapDistance && Math.abs(dy) < INPUT_THRESHOLD.tapDistance;
 
       if (isTap) {
         this.handleTap(start.pos);
@@ -397,7 +404,7 @@ export class GameScene extends Phaser.Scene {
     if (this.bossImage) {
       this.flashBoss();
       showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, damage, "damage");
-      this.shakeTarget(this.bossImage, 5);
+      this.shakeTarget(this.bossImage, VISUAL_EFFECTS.damageShakeOffset);
     }
   }
 
@@ -443,7 +450,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({
       targets: target,
       x: target.x + offset,
-      duration: 50,
+      duration: ANIMATION_DURATIONS.shakeDuration,
       yoyo: true,
       repeat: 2,
     });
@@ -452,7 +459,7 @@ export class GameScene extends Phaser.Scene {
   private flashBoss() {
     if (!this.bossImage) return;
     this.bossImage.setTint(0xffffff);
-    this.time.delayedCall(100, () => {
+    this.time.delayedCall(ANIMATION_DURATIONS.flashDuration, () => {
       this.bossImage?.clearTint();
     });
   }
@@ -508,29 +515,24 @@ export class GameScene extends Phaser.Scene {
     if (!spriteA || !spriteB || !posA || !posB) {
       return Promise.resolve();
     }
-    const worldA = this.toWorld(posA);
-    const worldB = this.toWorld(posB);
+
+    const animateToPosition = (sprite: Phaser.GameObjects.Image, pos: Position): Promise<void> => {
+      const world = this.toWorld(pos);
+      return new Promise<void>((resolve) => {
+        this.tweens.add({
+          targets: sprite,
+          x: world.x,
+          y: world.y,
+          duration: ANIMATION_DURATIONS.swap,
+          ease: ANIMATION_EASING.swap,
+          onComplete: () => resolve(),
+        });
+      });
+    };
+
     return Promise.all([
-      new Promise<void>((resolve) => {
-        this.tweens.add({
-          targets: spriteA,
-          x: worldA.x,
-          y: worldA.y,
-          duration: 140,
-          ease: "Quad.easeOut",
-          onComplete: () => resolve(),
-        });
-      }),
-      new Promise<void>((resolve) => {
-        this.tweens.add({
-          targets: spriteB,
-          x: worldB.x,
-          y: worldB.y,
-          duration: 140,
-          ease: "Quad.easeOut",
-          onComplete: () => resolve(),
-        });
-      }),
+      animateToPosition(spriteA, posA),
+      animateToPosition(spriteB, posB),
     ]).then(() => {});
   }
 
@@ -556,10 +558,10 @@ export class GameScene extends Phaser.Scene {
       : { x: GAME_WIDTH - 60, y: GAME_HEIGHT - 175 };
 
     if (tilesToBoss.length > 0) {
-      tweens.push(flyTilesToTarget(this, tilesToBoss, bossTarget, 350));
+      tweens.push(flyTilesToTarget(this, tilesToBoss, bossTarget, ANIMATION_DURATIONS.tileFly));
     }
     if (tilesToPlayer.length > 0) {
-      tweens.push(flyTilesToTarget(this, tilesToPlayer, playerTarget, 350));
+      tweens.push(flyTilesToTarget(this, tilesToPlayer, playerTarget, ANIMATION_DURATIONS.tileFly));
     }
 
     return Promise.all(tweens);
@@ -580,14 +582,22 @@ export class GameScene extends Phaser.Scene {
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
-          scaleX: baseScale * 1.2,
-          scaleY: baseScale * 1.2,
+          scaleX: baseScale * VISUAL_EFFECTS.transformScaleFactor,
+          scaleY: baseScale * VISUAL_EFFECTS.transformScaleFactor,
           duration: 150,
           yoyo: true,
-          ease: "Back.easeOut",
+          ease: ANIMATION_EASING.scale,
         });
       }
     });
+  }
+
+  private isDamageTile(kind: TileKind): boolean {
+    return DAMAGE_TILES.includes(kind as typeof DAMAGE_TILES[number]);
+  }
+
+  private isResourceTile(kind: TileKind): boolean {
+    return RESOURCE_TILES.includes(kind as typeof RESOURCE_TILES[number]);
   }
 
   private groupTilesByTarget(
@@ -608,20 +618,17 @@ export class GameScene extends Phaser.Scene {
       const worldPos = this.toWorld(pos);
       const tileData = { x: worldPos.x, y: worldPos.y, kind: tile.kind };
 
-      if (actor === "player") {
-        // Игрок атакует: Sword/Star → босс, Mana/Heal → игрок
-        if (tile.base === TileKind.Sword || tile.base === TileKind.Star) {
-          tilesToBoss.push(tileData);
-        } else if (tile.base === TileKind.Mana || tile.base === TileKind.Heal) {
-          tilesToPlayer.push(tileData);
-        }
-      } else {
-        // Босс атакует: Sword/Star → игрок, Mana/Heal → босс
-        if (tile.base === TileKind.Sword || tile.base === TileKind.Star) {
-          tilesToPlayer.push(tileData);
-        } else if (tile.base === TileKind.Mana || tile.base === TileKind.Heal) {
-          tilesToBoss.push(tileData);
-        }
+      const isDamage = this.isDamageTile(tile.base);
+      const isResource = this.isResourceTile(tile.base);
+
+      // Damage tiles fly to opponent, resource tiles fly to self
+      const toOpponent = actor === "player" ? tilesToBoss : tilesToPlayer;
+      const toSelf = actor === "player" ? tilesToPlayer : tilesToBoss;
+
+      if (isDamage) {
+        toOpponent.push(tileData);
+      } else if (isResource) {
+        toSelf.push(tileData);
       }
 
       tweens.push(this.fadeOutTile(sprite, tile.id));
@@ -635,11 +642,11 @@ export class GameScene extends Phaser.Scene {
       const baseScale = sprite.scaleX;
       this.tweens.add({
         targets: sprite,
-        alpha: 0,
-        scaleX: baseScale * 0.5,
-        scaleY: baseScale * 0.5,
-        duration: 80,
-        ease: "Quad.easeIn",
+        alpha: VISUAL_EFFECTS.tileFadeAlpha,
+        scaleX: baseScale * VISUAL_EFFECTS.tileScaleReduction,
+        scaleY: baseScale * VISUAL_EFFECTS.tileScaleReduction,
+        duration: ANIMATION_DURATIONS.tileFade,
+        ease: ANIMATION_EASING.fade,
         onComplete: () => {
           sprite.destroy();
           this.tileSprites.delete(tileId);
@@ -659,14 +666,14 @@ export class GameScene extends Phaser.Scene {
       const sprite = this.tileSprites.get(tile.id);
       if (!sprite) return;
       const target = this.toWorld(to);
-      tweens.push(this.createTween(sprite, target, 160));
+      tweens.push(this.createTween(sprite, target, ANIMATION_DURATIONS.tileCollapse));
     });
 
     collapse.newTiles.forEach(({ tile, pos }) => {
       const target = this.toWorld(pos);
       const sprite = this.spawnTileSprite(tile, pos, this.boardOrigin.y - CELL_SIZE);
       sprite.setPosition(target.x, this.boardOrigin.y - CELL_SIZE);
-      tweens.push(this.createTween(sprite, target, 200));
+      tweens.push(this.createTween(sprite, target, ANIMATION_DURATIONS.newTileDrop));
     });
 
     return Promise.all(tweens);
@@ -683,7 +690,7 @@ export class GameScene extends Phaser.Scene {
         x: position.x,
         y: position.y,
         duration,
-        ease: "Quad.easeIn",
+        ease: ANIMATION_EASING.collapse,
         onComplete: () => resolve(),
       });
     });
@@ -738,7 +745,7 @@ export class GameScene extends Phaser.Scene {
       this.applyDamageToBoss(cfg.damage);
       this.flashBoss();
       if (this.bossImage) {
-        this.shakeTarget(this.bossImage, 8);
+        this.shakeTarget(this.bossImage, VISUAL_EFFECTS.bossShakeOffset);
       }
     }
 
@@ -759,14 +766,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     this.gameOver = true;
     this.busy = true;
-    if (this.victoryContainer) {
-      this.victoryContainer.setVisible(true);
-      return;
-    }
-    this.showGameEndModal("Victory!", "#ffffff", "Restart");
-    this.victoryContainer = this.add.existing(
-      this.children.list[this.children.list.length - 1] as Phaser.GameObjects.Container
-    );
+    this.showGameEndModal("Victory!", "#44ff66", "Restart");
   }
 
   private toWorld(pos: Position) {
@@ -863,15 +863,15 @@ export class GameScene extends Phaser.Scene {
       this.tweens.add({
         targets: overlay,
         alpha: 0.7,
-        duration: 200,
-        ease: "Quad.easeOut",
+        duration: ANIMATION_DURATIONS.abilityOverlay,
+        ease: ANIMATION_EASING.ability,
       });
       this.tweens.add({
         targets: [fullscreenBoss, abilityText],
         alpha: 1,
-        duration: 300,
+        duration: ANIMATION_DURATIONS.abilityFadeIn,
         delay: 100,
-        ease: "Quad.easeOut",
+        ease: ANIMATION_EASING.ability,
         onComplete: () => resolve(),
       });
     });
@@ -886,8 +886,8 @@ export class GameScene extends Phaser.Scene {
       this.tweens.add({
         targets: [overlay, fullscreenBoss, abilityText],
         alpha: 0,
-        duration: 300,
-        ease: "Quad.easeIn",
+        duration: ANIMATION_DURATIONS.abilityFadeOut,
+        ease: ANIMATION_EASING.fade,
         onComplete: () => {
           if (overlay.scene) overlay.destroy();
           if (fullscreenBoss.scene) fullscreenBoss.destroy();
@@ -903,7 +903,7 @@ export class GameScene extends Phaser.Scene {
 
     const originalColor = 0x4caf50;
     this.playerAvatar.setFillStyle(0xffffff, 1);
-    this.time.delayedCall(100, () => {
+    this.time.delayedCall(ANIMATION_DURATIONS.flashDuration, () => {
       this.playerAvatar?.setFillStyle(originalColor, 0.8);
     });
   }
@@ -912,14 +912,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     this.gameOver = true;
     this.busy = true;
-    if (this.defeatContainer) {
-      this.defeatContainer.setVisible(true);
-      return;
-    }
-    this.showGameEndModal("Defeat", "#ffb4b4", "Retry");
-    this.defeatContainer = this.add.existing(
-      this.children.list[this.children.list.length - 1] as Phaser.GameObjects.Container
-    );
+    this.showGameEndModal("Defeat", "#ff6666", "Retry");
   }
 
   private showGameEndModal(message: string, textColor: string, buttonText: string) {

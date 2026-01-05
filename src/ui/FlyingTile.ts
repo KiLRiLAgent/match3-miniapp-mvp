@@ -1,8 +1,9 @@
 import Phaser from "phaser";
 import { TileKind } from "../match3/types";
 import { ASSET_KEYS } from "../game/assets";
+import { FLYING_TILE } from "../game/animations";
 
-// Цвета для трейла
+// Trail colors per tile type
 const TILE_COLORS: Partial<Record<TileKind, number>> = {
   [TileKind.Sword]: 0xff6644,
   [TileKind.Star]: 0xaa66ff,
@@ -42,17 +43,16 @@ export function flyTileToTarget(
 ): Promise<void> {
   return new Promise<void>((resolve) => {
     const color = TILE_COLORS[tileKind] ?? 0xffffff;
-    const size = 32;
 
-    const endX = target.x + Phaser.Math.Between(-15, 15);
-    const endY = target.y + Phaser.Math.Between(-15, 15);
+    const endX = target.x + Phaser.Math.Between(-FLYING_TILE.targetSpread, FLYING_TILE.targetSpread);
+    const endY = target.y + Phaser.Math.Between(-FLYING_TILE.targetSpread, FLYING_TILE.targetSpread);
     const midX = (startX + endX) / 2;
-    const midY = Math.min(startY, endY) - 60 - Phaser.Math.Between(0, 30);
+    const midY = Math.min(startY, endY) - FLYING_TILE.arcHeight - Phaser.Math.Between(0, FLYING_TILE.arcVariation);
 
     const textureKey = ASSET_KEYS.tiles[tileKind] ?? tileKind;
     const tile = scene.add
       .image(startX, startY, textureKey)
-      .setDisplaySize(size, size)
+      .setDisplaySize(FLYING_TILE.size, FLYING_TILE.size)
       .setDepth(200);
 
     const baseScale = tile.scaleX;
@@ -89,16 +89,16 @@ export function flyTileToTarget(
       );
 
       tile.setPosition(x, y);
-      tile.setScale(baseScale * (1 - progress * 0.6));
+      tile.setScale(baseScale * (1 - progress * FLYING_TILE.flyingTileScaleReduction));
 
       trailPoints.push({ x, y, alpha: 1 });
 
       trailGraphics.clear();
       for (const point of trailPoints) {
-        point.alpha -= 0.08;
+        point.alpha -= FLYING_TILE.trailFade;
         if (point.alpha > 0) {
-          trailGraphics.fillStyle(color, point.alpha * 0.7);
-          trailGraphics.fillCircle(point.x, point.y, 6 * point.alpha);
+          trailGraphics.fillStyle(color, point.alpha * FLYING_TILE.trailOpacity);
+          trailGraphics.fillCircle(point.x, point.y, FLYING_TILE.trailSize * point.alpha);
         }
       }
 
@@ -136,7 +136,7 @@ export function flyTilesToTarget(
   if (tiles.length === 0) return Promise.resolve();
 
   const promises = tiles.map((tile, index) =>
-    flyTileToTarget(scene, tile.x, tile.y, target, tile.kind, baseDuration, index * 30)
+    flyTileToTarget(scene, tile.x, tile.y, target, tile.kind, baseDuration, index * FLYING_TILE.delayBetweenTiles)
   );
 
   return Promise.all(promises).then(() => undefined);

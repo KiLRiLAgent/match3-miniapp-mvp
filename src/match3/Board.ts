@@ -266,9 +266,10 @@ export class Match3Board {
 
     for (const match of matches) {
       let specialKind: TileKind | null = null;
-      if (match.positions.length >= 5) {
+      // Увеличены требования: 6+ для Ultimate, 5 для Booster
+      if (match.positions.length >= 6) {
         specialKind = TileKind.Ultimate;
-      } else if (match.positions.length === 4) {
+      } else if (match.positions.length === 5) {
         specialKind =
           match.direction === "row"
             ? TileKind.BoosterRow

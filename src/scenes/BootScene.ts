@@ -1,7 +1,12 @@
 import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
-import { CELL_SIZE } from "../game/config";
+import { CELL_SIZE, BASE_TYPES } from "../game/config";
 import { TileKind } from "../match3/types";
+
+// Tile asset file extensions (most are png, heal is jpg)
+const TILE_EXTENSIONS: Record<string, string> = {
+  [TileKind.Heal]: "jpg",
+};
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -9,14 +14,17 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image(ASSET_KEYS.boss.normal, "assets/kristi_1.png");
-    this.load.image(ASSET_KEYS.boss.damaged, "assets/kristi_2.png");
-    this.load.image(ASSET_KEYS.boss.ulta, "assets/kristi_ulta.png");
+    // Load boss sprites
+    Object.entries(ASSET_KEYS.boss).forEach(([, key]) => {
+      this.load.image(key, `assets/${key}.png`);
+    });
 
-    this.load.image(ASSET_KEYS.tiles[TileKind.Sword], "assets/tiles/tile_sword.png");
-    this.load.image(ASSET_KEYS.tiles[TileKind.Star], "assets/tiles/tile_star.png");
-    this.load.image(ASSET_KEYS.tiles[TileKind.Mana], "assets/tiles/tile_mana.png");
-    this.load.image(ASSET_KEYS.tiles[TileKind.Heal], "assets/tiles/tile_heal.jpg");
+    // Load base tile sprites
+    BASE_TYPES.forEach((kind) => {
+      const key = ASSET_KEYS.tiles[kind];
+      const ext = TILE_EXTENSIONS[kind] ?? "png";
+      this.load.image(key, `assets/tiles/${key}.${ext}`);
+    });
   }
 
   create() {
