@@ -70,7 +70,7 @@ export class GameScene extends Phaser.Scene {
     const boardWidth = BOARD_WIDTH * CELL_SIZE;
     this.boardOrigin = {
       x: (GAME_WIDTH - boardWidth) / 2,
-      y: 200,
+      y: 220,
     };
 
     this.buildHud();
@@ -165,7 +165,7 @@ export class GameScene extends Phaser.Scene {
     this.playerHpBar = new Meter(
       this,
       80,
-      GAME_HEIGHT - 105,
+      GAME_HEIGHT - 110,
       170,
       12,
       "HP",
@@ -176,7 +176,7 @@ export class GameScene extends Phaser.Scene {
     this.manaBar = new Meter(
       this,
       80,
-      GAME_HEIGHT - 78,
+      GAME_HEIGHT - 82,
       170,
       12,
       "MP",
@@ -346,7 +346,7 @@ export class GameScene extends Phaser.Scene {
       );
       if (!outcome.cleared.length && !outcome.transforms.length) break;
 
-      await this.animateClear(outcome);
+      await this.animateClear(outcome, actor);
       const collapse = this.board.applyClearOutcome(outcome);
       this.rebuildPositionMap();
       await this.animateCollapse(collapse);
@@ -380,9 +380,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyMatchResults(totals: CountTotals, actor: "player" | "boss") {
-    const damage =
-      totals[TileKind.Sword] * DAMAGE_PER_TILE[TileKind.Sword] +
-      totals[TileKind.Star] * DAMAGE_PER_TILE[TileKind.Star];
+    const physDamage = totals[TileKind.Sword] * DAMAGE_PER_TILE[TileKind.Sword];
+    const magDamage = totals[TileKind.Star] * DAMAGE_PER_TILE[TileKind.Star];
+    // Магическая атака наносит 50% урона
+    const damage = physDamage + Math.floor(magDamage * 0.5);
     const manaGain = totals[TileKind.Mana] * MATCH_GAINS.mana;
     const healGain = totals[TileKind.Heal] * MATCH_GAINS.heal;
 
@@ -454,6 +455,14 @@ export class GameScene extends Phaser.Scene {
       duration: 50,
       yoyo: true,
       repeat: 2,
+    });
+  }
+
+  private flashBoss() {
+    if (!this.bossImage) return;
+    this.bossImage.setTint(0xffffff);
+    this.time.delayedCall(100, () => {
+      this.bossImage?.clearTint();
     });
   }
 
@@ -534,15 +543,18 @@ export class GameScene extends Phaser.Scene {
     ]).then(() => {});
   }
 
-  private animateClear(outcome: {
-    cleared: Array<{ pos: Position; tile: Tile }>;
-    transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position }>;
-  }) {
+  private animateClear(
+    outcome: {
+      cleared: Array<{ pos: Position; tile: Tile }>;
+      transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position }>;
+    },
+    actor: "player" | "boss" = "player"
+  ) {
     const tweens: Promise<void>[] = [];
 
     this.animateTransforms(outcome.transforms);
 
-    const { tilesToBoss, tilesToPlayer } = this.groupTilesByTarget(outcome.cleared, tweens);
+    const { tilesToBoss, tilesToPlayer } = this.groupTilesByTarget(outcome.cleared, tweens, actor);
 
     const bossTarget: FlyTarget = this.bossImage
       ? { x: this.bossImage.x, y: this.bossImage.y + 40 }
@@ -582,7 +594,8 @@ export class GameScene extends Phaser.Scene {
 
   private groupTilesByTarget(
     cleared: Array<{ pos: Position; tile: Tile }>,
-    tweens: Promise<void>[]
+    tweens: Promise<void>[],
+    actor: "player" | "boss" = "player"
   ): {
     tilesToBoss: Array<{ x: number; y: number; kind: TileKind }>;
     tilesToPlayer: Array<{ x: number; y: number; kind: TileKind }>;
@@ -595,11 +608,22 @@ export class GameScene extends Phaser.Scene {
       if (!sprite) return;
 
       const worldPos = this.toWorld(pos);
+      const tileData = { x: worldPos.x, y: worldPos.y, kind: tile.kind };
 
-      if (tile.kind === TileKind.Sword || tile.kind === TileKind.Star) {
-        tilesToBoss.push({ x: worldPos.x, y: worldPos.y, kind: tile.kind });
-      } else if (tile.kind === TileKind.Mana || tile.kind === TileKind.Heal) {
-        tilesToPlayer.push({ x: worldPos.x, y: worldPos.y, kind: tile.kind });
+      if (actor === "player") {
+        // Игрок атакует: Sword/Star → босс, Mana/Heal → игрок
+        if (tile.kind === TileKind.Sword || tile.kind === TileKind.Star) {
+          tilesToBoss.push(tileData);
+        } else if (tile.kind === TileKind.Mana || tile.kind === TileKind.Heal) {
+          tilesToPlayer.push(tileData);
+        }
+      } else {
+        // Босс атакует: Sword/Star → игрок, Mana/Heal → босс
+        if (tile.kind === TileKind.Sword || tile.kind === TileKind.Star) {
+          tilesToPlayer.push(tileData);
+        } else if (tile.kind === TileKind.Mana || tile.kind === TileKind.Heal) {
+          tilesToBoss.push(tileData);
+        }
       }
 
       tweens.push(this.fadeOutTile(sprite, tile.id));
@@ -715,6 +739,7 @@ export class GameScene extends Phaser.Scene {
 
     if (cfg.damage > 0) {
       this.applyDamageToBoss(cfg.damage);
+      this.flashBoss();
       if (this.bossImage) {
         this.shakeTarget(this.bossImage, 8);
       }
@@ -730,8 +755,7 @@ export class GameScene extends Phaser.Scene {
       this.showVictory();
       return;
     }
-
-    this.finishPlayerTurn();
+    // Скилл НЕ заканчивает ход - игрок может ещё сделать match
   }
 
   private showVictory() {

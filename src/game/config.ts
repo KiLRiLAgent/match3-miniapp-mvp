@@ -12,7 +12,7 @@ export const GAME_HEIGHT = 800;
 
 // Параметры игрока
 export const PLAYER_HP_MAX = 200;
-export const PLAYER_MANA_MAX = 200;
+export const PLAYER_MANA_MAX = 100;
 export const PLAYER_PHYS_ATTACK = 10;
 export const PLAYER_MAG_ATTACK = 10;
 export const HP_PER_TILE = 10;
@@ -60,11 +60,11 @@ export interface SkillDef {
 
 export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   skill1: {
-    name: "Attack",
-    cost: 50,
-    damage: 50,
+    name: "Power",
+    cost: POWER_STRIKE_COST,
+    damage: PLAYER_PHYS_ATTACK * POWER_STRIKE_MULTIPLIER,
     heal: 0,
-    description: "50 урона",
+    description: "Физ x10",
   },
   skill2: {
     name: "Blast",
@@ -82,7 +82,7 @@ export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   },
   skill4: {
     name: "Ult",
-    cost: 200,
+    cost: 100,
     damage: 200,
     heal: 0,
     description: "200 урона",
