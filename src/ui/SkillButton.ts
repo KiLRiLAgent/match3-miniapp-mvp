@@ -50,9 +50,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
       Phaser.Geom.Rectangle.Contains
     );
     this.on("pointerdown", () => {
-      if (this.bg.alpha >= 0.9) {
-        onClick();
-      }
+      onClick();
     });
 
     scene.add.existing(this);

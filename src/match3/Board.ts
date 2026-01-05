@@ -119,6 +119,7 @@ export class Match3Board {
   }
 
   swap(a: Position, b: Position) {
+    if (!this.inBounds(a) || !this.inBounds(b)) return;
     const tmp = this.grid[a.y][a.x];
     this.grid[a.y][a.x] = this.grid[b.y][b.x];
     this.grid[b.y][b.x] = tmp;
@@ -409,7 +410,9 @@ export class Match3Board {
       positions.push({ x, y: pos.y });
     }
     for (let y = 0; y < this.height; y++) {
-      positions.push({ x: pos.x, y });
+      if (y !== pos.y) {
+        positions.push({ x: pos.x, y });
+      }
     }
     return positions;
   }
