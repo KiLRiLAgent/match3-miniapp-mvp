@@ -191,7 +191,7 @@ export class GameScene extends Phaser.Scene {
         this.boardOrigin.y - BOARD_PADDING,
         widthPx + BOARD_PADDING * 2,
         heightPx + BOARD_PADDING * 2,
-        0x161820,
+        UI_COLORS.boardBg,
         0.9
       )
       .setOrigin(0, 0)
@@ -503,32 +503,19 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private animateSwap(idA: number, idB: number) {
+  private animateSwap(idA: number, idB: number): Promise<void> {
     const spriteA = this.tileSprites.get(idA);
     const spriteB = this.tileSprites.get(idB);
     const posA = spriteA ? this.tilePositions.get(idA) : null;
     const posB = spriteB ? this.tilePositions.get(idB) : null;
+
     if (!spriteA || !spriteB || !posA || !posB) {
       return Promise.resolve();
     }
 
-    const animateToPosition = (sprite: Phaser.GameObjects.Image, pos: Position): Promise<void> => {
-      const world = this.toWorld(pos);
-      return new Promise<void>((resolve) => {
-        this.tweens.add({
-          targets: sprite,
-          x: world.x,
-          y: world.y,
-          duration: ANIMATION_DURATIONS.swap,
-          ease: ANIMATION_EASING.swap,
-          onComplete: () => resolve(),
-        });
-      });
-    };
-
     return Promise.all([
-      animateToPosition(spriteA, posA),
-      animateToPosition(spriteB, posB),
+      this.createTween(spriteA, this.toWorld(posA), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
+      this.createTween(spriteB, this.toWorld(posB), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
     ]).then(() => {});
   }
 
@@ -545,19 +532,11 @@ export class GameScene extends Phaser.Scene {
 
     const { tilesToBoss, tilesToPlayer } = this.groupTilesByTarget(outcome.cleared, tweens, actor);
 
-    const bossTarget: FlyTarget = this.bossImage
-      ? { x: this.bossImage.x, y: this.bossImage.y + 40 }
-      : { x: GAME_WIDTH / 2, y: 100 };
-
-    const playerTarget: FlyTarget = this.playerAvatar
-      ? { x: this.playerAvatar.x, y: this.playerAvatar.y }
-      : { x: GAME_WIDTH - 60, y: GAME_HEIGHT - 175 };
-
     if (tilesToBoss.length > 0) {
-      tweens.push(flyTilesToTarget(this, tilesToBoss, bossTarget, ANIMATION_DURATIONS.tileFly));
+      tweens.push(flyTilesToTarget(this, tilesToBoss, this.bossTarget, ANIMATION_DURATIONS.tileFly));
     }
     if (tilesToPlayer.length > 0) {
-      tweens.push(flyTilesToTarget(this, tilesToPlayer, playerTarget, ANIMATION_DURATIONS.tileFly));
+      tweens.push(flyTilesToTarget(this, tilesToPlayer, this.playerTarget, ANIMATION_DURATIONS.tileFly));
     }
 
     return Promise.all(tweens);
@@ -678,7 +657,8 @@ export class GameScene extends Phaser.Scene {
   private createTween(
     target: Phaser.GameObjects.Image,
     position: { x: number; y: number },
-    duration: number
+    duration: number,
+    ease: string = ANIMATION_EASING.collapse
   ): Promise<void> {
     return new Promise<void>((resolve) => {
       this.tweens.add({
@@ -686,7 +666,7 @@ export class GameScene extends Phaser.Scene {
         x: position.x,
         y: position.y,
         duration,
-        ease: ANIMATION_EASING.collapse,
+        ease,
         onComplete: () => resolve(),
       });
     });
@@ -768,6 +748,18 @@ export class GameScene extends Phaser.Scene {
       x: this.boardOrigin.x + pos.x * CELL_SIZE + CELL_SIZE / 2,
       y: this.boardOrigin.y + pos.y * CELL_SIZE + CELL_SIZE / 2,
     };
+  }
+
+  private get bossTarget(): FlyTarget {
+    return this.bossImage
+      ? { x: this.bossImage.x, y: this.bossImage.y + 40 }
+      : { x: GAME_WIDTH / 2, y: 100 };
+  }
+
+  private get playerTarget(): FlyTarget {
+    return this.playerAvatar
+      ? { x: this.playerAvatar.x, y: this.playerAvatar.y }
+      : { x: GAME_WIDTH - 60, y: GAME_HEIGHT - 175 };
   }
 
   private async finishPlayerTurn() {
@@ -1041,15 +1033,13 @@ export class GameScene extends Phaser.Scene {
     const sprite = this.tileSprites.get(tile.id);
     if (!sprite) return;
 
-    const playerTarget = this.playerAvatar
-      ? { x: this.playerAvatar.x, y: this.playerAvatar.y }
-      : { x: 45, y: GAME_HEIGHT - 95 };
+    const target = this.playerTarget;
 
     return new Promise<void>(resolve => {
       this.tweens.add({
         targets: sprite,
-        x: playerTarget.x,
-        y: playerTarget.y,
+        x: target.x,
+        y: target.y,
         scale: 0.5,
         duration: 350,
         ease: "Quad.easeIn",

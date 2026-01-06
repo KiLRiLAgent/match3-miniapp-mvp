@@ -1,9 +1,9 @@
 import Phaser from "phaser";
-import { createPulseAnimation } from "../utils/helpers";
+import { createPulseController } from "../utils/helpers";
 
 export class ShieldIcon extends Phaser.GameObjects.Container {
   private cooldownText: Phaser.GameObjects.Text;
-  private isPulsing = false;
+  private pulse: () => void;
 
   constructor(scene: Phaser.Scene, x: number, y: number, size = 48) {
     super(scene, x, y);
@@ -29,6 +29,8 @@ export class ShieldIcon extends Phaser.GameObjects.Container {
     this.add([bg, shieldEmoji, this.cooldownText]);
     scene.add.existing(this);
     this.setVisible(false);
+
+    this.pulse = createPulseController(scene, this);
   }
 
   show(duration: number): void {
@@ -44,11 +46,5 @@ export class ShieldIcon extends Phaser.GameObjects.Container {
 
   hide(): void {
     this.setVisible(false);
-  }
-
-  private pulse(): void {
-    if (this.isPulsing) return;
-    this.isPulsing = true;
-    createPulseAnimation(this.scene, this).then(() => (this.isPulsing = false));
   }
 }

@@ -205,15 +205,6 @@ export const getUILayout = () => {
     skillButtonSize,
     skillButtonSpacing,
     skillButtonsStartX: (GAME_WIDTH - (skillButtonSize * 4 + skillButtonSpacing * 3)) / 2 + skillButtonSize / 2,
-
-    // Deprecated (для совместимости)
-    topPanelY: 0,
-    topPanelHeight: 0,
-    bottomPanelY: 0,
-    bottomPanelHeight: 0,
-    bossImageSize: 0,
-    bossY: bossImageCenterY,
-    panelMargin: 16,
   };
 };
 

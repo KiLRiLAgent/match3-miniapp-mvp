@@ -24,24 +24,24 @@ src/
 ├── style.css                  # Global styles
 ├── scenes/
 │   ├── BootScene.ts           # Asset loading & texture generation
-│   └── GameScene.ts           # Main gameplay controller (~1200 lines)
+│   └── GameScene.ts           # Main gameplay controller (~1100 lines)
 ├── match3/
 │   ├── types.ts               # TileKind enum, Tile, Match, Position types
-│   └── Board.ts               # Match3Board class - core game logic (~610 lines)
+│   └── Board.ts               # Match3Board class - core game logic (~560 lines)
 ├── game/
-│   ├── config.ts              # Game constants & configurations
+│   ├── config.ts              # Game constants & dynamic UI layout
 │   ├── animations.ts          # Animation durations, easing, visual effects
 │   ├── assets.ts              # Asset key registry
 │   └── BossAbility.ts         # BossAbilityManager class
 ├── ui/
 │   ├── Meter.ts               # HP/MP bar component
 │   ├── SkillButton.ts         # Skill button UI component
-│   ├── CooldownIcon.ts        # Boss ability cooldown indicator
+│   ├── CooldownIcon.ts        # Boss ability cooldown indicator with icons
 │   ├── ShieldIcon.ts          # Boss shield duration indicator
 │   ├── DamageNumber.ts        # Floating combat text
 │   └── FlyingTile.ts          # Animated tile trajectory effects
 ├── utils/
-│   └── helpers.ts             # Utility functions (clamp, wait, pulse)
+│   └── helpers.ts             # Utility functions (clamp, wait, pulse, pulseController)
 └── telegram/
     └── telegram.ts            # Telegram WebApp integration
 ```
@@ -53,7 +53,7 @@ src/
 ### Entry Point (`src/main.ts`)
 
 Creates Phaser game instance with configuration:
-- Resolution: 480x800 pixels (mobile-optimized)
+- Resolution: Dynamic (adapts to screen size via Telegram safe areas)
 - Scaling: `Phaser.Scale.FIT` with `CENTER_BOTH` for responsive display
 - Physics: Arcade (enabled but minimally used)
 - Scenes: `[BootScene, GameScene]` loaded sequentially
@@ -77,7 +77,7 @@ Creates Phaser game instance with configuration:
    - `BoosterCol` - Red-orange rounded rectangle (0xf17c67)
    - `Ultimate` - White rounded rectangle (0xffffff)
    - `Bomb` - Black circle with red border, orange fuse, yellow spark
-   - All generated at `CELL_SIZE` (56px)
+   - All generated at `CELL_SIZE` (46px)
 
 3. Transitions to `GameScene` via `this.scene.start("GameScene")`
 
@@ -85,7 +85,7 @@ Creates Phaser game instance with configuration:
 
 ### GameScene (`src/scenes/GameScene.ts`)
 
-**Purpose**: Main gameplay controller (~1200 lines)
+**Purpose**: Main gameplay controller (~1100 lines)
 
 #### State Variables
 
@@ -110,12 +110,16 @@ private bossAbilityManager: BossAbilityManager; // Pattern-based ability cycling
 
 // Bomb tracking
 private bombCooldownTexts: Map<number, Text>; // Bomb tile ID -> countdown text
+
+// Target position getters (centralized)
+private get bossTarget(): FlyTarget;    // Boss center position
+private get playerTarget(): FlyTarget;  // Player avatar position
 ```
 
 #### Initialization Flow (`create()`)
 
 1. `initTelegram()` - Initializes Telegram WebApp SDK
-2. Calculate `boardOrigin` - Centers board horizontally at y=220
+2. Calculate `boardOrigin` from dynamic `UI_LAYOUT`
 3. `buildHud()` - Creates UI panels and meters
 4. `resetState()` - Initializes game state and creates board
 5. `buildBoard()` - Spawns tile sprites for initial grid
@@ -123,28 +127,29 @@ private bombCooldownTexts: Map<number, Text>; // Bomb tile ID -> countdown text
 7. `setupInputHandlers()` - Configures pointer events
 8. `updateHud()` - Initial UI sync
 
-#### HUD Layout
+#### HUD Layout (Dynamic)
+
+Layout is computed dynamically based on screen size via `getUILayout()`:
 
 ```
 +------------------------------------------+
-| Lv. 30                        [Turn Text]|
-|                                          |
-|            [Boss Image 353x353]          |
-|            [Boss HP Bar 300x16]  [CD][SH]|
+|            [Boss Image - flexible]       |
+|            [Boss Name]                   |
+|            [Boss HP Bar]  [CD]           |
 +------------------------------------------+
 |                                          |
 |           [8x7 Game Board]               |
-|            (56px cells)                  |
+|            (46px cells)                  |
 |                                          |
 +------------------------------------------+
-| [Avatar] [HP Bar 170x12] [Mana Bar]      |
+| [Avatar] [HP Bar] [Mana Bar]             |
 | [Skill1] [Skill2] [Skill3] [Skill4]      |
 +------------------------------------------+
 ```
 
 **UI Elements**:
-- `[CD]` - CooldownIcon showing next boss ability countdown
-- `[SH]` - ShieldIcon showing active shield duration (hidden when inactive)
+- `[CD]` - CooldownIcon showing next boss ability with icon and countdown
+- Boss image stretches to fill available space above board
 
 #### Input System
 
@@ -267,7 +272,7 @@ if (bossShieldDuration > 0) {
 
 **Bomb Placement** (boss "Bombs" ability):
 ```typescript
-const placed = board.placeBombs(5, 3); // 5 bombs, 3-turn cooldown
+const { placed, replaced } = board.placeBombs(5, 3); // 5 bombs, 3-turn cooldown
 await animateBombsAppear(placed);
 ```
 
@@ -292,13 +297,14 @@ updateBombCooldownTexts(); // Update displayed countdowns
 **Swap Animation** (`animateSwap`):
 - Duration: 140ms
 - Easing: `Quad.easeOut`
+- Uses centralized `createTween()` helper
 
 **Transform Animation** (`animateTransforms`):
 - Special tiles pulse and scale 1.2x
 - Easing: `Back.easeOut`
 
 **Clear Animation** (`animateClear`):
-- Tiles grouped by target:
+- Tiles grouped by target using `bossTarget` and `playerTarget` getters:
   - Damage tiles (Sword/Star) -> opponent
   - Resource tiles (Mana/Heal) -> self
 - Bezier curve trajectory with trail effect
@@ -412,9 +418,15 @@ Purpose: Modifies grid state after clearing
 **Steps**:
 1. Apply transforms (convert tiles to specials)
 2. Set cleared positions to `null`
-3. Collapse: shift remaining tiles down per column
-4. Refill: generate new random tiles at top
-5. Return move/newTile data for animation
+3. Call `collapseGrid()` for collapse and refill
+4. Return move/newTile data for animation
+
+**`collapseGrid(): CollapseResult`**
+
+Public method for collapsing grid after removals:
+- Shift remaining tiles down per column
+- Refill empty cells at top with new random tiles
+- Returns `{moves, newTiles}` for animation
 
 **`blastArea(pos, kind): Position[]`**
 
@@ -428,11 +440,11 @@ Returns positions affected by special tile activation:
 **`isBomb(kind): boolean`**
 - Returns true if tile kind is Bomb
 
-**`placeBombs(count, bombCooldown): Array<{pos, tile}>`**
+**`placeBombs(count, bombCooldown): {placed, replaced}`**
 - Places `count` bombs on random non-special, non-bomb tiles
 - Each bomb preserves the original tile's `base` property
 - Sets `cooldown` property for countdown
-- Returns placed bomb positions and tiles
+- Returns `placed` (new bomb tiles) and `replaced` (original tiles)
 
 **`tickBombs(): {exploded, remaining}`**
 - Decrements cooldown on all bombs
@@ -442,21 +454,28 @@ Returns positions affected by special tile activation:
 - Finds all bombs orthogonally adjacent to cleared positions
 - Used for bomb defusing mechanic
 
-**`getAllBombs(): Array<{pos, tile}>`**
-- Returns all bomb tiles currently on board
-
 ---
 
 ## Game Configuration (`src/game/config.ts`)
+
+### Dynamic Screen Size
+
+```typescript
+// Set at runtime based on device/Telegram
+let GAME_WIDTH = 480;
+let GAME_HEIGHT = 800;
+let SAFE_AREA = { top: 0, bottom: 0, left: 0, right: 0 };
+
+setScreenSize(width, height, safeArea)  // Called from main.ts
+updateScaledValues()                     // Recalculates UI_LAYOUT
+```
 
 ### Board Settings
 ```typescript
 BOARD_WIDTH = 8       // Columns
 BOARD_HEIGHT = 7      // Rows
-CELL_SIZE = 56        // Pixels per cell
-BOARD_PADDING = 12    // Border around board
-GAME_WIDTH = 480      // Canvas width
-GAME_HEIGHT = 800     // Canvas height
+CELL_SIZE = 46        // Pixels per cell (fixed)
+BOARD_PADDING = 8     // Border around board
 ```
 
 ### Player Stats
@@ -533,24 +552,38 @@ SKILL_CONFIG = {
 }
 ```
 
-### UI Layout
+### Dynamic UI Layout
+
+Layout is computed via `getUILayout()` function based on current screen size:
+
 ```typescript
-UI_LAYOUT = {
-  topPanelY: 90,
-  topPanelHeight: 150,
-  bottomPanelY: 95,         // From bottom
-  bottomPanelHeight: 70,
-  bossImageSize: 353,
-  boardOriginY: 220,
-  skillButtonSize: 70,
-  skillButtonSpacing: 8,
-  panelMargin: 32,
-  hpBarWidth: 300,
-  hpBarHeight: 16,
-  playerBarWidth: 170,
-  playerBarHeight: 12,
-  avatarSize: 44,
-  bossY: 150,
+getUILayout() {
+  // Builds layout BOTTOM-UP with fixed element sizes
+  // 1. Skill buttons at bottom (with safe area)
+  // 2. Player MP bar above skills
+  // 3. Player HP bar above MP
+  // 4. Player avatar spans HP to skills
+  // 5. Board above player panel
+  // 6. Boss HP bar above board
+  // 7. Boss image fills remaining space (flexible)
+
+  return {
+    // Board positioning
+    boardOriginX, boardOriginY, boardWidth, boardHeight,
+
+    // Boss area
+    bossImageCenterY, bossImageHeight, bossNameY,
+    bossHpBarY, bossHpBarX, hpBarWidth, hpBarHeight,
+    cooldownIconSize, cooldownIconX, cooldownIconY,
+
+    // Player area
+    avatarX, avatarY, avatarWidth, avatarHeight,
+    playerHpBarX, playerHpBarY, playerMpBarY,
+    playerBarWidth, playerBarHeight,
+
+    // Skill buttons
+    skillButtonsY, skillButtonSize, skillButtonSpacing, skillButtonsStartX,
+  };
 }
 ```
 
@@ -700,22 +733,24 @@ Interactive button for player abilities.
 - Shows mana cost as subtitle
 
 ### CooldownIcon (`CooldownIcon.ts`)
-Boss ability countdown indicator.
+Boss ability countdown indicator with ability-specific icons.
 
 **Display**:
-- Sword icon with countdown number
-- Red background (0x8b0000)
-- When ready: Bright red, shows "!", pulses
+- Ability icon (⚔ attack, 💣 bombs, 🛡 shield, ⚡ powerStrike)
+- Countdown number below icon
+- Red circular background (0x8b0000)
+- When ready: Bright red (0xff4444), shows "!", pulses
 
 **API**:
-- `setCooldown(value: number)` - Update displayed countdown
-- `pulse()` - Play pulse animation
+- `setCooldown(value: number)` - Update countdown display
+- `setAbility(type: BossAbilityType, cooldown: number)` - Set icon and countdown
+- Uses shared `createPulseController` for guarded pulse animation
 
 ### ShieldIcon (`ShieldIcon.ts`)
 Boss shield duration indicator.
 
 **Display**:
-- Shield emoji with duration number
+- Shield emoji (🛡) with duration number
 - Blue background (0x3366ff)
 - Pulses when activated
 - Hidden when shield inactive
@@ -724,6 +759,7 @@ Boss shield duration indicator.
 - `show(duration: number)` - Display with initial duration
 - `updateDuration(duration: number)` - Update countdown, auto-hides at 0
 - `hide()` - Manual hide
+- Uses shared `createPulseController` for guarded pulse animation
 
 ### DamageNumber (`DamageNumber.ts`)
 Floating combat text.
@@ -757,10 +793,13 @@ Animated tile effect when matches are cleared.
 ## Utility Functions (`src/utils/helpers.ts`)
 
 ```typescript
-clamp(value, min, max)          // Clamp value to range
-wait(scene, ms)                 // Promise-based delay
-createPulseAnimation(scene, target, scale, duration)  // Reusable pulse effect
+clamp(value, min, max)           // Clamp value to range
+wait(scene, ms)                  // Promise-based delay
+createPulseAnimation(scene, target, scale, duration)  // Single pulse effect
+createPulseController(scene, target, scale, duration) // Guarded pulse controller
 ```
+
+**`createPulseController`** - Returns a function that triggers pulse animation only if not already pulsing. Used by CooldownIcon and ShieldIcon to prevent overlapping pulse animations.
 
 ---
 
@@ -831,6 +870,9 @@ applyMatchResults(outcome.counts, actor);
 await animateCollapse(collapse);
 ```
 
+### Centralized Target Positions
+`bossTarget` and `playerTarget` getters provide centralized access to animation target positions, avoiding repeated calculations.
+
 ### Actor-Based Animation System
 Clear animations differentiate between "player" and "boss" actors:
 - Damage tiles fly to opponent (player matching -> fly to boss)
@@ -845,6 +887,12 @@ Clear animations differentiate between "player" and "boss" actors:
 - Bombs don't participate in matches (excluded from run detection)
 - Adjacent bombs are defused when nearby tiles are cleared
 - Bombs explode at end of turn when cooldown reaches 0
+
+### Shared Pulse Controller
+`createPulseController()` provides guarded pulse animation that prevents overlapping pulses. Used by CooldownIcon and ShieldIcon.
+
+### Code Reuse in Board.ts
+`applyClearOutcome()` delegates to `collapseGrid()` for collapse logic, avoiding code duplication.
 
 ---
 
