@@ -559,7 +559,10 @@ export class Match3Board {
 
   // === Bomb methods ===
 
-  placeBombs(count: number, bombCooldown: number): Array<{ pos: Position; tile: Tile }> {
+  placeBombs(count: number, bombCooldown: number): {
+    placed: Array<{ pos: Position; tile: Tile }>;
+    replaced: Array<{ pos: Position; tile: Tile }>;
+  } {
     const available: Position[] = [];
     this.forEachTile((pos, tile) => {
       if (!this.isBomb(tile.kind) && !this.isSpecial(tile.kind)) {
@@ -568,12 +571,16 @@ export class Match3Board {
     });
 
     const placed: Array<{ pos: Position; tile: Tile }> = [];
+    const replaced: Array<{ pos: Position; tile: Tile }> = [];
+
     for (let i = 0; i < count && available.length > 0; i++) {
       const idx = Math.floor(this.rng() * available.length);
       const pos = available.splice(idx, 1)[0];
       const oldTile = this.getTile(pos);
 
       if (oldTile) {
+        replaced.push({ pos, tile: oldTile });
+
         const bombTile: Tile = {
           id: this.nextId++,
           kind: TileKind.Bomb,
@@ -585,7 +592,7 @@ export class Match3Board {
       }
     }
 
-    return placed;
+    return { placed, replaced };
   }
 
   tickBombs(): { exploded: Array<{ pos: Position; tile: Tile }>; remaining: Tile[] } {

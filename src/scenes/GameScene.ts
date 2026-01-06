@@ -936,9 +936,17 @@ export class GameScene extends Phaser.Scene {
   private async executeBombs() {
     const config = BOSS_ABILITIES.bombs;
     await this.withCutscene(config.name, async () => {
-      const placedBombs = this.board.placeBombs(config.bombCount, config.bombCooldown);
+      const { placed, replaced } = this.board.placeBombs(config.bombCount, config.bombCooldown);
+
+      // Удаляем спрайты замененных тайлов
+      replaced.forEach(({ tile }) => {
+        const sprite = this.tileSprites.get(tile.id);
+        sprite?.destroy();
+        this.tileSprites.delete(tile.id);
+      });
+
       this.rebuildPositionMap();
-      await this.animateBombsAppear(placedBombs);
+      await this.animateBombsAppear(placed);
     });
   }
 
