@@ -6,10 +6,16 @@ type SkillState = {
   info?: string;
 };
 
+const COLORS = {
+  bgIdle: 0x4a3a6e,    // Фиолетовый как в референсе
+  bgReady: 0x6b4a9e,   // Ярче когда готово
+  bgDisabled: 0x2a2a3e,
+} as const;
+
 export class SkillButton extends Phaser.GameObjects.Container {
-  private bg: Phaser.GameObjects.Rectangle;
-  private label: Phaser.GameObjects.Text;
-  private sub: Phaser.GameObjects.Text;
+  private bg: Phaser.GameObjects.Arc;
+  private iconText: Phaser.GameObjects.Text;
+  private costText: Phaser.GameObjects.Text;
   private clickCallback: () => void;
   private isEnabled = true;
 
@@ -17,44 +23,42 @@ export class SkillButton extends Phaser.GameObjects.Container {
     scene: Phaser.Scene,
     x: number,
     y: number,
-    width: number,
-    height: number,
-    title: string,
-    subtitle: string,
+    size: number,
+    icon: string,
+    cost: number,
     onClick: () => void
   ) {
     super(scene, x, y);
     this.clickCallback = onClick;
 
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-
+    // Круглый фон
     this.bg = scene.add
-      .rectangle(centerX, centerY, width, height, 0x1c1c28, 0.95)
-      .setStrokeStyle(2, 0xffffff, 0.3)
+      .circle(0, 0, size / 2, COLORS.bgIdle, 0.95)
+      .setStrokeStyle(2, 0xffffff, 0.4)
       .setInteractive({ useHandCursor: true })
-      .setDepth(10)
       .on("pointerdown", () => this.isEnabled && this.clickCallback());
 
-    this.label = scene.add
-      .text(centerX, centerY - 6, title, {
-        fontSize: "14px",
+    // Эмодзи иконка по центру
+    this.iconText = scene.add
+      .text(0, -2, icon, {
+        fontSize: "24px",
         color: "#ffffff",
         fontFamily: "Arial, sans-serif",
       })
-      .setOrigin(0.5)
-      .setDepth(11);
+      .setOrigin(0.5);
 
-    this.sub = scene.add
-      .text(centerX, y + height - 18, subtitle, {
+    // Стоимость под кнопкой
+    this.costText = scene.add
+      .text(0, size / 2 + 12, `${cost}`, {
         fontSize: "12px",
-        color: "#cbd5ff",
+        color: "#aabbff",
         fontFamily: "Arial, sans-serif",
+        fontStyle: "bold",
       })
-      .setOrigin(0.5)
-      .setDepth(11);
+      .setOrigin(0.5);
 
-    this.setSize(width, height);
+    this.add([this.bg, this.iconText, this.costText]);
+    this.setSize(size, size);
     scene.add.existing(this);
   }
 
@@ -62,15 +66,16 @@ export class SkillButton extends Phaser.GameObjects.Container {
     const { enabled, ready, info } = state;
     this.isEnabled = enabled;
 
-    const alpha = enabled ? 1 : 0.35;
-    const bgColor = ready ? 0x3355ff : 0x1c1c28;
-    const strokeAlpha = enabled ? 0.8 : 0.3;
+    const alpha = enabled ? 1 : 0.4;
+    const bgColor = !enabled ? COLORS.bgDisabled : ready ? COLORS.bgReady : COLORS.bgIdle;
+    const strokeAlpha = enabled ? 0.6 : 0.2;
 
-    this.bg.setFillStyle(bgColor, 0.95 * alpha);
+    this.bg.setFillStyle(bgColor, 0.95);
     this.bg.setStrokeStyle(2, 0xffffff, strokeAlpha);
-    this.label.setAlpha(alpha);
-    this.sub.setAlpha(alpha);
+    this.bg.setAlpha(alpha);
+    this.iconText.setAlpha(alpha);
+    this.costText.setAlpha(alpha);
 
-    if (info) this.sub.setText(info);
+    if (info) this.costText.setText(info);
   }
 }

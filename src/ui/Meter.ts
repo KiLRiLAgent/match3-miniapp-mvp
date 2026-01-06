@@ -34,13 +34,17 @@ export class Meter extends Phaser.GameObjects.Container {
       })
       .setOrigin(0, 0.5);
 
+    // Текст по центру полоски
     this.label = scene.add
-      .text(width - 6, height / 2, "0/0", {
+      .text(width / 2, height / 2, "0/0", {
         fontSize: "13px",
         color: "#ffffff",
         fontFamily: "Arial, sans-serif",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 2,
       })
-      .setOrigin(1, 0.5);
+      .setOrigin(0.5, 0.5);
 
     this.add([border, this.fill, title, this.label]);
     scene.add.existing(this);

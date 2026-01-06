@@ -120,39 +120,47 @@ export const getUILayout = () => {
   const boardHeight = BOARD_HEIGHT * CELL_SIZE;
 
   // === СНИЗУ ВВЕРХ ===
-
-  // 1. Кнопки скиллов (самый низ, с отступом + safe area)
-  const skillButtonSize = 52;
-  const skillButtonSpacing = 10;
+  const screenPadding = 16; // Отступ от краёв экрана
   const bottomPadding = 16 + SAFE_AREA.bottom; // Базовый отступ + safe area от Telegram
-  const skillButtonsY = GAME_HEIGHT - bottomPadding - skillButtonSize / 2;
 
-  // 2. HP/MP бары игрока (над кнопками)
-  const playerBarHeight = 12;
-  const playerBarWidth = 130;
-  const playerBarsBottomY = skillButtonsY - skillButtonSize / 2 - 8;
-  const playerMpBarY = playerBarsBottomY - playerBarHeight;
-  const playerHpBarY = playerMpBarY - playerBarHeight - 4;
+  // 1. Кнопки скиллов (круглые, самый низ)
+  const skillButtonSize = 50;
+  const skillButtonSpacing = 12;
+  const skillButtonsY = GAME_HEIGHT - bottomPadding - skillButtonSize / 2 - 14; // -14 для текста стоимости
 
-  // 3. Аватар игрока (слева от баров)
-  const avatarSize = 44;
-  const avatarY = (playerHpBarY + playerMpBarY + playerBarHeight) / 2;
+  // 2. MP бар игрока (сразу над скиллами)
+  const playerBarHeight = 14;
+  const playerMpBarY = skillButtonsY - skillButtonSize / 2 - 10;
 
-  // 4. Match-3 поле (над нижней панелью)
+  // 3. HP бар игрока (над MP)
+  const playerHpBarY = playerMpBarY - playerBarHeight - 6;
+
+  // 4. Аватар игрока - во всю высоту (от верха HP до низа скиллов)
+  const avatarWidth = 50;
+  const playerAreaTop = playerHpBarY;
+  const playerAreaBottom = skillButtonsY + skillButtonSize / 2 + 14; // +14 для текста стоимости
+  const avatarHeight = playerAreaBottom - playerAreaTop;
+  const avatarX = screenPadding + avatarWidth / 2;
+  const avatarY = (playerAreaTop + playerAreaBottom) / 2;
+
+  // HP/MP бары начинаются после аватара
+  const playerBarsX = avatarX + avatarWidth / 2 + 8;
+  const playerBarWidth = GAME_WIDTH - playerBarsX - screenPadding;
+
+  // 5. Match-3 поле (над нижней панелью)
   const boardBottomY = playerHpBarY - 12;
   const boardOriginY = boardBottomY - boardHeight;
   const boardOriginX = (GAME_WIDTH - boardWidth) / 2;
 
-  // 5. HP бар босса (над полем)
-  const hpBarWidth = boardWidth;
+  // 6. HP бар босса (над полем, меньше ширина для круглой иконки)
+  const cooldownIconSize = 40;
+  const hpBarWidth = boardWidth - cooldownIconSize - 8;
   const hpBarHeight = 16;
   const bossHpBarY = boardOriginY - 6 - hpBarHeight;
+  const cooldownIconX = boardOriginX + hpBarWidth + 4 + cooldownIconSize / 2;
 
-  // 6. Название босса (над HP баром)
+  // 7. Название босса (над HP баром)
   const bossNameY = bossHpBarY - 18;
-
-  // 7. Иконка кулдауна (справа от HP бара)
-  const cooldownIconSize = 36;
 
   // === СВЕРХУ (растягивается) ===
   // Изображение босса занимает пространство от верха (с отступом для шторки) до HP бара
@@ -177,24 +185,25 @@ export const getUILayout = () => {
     hpBarWidth,
     hpBarHeight,
     cooldownIconSize,
-    cooldownIconX: boardOriginX + boardWidth + 8,
+    cooldownIconX,
     cooldownIconY: bossHpBarY + hpBarHeight / 2,
 
     // Игрок (снизу)
-    avatarX: 35,
+    avatarX,
     avatarY,
-    avatarSize,
-    playerHpBarX: 70,
+    avatarWidth,
+    avatarHeight,
+    playerHpBarX: playerBarsX,
     playerHpBarY,
     playerMpBarY,
     playerBarWidth,
     playerBarHeight,
 
-    // Кнопки скиллов
+    // Кнопки скиллов (после аватара)
     skillButtonsY,
     skillButtonSize,
     skillButtonSpacing,
-    skillButtonsStartX: GAME_WIDTH / 2 - (skillButtonSize * 2 + skillButtonSpacing * 1.5),
+    skillButtonsStartX: playerBarsX,
 
     // Deprecated (для совместимости)
     topPanelY: 0,
@@ -204,6 +213,7 @@ export const getUILayout = () => {
     bossImageSize: 0,
     bossY: bossImageCenterY,
     panelMargin: 16,
+    avatarSize: avatarWidth, // для совместимости
   };
 };
 
