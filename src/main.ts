@@ -5,7 +5,7 @@ import { GameScene } from "./scenes/GameScene";
 import { setScreenSize, updateScaledValues } from "./game/config";
 import { initTelegram } from "./telegram/telegram";
 
-// Инициализация Telegram WebApp до создания игры
+// Инициализация Telegram WebApp до создания игры (fullscreen mode)
 initTelegram();
 
 // Определяем реальный размер экрана и обновляем масштаб
