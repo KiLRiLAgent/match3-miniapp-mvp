@@ -106,6 +106,12 @@ export class Match3Board {
     return this.grid[pos.y][pos.x];
   }
 
+  removeTile(pos: Position): void {
+    if (this.inBounds(pos)) {
+      this.grid[pos.y][pos.x] = null;
+    }
+  }
+
   inBounds(pos: Position): boolean {
     return (
       pos.x >= 0 &&
@@ -121,6 +127,10 @@ export class Match3Board {
       kind === TileKind.BoosterCol ||
       kind === TileKind.Ultimate
     );
+  }
+
+  isBomb(kind: TileKind): boolean {
+    return kind === TileKind.Bomb;
   }
 
   swap(a: Position, b: Position) {
@@ -144,7 +154,7 @@ export class Match3Board {
     for (let y = 0; y < this.height - 1; y++) {
       for (let x = 0; x < this.width - 1; x++) {
         const tile = this.getTile({ x, y });
-        if (!tile) continue;
+        if (!tile || this.isBomb(tile.kind)) continue;
 
         const positions: Position[] = [
           { x, y },
@@ -155,14 +165,15 @@ export class Match3Board {
 
         const allSame = positions.every(pos => {
           const t = this.getTile(pos);
-          return t && t.base === tile.base;
+          // Бомбы не участвуют в квадратных матчах
+          return t && t.base === tile.base && !this.isBomb(t.kind);
         });
 
         if (allSame) {
           matches.push({
             positions,
             kind: tile.base,
-            direction: "row", // используем row для совместимости
+            direction: "row",
           });
         }
       }
@@ -183,7 +194,8 @@ export class Match3Board {
           direction === "row" ? { x: inner, y: outer } : { x: outer, y: inner };
         const tile = this.getTile(pos);
 
-        if (!tile) {
+        // Бомбы не начинают матчи
+        if (!tile || this.isBomb(tile.kind)) {
           inner++;
           continue;
         }
@@ -222,7 +234,8 @@ export class Match3Board {
           : { x: start.x, y: runEnd };
       const tile = this.getTile(pos);
 
-      if (!tile || tile.base !== base) break;
+      // Бомбы не участвуют в матчах
+      if (!tile || tile.base !== base || this.isBomb(tile.kind)) break;
       runEnd++;
     }
 
@@ -407,6 +420,35 @@ export class Match3Board {
     return { moves, newTiles };
   }
 
+  /** Collapse grid after removing tiles (e.g. exploded bombs) - tiles fall down, new tiles spawn */
+  collapseGrid(): CollapseResult {
+    const moves: CollapseMove[] = [];
+    const newTiles: NewTile[] = [];
+
+    for (let x = 0; x < this.width; x++) {
+      let pointer = this.height - 1;
+      for (let y = this.height - 1; y >= 0; y--) {
+        const tile = this.grid[y][x];
+        if (tile) {
+          this.grid[pointer][x] = tile;
+          if (pointer !== y) {
+            moves.push({ tile, from: { x, y }, to: { x, y: pointer } });
+            this.grid[y][x] = null;
+          }
+          pointer--;
+        }
+      }
+
+      for (let fillY = pointer; fillY >= 0; fillY--) {
+        const tile = this.createTile(this.randomBase());
+        this.grid[fillY][x] = tile;
+        newTiles.push({ tile, pos: { x, y: fillY } });
+      }
+    }
+
+    return { moves, newTiles };
+  }
+
   activateSpecial(pos: Position): ClearOutcome {
     const tile = this.getTile(pos);
     if (!tile || !this.isSpecial(tile.kind)) {
@@ -492,7 +534,107 @@ export class Match3Board {
   }
 
   private fromKey(key: string): Position {
-    const [x, y] = key.split(",").map((n) => Number(n));
+    const [x, y] = key.split(",").map(Number);
     return { x, y };
+  }
+
+  /** Iterates all tiles on the board, calling fn for each non-null tile */
+  private forEachTile(fn: (pos: Position, tile: Tile) => void): void {
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const tile = this.grid[y][x];
+        if (tile) fn({ x, y }, tile);
+      }
+    }
+  }
+
+  /** Collects tiles matching a predicate */
+  private collectTiles(predicate: (tile: Tile) => boolean): Array<{ pos: Position; tile: Tile }> {
+    const result: Array<{ pos: Position; tile: Tile }> = [];
+    this.forEachTile((pos, tile) => {
+      if (predicate(tile)) result.push({ pos, tile });
+    });
+    return result;
+  }
+
+  // === Bomb methods ===
+
+  placeBombs(count: number, bombCooldown: number): Array<{ pos: Position; tile: Tile }> {
+    const available: Position[] = [];
+    this.forEachTile((pos, tile) => {
+      if (!this.isBomb(tile.kind) && !this.isSpecial(tile.kind)) {
+        available.push(pos);
+      }
+    });
+
+    const placed: Array<{ pos: Position; tile: Tile }> = [];
+    for (let i = 0; i < count && available.length > 0; i++) {
+      const idx = Math.floor(this.rng() * available.length);
+      const pos = available.splice(idx, 1)[0];
+      const oldTile = this.getTile(pos);
+
+      if (oldTile) {
+        const bombTile: Tile = {
+          id: this.nextId++,
+          kind: TileKind.Bomb,
+          base: oldTile.base,
+          cooldown: bombCooldown,
+        };
+        this.grid[pos.y][pos.x] = bombTile;
+        placed.push({ pos, tile: bombTile });
+      }
+    }
+
+    return placed;
+  }
+
+  tickBombs(): { exploded: Array<{ pos: Position; tile: Tile }>; remaining: Tile[] } {
+    const exploded: Array<{ pos: Position; tile: Tile }> = [];
+    const remaining: Tile[] = [];
+
+    this.forEachTile((pos, tile) => {
+      if (this.isBomb(tile.kind) && tile.cooldown !== undefined) {
+        tile.cooldown--;
+        if (tile.cooldown <= 0) {
+          exploded.push({ pos, tile });
+        } else {
+          remaining.push(tile);
+        }
+      }
+    });
+
+    return { exploded, remaining };
+  }
+
+  private static readonly ORTHOGONAL_DIRS = [
+    { x: -1, y: 0 },
+    { x: 1, y: 0 },
+    { x: 0, y: -1 },
+    { x: 0, y: 1 },
+  ] as const;
+
+  getAdjacentBombs(clearedPositions: Position[]): Position[] {
+    const bombsToRemove: Position[] = [];
+    const seen = new Set<string>();
+
+    for (const pos of clearedPositions) {
+      for (const dir of Match3Board.ORTHOGONAL_DIRS) {
+        const adjacent = { x: pos.x + dir.x, y: pos.y + dir.y };
+        const key = this.key(adjacent);
+        if (seen.has(key)) continue;
+
+        const tile = this.getTile(adjacent);
+        if (tile && this.isBomb(tile.kind)) {
+          seen.add(key);
+          bombsToRemove.push(adjacent);
+        }
+      }
+    }
+
+    return bombsToRemove;
+  }
+
+  getAllBombs(): Array<{ pos: Position; tile: Tile }> {
+    return this.collectTiles((tile) => this.isBomb(tile.kind));
   }
 }

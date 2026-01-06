@@ -49,5 +49,45 @@ export class BootScene extends Phaser.Scene {
       g.generateTexture(tile.key, CELL_SIZE, CELL_SIZE);
       g.destroy();
     }
+
+    this.buildBombTexture();
+  }
+
+  private buildBombTexture() {
+    const g = this.add.graphics();
+    const center = CELL_SIZE / 2;
+    const radius = (CELL_SIZE - 8) / 2;
+
+    // Ярко-красный фон
+    g.fillStyle(0xdd3333, 1);
+    g.fillCircle(center, center, radius);
+
+    // Тёмно-красная обводка
+    g.lineStyle(3, 0x991111, 1);
+    g.strokeCircle(center, center, radius);
+
+    // Тёмный круг бомбы внутри
+    g.fillStyle(0x333333, 1);
+    g.fillCircle(center, center + 3, radius * 0.55);
+
+    // Блик на бомбе
+    g.fillStyle(0x555555, 1);
+    g.fillCircle(center - 5, center - 2, 4);
+
+    // Фитиль
+    g.lineStyle(3, 0xffaa00, 1);
+    g.beginPath();
+    g.moveTo(center, center - radius * 0.35);
+    g.lineTo(center + 6, center - radius * 0.65);
+    g.strokePath();
+
+    // Искра на фитиле
+    g.fillStyle(0xffff00, 1);
+    g.fillCircle(center + 7, center - radius * 0.7, 5);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(center + 7, center - radius * 0.7, 2);
+
+    g.generateTexture(ASSET_KEYS.tiles[TileKind.Bomb], CELL_SIZE, CELL_SIZE);
+    g.destroy();
   }
 }

@@ -22,9 +22,50 @@ export const MP_PER_TILE = 10;
 // Параметры противника
 export const BOSS_HP_MAX = 500;
 export const BOSS_PHYS_ATTACK = 10;
-export const BOSS_ABILITY_COOLDOWN = 3;
-export const BOSS_ABILITY_MULTIPLIER = 10;
 export const BOSS_DAMAGED_HP_THRESHOLD = 0.5; // Переход на damaged спрайт при HP < 50%
+
+// Способности босса
+export const BOSS_ABILITIES = {
+  attack: {
+    name: "Атака",
+    cooldown: 1,
+    damage: BOSS_PHYS_ATTACK * 3, // 30
+    hasCutscene: false,
+  },
+  bombs: {
+    name: "Бомбы",
+    cooldown: 2,
+    bombCount: 5,
+    bombCooldown: 3,
+    bombDamage: BOSS_PHYS_ATTACK * 3, // 30 за бомбу
+    hasCutscene: true,
+  },
+  shield: {
+    name: "Щит",
+    cooldown: 1,
+    shieldDuration: 2,
+    hasCutscene: true,
+  },
+  powerStrike: {
+    name: "Мощный удар",
+    cooldown: 2,
+    damage: BOSS_PHYS_ATTACK * 10, // 100
+    manaDrain: 50,
+    hasCutscene: true,
+  },
+} as const;
+
+// Паттерн способностей босса (зацикливается)
+export const BOSS_ABILITY_PATTERN = [
+  "attack",
+  "bombs",
+  "attack",
+  "shield",
+  "attack",
+  "powerStrike",
+] as const;
+
+export type BossAbilityType = typeof BOSS_ABILITY_PATTERN[number];
 
 export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Sword,
@@ -56,11 +97,32 @@ export const UI_LAYOUT = {
   topPanelHeight: 150,
   bottomPanelY: 95, // from bottom
   bottomPanelHeight: 70,
-  bossImageSize: 180,
+  bossImageSize: 353,
   boardOriginY: 220,
   skillButtonSize: 70,
   skillButtonSpacing: 8,
   panelMargin: 32,
+  hpBarWidth: 300,
+  hpBarHeight: 16,
+  playerBarWidth: 170,
+  playerBarHeight: 12,
+  avatarSize: 44,
+  bossY: 150,
+} as const;
+
+// UI Colors - centralized color palette
+export const UI_COLORS = {
+  background: 0x0d0f1a,
+  panelBg: 0x131a2d,
+  panelBgAlt: 0x111726,
+  boardBg: 0x161820,
+  bossHp: 0xde3e3e,
+  playerHp: 0x4caf50,
+  playerMana: 0x3b82f6,
+  playerTurnText: "#9ef7a5",
+  bossTurnText: "#ffb347",
+  defusedFlash: 0x44ff66,
+  overlay: 0x000000,
 } as const;
 
 // Input thresholds

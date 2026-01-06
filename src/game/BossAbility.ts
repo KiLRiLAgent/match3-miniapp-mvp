@@ -1,50 +1,61 @@
 import {
-  BOSS_PHYS_ATTACK,
-  BOSS_ABILITY_COOLDOWN,
-  BOSS_ABILITY_MULTIPLIER,
+  BOSS_ABILITIES,
+  BOSS_ABILITY_PATTERN,
+  type BossAbilityType,
 } from "./config";
 
-export interface BossAbilityConfig {
+export interface BossAbilityState {
+  type: BossAbilityType;
   name: string;
+  currentCooldown: number;
   maxCooldown: number;
-  damage: number;
+  isReady: boolean;
 }
 
-export class BossAbility {
-  readonly name: string;
-  readonly maxCooldown: number;
-  readonly damage: number;
-  private cooldown: number;
+export class BossAbilityManager {
+  private patternIndex = 0;
+  private currentCooldown: number;
 
-  constructor(config: BossAbilityConfig) {
-    this.name = config.name;
-    this.maxCooldown = config.maxCooldown;
-    this.damage = config.damage;
-    this.cooldown = config.maxCooldown;
+  constructor() {
+    this.currentCooldown = this.getCurrentAbilityCooldown();
   }
 
-  get currentCooldown(): number {
-    return this.cooldown;
+  get currentType(): BossAbilityType {
+    return BOSS_ABILITY_PATTERN[this.patternIndex];
   }
 
-  get isReady(): boolean {
-    return this.cooldown <= 0;
+  get currentAbility() {
+    return BOSS_ABILITIES[this.currentType];
+  }
+
+  private getCurrentAbilityCooldown(): number {
+    return this.currentAbility.cooldown;
+  }
+
+  get state(): BossAbilityState {
+    return {
+      type: this.currentType,
+      name: this.currentAbility.name,
+      currentCooldown: this.currentCooldown,
+      maxCooldown: this.currentAbility.cooldown,
+      isReady: this.currentCooldown <= 0,
+    };
   }
 
   tick(): boolean {
-    if (this.cooldown > 0) this.cooldown--;
-    return this.isReady;
+    if (this.currentCooldown > 0) {
+      this.currentCooldown--;
+    }
+    return this.currentCooldown <= 0;
+  }
+
+  advance(): void {
+    this.patternIndex = (this.patternIndex + 1) % BOSS_ABILITY_PATTERN.length;
+    this.currentCooldown = this.getCurrentAbilityCooldown();
   }
 
   reset(): void {
-    this.cooldown = this.maxCooldown;
-  }
-
-  static createPowerStrike(): BossAbility {
-    return new BossAbility({
-      name: "Мощный удар",
-      maxCooldown: BOSS_ABILITY_COOLDOWN,
-      damage: BOSS_PHYS_ATTACK * BOSS_ABILITY_MULTIPLIER,
-    });
+    this.patternIndex = 0;
+    this.currentCooldown = this.getCurrentAbilityCooldown();
   }
 }
