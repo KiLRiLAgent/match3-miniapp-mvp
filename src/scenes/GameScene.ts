@@ -117,15 +117,20 @@ export class GameScene extends Phaser.Scene {
   private buildHud() {
     const L = UI_LAYOUT;
 
-    // === ИЗОБРАЖЕНИЕ БОССА (сверху, растягивается) ===
-    // Изображение занимает всё пространство от верха до HP бара
-    const bossImageWidth = GAME_WIDTH;
-
+    // === ИЗОБРАЖЕНИЕ БОССА (сверху, сохраняем пропорции) ===
+    // Используем "cover" подход - заполняем область сохраняя пропорции
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, L.bossImageCenterY, ASSET_KEYS.boss.normal)
-      .setDisplaySize(bossImageWidth, L.bossImageHeight)
+      .image(GAME_WIDTH / 2, L.bossImageHeight / 2, ASSET_KEYS.boss.normal)
       .setOrigin(0.5)
       .setDepth(0);
+
+    // Масштабируем сохраняя пропорции (cover)
+    const imgWidth = this.bossImage.width;
+    const imgHeight = this.bossImage.height;
+    const scaleX = GAME_WIDTH / imgWidth;
+    const scaleY = L.bossImageHeight / imgHeight;
+    const scale = Math.max(scaleX, scaleY); // cover - берём больший масштаб
+    this.bossImage.setScale(scale);
 
     // === НАЗВАНИЕ БОССА ===
     this.add
