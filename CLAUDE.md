@@ -858,3 +858,15 @@ export default defineConfig({
 ```
 
 Build output goes to `docs/` for GitHub Pages hosting.
+
+---
+
+## Git Workflow
+
+**После каждого изменения кода обязательно выполнять:**
+
+```bash
+git add -A && git commit -m "update" && git push origin main
+```
+
+Это нужно делать автоматически после любых изменений в коде.
