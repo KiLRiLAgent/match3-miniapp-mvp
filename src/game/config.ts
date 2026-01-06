@@ -156,7 +156,7 @@ export const getUILayout = () => {
 
   // === СВЕРХУ (растягивается) ===
   // Изображение босса занимает пространство от верха (с отступом для шторки) до HP бара
-  const bossImageTopY = 70; // Отступ сверху для телефонов с вырезом/шторкой
+  const bossImageTopY = 140; // Отступ сверху для телефонов с вырезом/шторкой
   const bossImageBottomY = bossNameY - 6;
   const bossImageHeight = bossImageBottomY - bossImageTopY;
   const bossImageCenterY = bossImageTopY + bossImageHeight / 2;
