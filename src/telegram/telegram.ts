@@ -2,6 +2,10 @@ export type TelegramWebApp = {
   ready: () => void;
   expand?: () => void;
   requestFullscreen?: () => void;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  disableVerticalSwipes?: () => void;
+  isFullscreen?: boolean;
   initData?: string;
 };
 
@@ -24,7 +28,15 @@ export const initTelegram = () => {
   try {
     tg.ready();
     tg.expand?.();
+
+    // Настройки для полноэкранного режима
+    tg.setHeaderColor?.("#0d0f1a");
+    tg.setBackgroundColor?.("#0d0f1a");
+    tg.disableVerticalSwipes?.();
+
+    // Запрос полноэкранного режима (Bot API 8.0+)
     tg.requestFullscreen?.();
+
     // TODO: validate tg.initData on backend for production security.
   } catch (err) {
     console.warn("Telegram init failed", err);
