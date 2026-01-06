@@ -135,14 +135,13 @@ export const getUILayout = () => {
   // 3. HP бар игрока (над MP)
   const playerHpBarY = playerMpBarY - playerBarHeight - 6;
 
-  // 4. Аватар игрока - только для HP и MP баров (не включая скиллы)
-  const avatarWidth = 50;
-  const avatarHeight = (playerMpBarY + playerBarHeight) - playerHpBarY + 8; // только HP + MP
-  const avatarX = screenPadding + avatarWidth / 2;
-  const avatarY = playerHpBarY + avatarHeight / 2;
+  // 4. Аватар игрока - квадрат рядом с HP/MP барами
+  const avatarSize = 50;
+  const avatarX = screenPadding + avatarSize / 2;
+  const avatarY = (playerHpBarY + playerMpBarY + playerBarHeight) / 2; // между HP и MP
 
   // HP/MP бары начинаются после аватара
-  const playerBarsX = avatarX + avatarWidth / 2 + 8;
+  const playerBarsX = avatarX + avatarSize / 2 + 8;
   const playerBarWidth = GAME_WIDTH - playerBarsX - screenPadding;
 
   // 5. Match-3 поле (над нижней панелью)
@@ -189,8 +188,7 @@ export const getUILayout = () => {
     // Игрок (снизу)
     avatarX,
     avatarY,
-    avatarWidth,
-    avatarHeight,
+    avatarSize,
     playerHpBarX: playerBarsX,
     playerHpBarY,
     playerMpBarY,
@@ -211,7 +209,6 @@ export const getUILayout = () => {
     bossImageSize: 0,
     bossY: bossImageCenterY,
     panelMargin: 16,
-    avatarSize: avatarWidth, // для совместимости
   };
 };
 
