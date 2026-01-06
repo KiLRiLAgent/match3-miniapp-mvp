@@ -1,42 +1,25 @@
 import { TileKind } from "../match3/types";
 import type { BaseTileKind } from "../match3/types";
 
-// Базовые размеры дизайна (для масштабирования)
-const BASE_WIDTH = 480;
-const BASE_HEIGHT = 800;
-
-// Динамические размеры экрана
-export let GAME_WIDTH = BASE_WIDTH;
-export let GAME_HEIGHT = BASE_HEIGHT;
-
-// Масштабный коэффициент
-export let SCALE = 1;
+// Динамические размеры экрана (устанавливаются в main.ts)
+export let GAME_WIDTH = 480;
+export let GAME_HEIGHT = 800;
 
 // Установка реального размера экрана
 export function setScreenSize(width: number, height: number) {
   GAME_WIDTH = width;
   GAME_HEIGHT = height;
-  // Масштабируем по ширине, чтобы игра помещалась
-  SCALE = width / BASE_WIDTH;
 }
 
-// Размер поля (8 ширина x 7 высота согласно прототипу)
+// Размер поля (8 ширина x 7 высота)
 export const BOARD_WIDTH = 8;
 export const BOARD_HEIGHT = 7;
-export const BASE_CELL_SIZE = 56;
-export const BASE_BOARD_PADDING = 12;
 
-// Динамические размеры (пересчитываются)
-export const getCellSize = () => Math.floor(BASE_CELL_SIZE * SCALE);
-export const getBoardPadding = () => Math.floor(BASE_BOARD_PADDING * SCALE);
-
-// Для обратной совместимости (статические значения, обновляются в GameScene)
-export let CELL_SIZE = BASE_CELL_SIZE;
-export let BOARD_PADDING = BASE_BOARD_PADDING;
+// Фиксированные размеры элементов (не масштабируются!)
+export const CELL_SIZE = 46; // Размер ячейки
+export const BOARD_PADDING = 8;
 
 export function updateScaledValues() {
-  CELL_SIZE = getCellSize();
-  BOARD_PADDING = getBoardPadding();
   UI_LAYOUT = getUILayout();
 }
 
@@ -121,37 +104,99 @@ export const MATCH_GAINS = {
 export const POWER_STRIKE_COST = 50;
 export const POWER_STRIKE_MULTIPLIER = 10;
 
-// UI Layout - динамические значения с учётом масштаба
+// UI Layout - строится СНИЗУ ВВЕРХ с фиксированными размерами
 export const getUILayout = () => {
-  const s = SCALE;
-  const boardHeight = BOARD_HEIGHT * getCellSize();
+  const boardWidth = BOARD_WIDTH * CELL_SIZE;
+  const boardHeight = BOARD_HEIGHT * CELL_SIZE;
 
-  // Вычисляем позицию доски так, чтобы она была по центру с отступами
-  const bottomPanelHeight = Math.floor(90 * s);
-  const topSpace = Math.floor(50 * s); // Отступ сверху для HP бара
-  const availableHeight = GAME_HEIGHT - bottomPanelHeight - topSpace;
-  const boardOriginY = topSpace + Math.floor((availableHeight - boardHeight) / 2);
+  // === СНИЗУ ВВЕРХ ===
+
+  // 1. Кнопки скиллов (самый низ)
+  const skillButtonSize = 56;
+  const skillButtonSpacing = 12;
+  const skillButtonsY = GAME_HEIGHT - 40; // Центр кнопок от низа
+
+  // 2. HP/MP бары игрока (над кнопками)
+  const playerBarHeight = 14;
+  const playerBarWidth = 140;
+  const playerBarsBottomY = skillButtonsY - skillButtonSize / 2 - 12;
+  const playerMpBarY = playerBarsBottomY - playerBarHeight;
+  const playerHpBarY = playerMpBarY - playerBarHeight - 6;
+
+  // 3. Аватар игрока (слева от баров)
+  const avatarSize = 50;
+  const avatarY = (playerHpBarY + playerMpBarY + playerBarHeight) / 2;
+
+  // 4. Match-3 поле (над нижней панелью)
+  const boardBottomY = playerHpBarY - 20;
+  const boardOriginY = boardBottomY - boardHeight;
+  const boardOriginX = (GAME_WIDTH - boardWidth) / 2;
+
+  // 5. HP бар босса (над полем)
+  const hpBarWidth = boardWidth;
+  const hpBarHeight = 18;
+  const bossHpBarY = boardOriginY - 8 - hpBarHeight;
+
+  // 6. Название босса (над HP баром)
+  const bossNameY = bossHpBarY - 22;
+
+  // 7. Иконка кулдауна (справа от HP бара)
+  const cooldownIconSize = 40;
+
+  // === СВЕРХУ (растягивается) ===
+  // Изображение босса занимает всё пространство от верха до HP бара
+  const bossImageTopY = 0;
+  const bossImageBottomY = bossNameY - 8;
+  const bossImageHeight = bossImageBottomY - bossImageTopY;
+  const bossImageCenterY = bossImageTopY + bossImageHeight / 2;
 
   return {
-    topPanelY: Math.floor(90 * s),
-    topPanelHeight: Math.floor(150 * s),
-    bottomPanelY: Math.floor(95 * s),
-    bottomPanelHeight: bottomPanelHeight,
-    bossImageSize: Math.floor(353 * s),
-    boardOriginY: boardOriginY,
-    skillButtonSize: Math.floor(70 * s),
-    skillButtonSpacing: Math.floor(8 * s),
-    panelMargin: Math.floor(32 * s),
-    hpBarWidth: Math.floor(300 * s),
-    hpBarHeight: Math.floor(16 * s),
-    playerBarWidth: Math.floor(170 * s),
-    playerBarHeight: Math.floor(12 * s),
-    avatarSize: Math.floor(44 * s),
-    bossY: boardOriginY + Math.floor(boardHeight / 2), // Центр доски
+    // Размеры доски
+    boardOriginX,
+    boardOriginY,
+    boardWidth,
+    boardHeight,
+
+    // Босс (изображение растягивается!)
+    bossImageCenterY,
+    bossImageHeight,
+    bossNameY,
+    bossHpBarY,
+    bossHpBarX: boardOriginX,
+    hpBarWidth,
+    hpBarHeight,
+    cooldownIconSize,
+    cooldownIconX: boardOriginX + boardWidth + 8,
+    cooldownIconY: bossHpBarY + hpBarHeight / 2,
+
+    // Игрок (снизу)
+    avatarX: 35,
+    avatarY,
+    avatarSize,
+    playerHpBarX: 70,
+    playerHpBarY,
+    playerMpBarY,
+    playerBarWidth,
+    playerBarHeight,
+
+    // Кнопки скиллов
+    skillButtonsY,
+    skillButtonSize,
+    skillButtonSpacing,
+    skillButtonsStartX: GAME_WIDTH / 2 - (skillButtonSize * 2 + skillButtonSpacing * 1.5),
+
+    // Deprecated (для совместимости)
+    topPanelY: 0,
+    topPanelHeight: 0,
+    bottomPanelY: 0,
+    bottomPanelHeight: 0,
+    bossImageSize: 0,
+    bossY: bossImageCenterY,
+    panelMargin: 16,
   };
 };
 
-// Для обратной совместимости - обновляется при вызове updateScaledValues
+// Обновляется при вызове updateScaledValues
 export let UI_LAYOUT = getUILayout();
 
 // UI Colors - centralized color palette

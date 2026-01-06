@@ -79,9 +79,8 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor("#0d0f1a");
-    const boardWidth = BOARD_WIDTH * CELL_SIZE;
     this.boardOrigin = {
-      x: (GAME_WIDTH - boardWidth) / 2,
+      x: UI_LAYOUT.boardOriginX,
       y: UI_LAYOUT.boardOriginY,
     };
 
@@ -116,61 +115,66 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildHud() {
-    const { topPanelY, topPanelHeight, bottomPanelY, bottomPanelHeight, panelMargin, bossImageSize, bossY } = UI_LAYOUT;
-    const hpBarY = UI_LAYOUT.boardOriginY - 30;
+    const L = UI_LAYOUT;
 
-    // Top panel
-    this.add
-      .rectangle(GAME_WIDTH / 2, topPanelY, GAME_WIDTH - panelMargin, topPanelHeight, UI_COLORS.panelBg, 0.9)
-      .setStrokeStyle(2, 0xffffff, 0.1)
-      .setOrigin(0.5)
-      .setDepth(-1);
-
-    this.add
-      .text(20, 28, "Lv. 30", { fontSize: "20px", color: "#9fb7ff", fontFamily: "Arial, sans-serif" })
-      .setDepth(3);
+    // === ИЗОБРАЖЕНИЕ БОССА (сверху, растягивается) ===
+    // Изображение занимает всё пространство от верха до HP бара
+    const bossImageWidth = GAME_WIDTH;
 
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, bossY, ASSET_KEYS.boss.normal)
-      .setDisplaySize(bossImageSize, bossImageSize)
+      .image(GAME_WIDTH / 2, L.bossImageCenterY, ASSET_KEYS.boss.normal)
+      .setDisplaySize(bossImageWidth, L.bossImageHeight)
       .setOrigin(0.5)
       .setDepth(0);
 
+    // === НАЗВАНИЕ БОССА ===
+    this.add
+      .text(L.bossHpBarX, L.bossNameY, "Тёмная королева Ур.1", {
+        fontSize: "16px",
+        color: "#ffffff",
+        fontFamily: "Arial, sans-serif",
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(4);
+
+    // === HP БАР БОССА ===
     this.bossHpBar = new Meter(
-      this, GAME_WIDTH / 2 - UI_LAYOUT.hpBarWidth / 2, hpBarY,
-      UI_LAYOUT.hpBarWidth, UI_LAYOUT.hpBarHeight, "Boss HP", UI_COLORS.bossHp
+      this, L.bossHpBarX, L.bossHpBarY,
+      L.hpBarWidth, L.hpBarHeight, "", UI_COLORS.bossHp
     ).setDepth(4);
 
-    this.cooldownIcon = new CooldownIcon(this, GAME_WIDTH / 2 + 180, hpBarY + 8, 48);
+    // === ИКОНКА КУЛДАУНА ===
+    this.cooldownIcon = new CooldownIcon(this, L.cooldownIconX, L.cooldownIconY, L.cooldownIconSize);
     this.cooldownIcon.setDepth(4);
 
-    // Bottom panel
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - bottomPanelY, GAME_WIDTH - panelMargin, bottomPanelHeight, UI_COLORS.panelBgAlt, 0.92)
-      .setStrokeStyle(2, 0xffffff, 0.08)
-      .setOrigin(0.5)
-      .setDepth(1);
+    // === ИКОНКА ЩИТА ===
+    this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
+    this.shieldIcon.setDepth(4);
 
+    // === АВАТАР ИГРОКА (снизу слева) ===
     this.playerAvatar = this.add
-      .rectangle(45, GAME_HEIGHT - bottomPanelY, UI_LAYOUT.avatarSize, UI_LAYOUT.avatarSize, UI_COLORS.playerHp, 0.8)
+      .rectangle(L.avatarX, L.avatarY, L.avatarSize, L.avatarSize, UI_COLORS.playerHp, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.5)
       .setDepth(4);
 
+    // === HP БАР ИГРОКА ===
     this.playerHpBar = new Meter(
-      this, 80, GAME_HEIGHT - 110, UI_LAYOUT.playerBarWidth, UI_LAYOUT.playerBarHeight, "HP", UI_COLORS.playerHp
+      this, L.playerHpBarX, L.playerHpBarY,
+      L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp
     ).setDepth(4);
 
+    // === MANA БАР ИГРОКА ===
     this.manaBar = new Meter(
-      this, 80, GAME_HEIGHT - 82, UI_LAYOUT.playerBarWidth, UI_LAYOUT.playerBarHeight, "MP", UI_COLORS.playerMana
+      this, L.playerHpBarX, L.playerMpBarY,
+      L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerMana
     ).setDepth(4);
 
+    // Текст хода (скрыт, не нужен по референсу)
     this.turnText = this.add
-      .text(GAME_WIDTH - panelMargin, 26, "Ваш ход", { fontSize: "18px", color: "#ffffff", fontFamily: "Arial, sans-serif" })
-      .setOrigin(1, 0)
-      .setDepth(4);
-
-    this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, hpBarY - 35, 48);
-    this.shieldIcon.setDepth(4);
+      .text(GAME_WIDTH - 16, L.bossNameY, "", { fontSize: "14px", color: "#ffffff", fontFamily: "Arial, sans-serif" })
+      .setOrigin(1, 0.5)
+      .setDepth(4)
+      .setVisible(false);
   }
 
   private buildBoard() {
@@ -200,25 +204,27 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildSkills() {
-    const btnSize = 70;
-    const spacing = 8;
+    const L = UI_LAYOUT;
+    const btnSize = L.skillButtonSize;
+    const spacing = L.skillButtonSpacing;
     const totalWidth = btnSize * 4 + spacing * 3;
-    const startX = GAME_WIDTH / 2 - totalWidth / 2;
-    const y = GAME_HEIGHT - 45;
+    const startX = (GAME_WIDTH - totalWidth) / 2;
+    const y = L.skillButtonsY;
+
     const titles: [SkillId, string, string][] = [
-      ["skill1", "Attack", `${SKILL_CONFIG.skill1.cost} MP`],
-      ["skill2", "Blast", `${SKILL_CONFIG.skill2.cost} MP`],
-      ["skill3", "Heal", `${SKILL_CONFIG.skill3.cost} MP`],
-      ["skill4", "Ult", "Charge"],
+      ["skill1", "", `${SKILL_CONFIG.skill1.cost}`],
+      ["skill2", "", `${SKILL_CONFIG.skill2.cost}`],
+      ["skill3", "", `${SKILL_CONFIG.skill3.cost}`],
+      ["skill4", "", `${SKILL_CONFIG.skill4.cost}`],
     ];
 
     titles.forEach(([id, title, subtitle], idx) => {
       const btn = new SkillButton(
         this,
-        startX + idx * (btnSize + spacing),
+        startX + idx * (btnSize + spacing) + btnSize / 2,
         y,
         btnSize,
-        btnSize - 10,
+        btnSize,
         title,
         subtitle,
         () => this.activateSkill(id)
