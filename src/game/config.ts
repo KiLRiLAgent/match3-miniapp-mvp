@@ -111,42 +111,43 @@ export const getUILayout = () => {
 
   // === СНИЗУ ВВЕРХ ===
 
-  // 1. Кнопки скиллов (самый низ)
-  const skillButtonSize = 56;
-  const skillButtonSpacing = 12;
-  const skillButtonsY = GAME_HEIGHT - 40; // Центр кнопок от низа
+  // 1. Кнопки скиллов (самый низ, с отступом)
+  const skillButtonSize = 52;
+  const skillButtonSpacing = 10;
+  const bottomPadding = 16; // Отступ от низа экрана
+  const skillButtonsY = GAME_HEIGHT - bottomPadding - skillButtonSize / 2;
 
   // 2. HP/MP бары игрока (над кнопками)
-  const playerBarHeight = 14;
-  const playerBarWidth = 140;
-  const playerBarsBottomY = skillButtonsY - skillButtonSize / 2 - 12;
+  const playerBarHeight = 12;
+  const playerBarWidth = 130;
+  const playerBarsBottomY = skillButtonsY - skillButtonSize / 2 - 8;
   const playerMpBarY = playerBarsBottomY - playerBarHeight;
-  const playerHpBarY = playerMpBarY - playerBarHeight - 6;
+  const playerHpBarY = playerMpBarY - playerBarHeight - 4;
 
   // 3. Аватар игрока (слева от баров)
-  const avatarSize = 50;
+  const avatarSize = 44;
   const avatarY = (playerHpBarY + playerMpBarY + playerBarHeight) / 2;
 
   // 4. Match-3 поле (над нижней панелью)
-  const boardBottomY = playerHpBarY - 20;
+  const boardBottomY = playerHpBarY - 12;
   const boardOriginY = boardBottomY - boardHeight;
   const boardOriginX = (GAME_WIDTH - boardWidth) / 2;
 
   // 5. HP бар босса (над полем)
   const hpBarWidth = boardWidth;
-  const hpBarHeight = 18;
-  const bossHpBarY = boardOriginY - 8 - hpBarHeight;
+  const hpBarHeight = 16;
+  const bossHpBarY = boardOriginY - 6 - hpBarHeight;
 
   // 6. Название босса (над HP баром)
-  const bossNameY = bossHpBarY - 22;
+  const bossNameY = bossHpBarY - 18;
 
   // 7. Иконка кулдауна (справа от HP бара)
-  const cooldownIconSize = 40;
+  const cooldownIconSize = 36;
 
   // === СВЕРХУ (растягивается) ===
   // Изображение босса занимает всё пространство от верха до HP бара
   const bossImageTopY = 0;
-  const bossImageBottomY = bossNameY - 8;
+  const bossImageBottomY = bossNameY - 6;
   const bossImageHeight = bossImageBottomY - bossImageTopY;
   const bossImageCenterY = bossImageTopY + bossImageHeight / 2;
 
