@@ -156,9 +156,9 @@ export class GameScene extends Phaser.Scene {
     this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
     this.shieldIcon.setDepth(4);
 
-    // === АВАТАР ИГРОКА (снизу слева) ===
+    // === АВАТАР ИГРОКА (во всю высоту: HP + MP + скиллы) ===
     this.playerAvatar = this.add
-      .rectangle(L.avatarX, L.avatarY, L.avatarSize, L.avatarSize, UI_COLORS.playerHp, 0.9)
+      .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, UI_COLORS.playerHp, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.5)
       .setDepth(4);
 
@@ -212,26 +212,25 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const btnSize = L.skillButtonSize;
     const spacing = L.skillButtonSpacing;
-    const totalWidth = btnSize * 4 + spacing * 3;
-    const startX = (GAME_WIDTH - totalWidth) / 2;
+    const startX = L.skillButtonsStartX;
     const y = L.skillButtonsY;
 
-    const titles: [SkillId, string, string][] = [
-      ["skill1", "", `${SKILL_CONFIG.skill1.cost}`],
-      ["skill2", "", `${SKILL_CONFIG.skill2.cost}`],
-      ["skill3", "", `${SKILL_CONFIG.skill3.cost}`],
-      ["skill4", "", `${SKILL_CONFIG.skill4.cost}`],
+    // Эмодзи иконки для скиллов
+    const skillData: [SkillId, string, number][] = [
+      ["skill1", "💪", SKILL_CONFIG.skill1.cost],  // Power - сила
+      ["skill2", "💥", SKILL_CONFIG.skill2.cost],  // Blast - взрыв
+      ["skill3", "💚", SKILL_CONFIG.skill3.cost],  // Heal - лечение
+      ["skill4", "🌟", SKILL_CONFIG.skill4.cost],  // Ult - ульта
     ];
 
-    titles.forEach(([id, title, subtitle], idx) => {
+    skillData.forEach(([id, icon, cost], idx) => {
       const btn = new SkillButton(
         this,
-        startX + idx * (btnSize + spacing) + btnSize / 2,
+        startX + idx * (btnSize + spacing),
         y,
         btnSize,
-        btnSize,
-        title,
-        subtitle,
+        icon,
+        cost,
         () => this.activateSkill(id)
       );
       btn.setDepth(2);

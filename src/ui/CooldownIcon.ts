@@ -16,7 +16,7 @@ const ABILITY_ICONS: Record<BossAbilityType, string> = {
 };
 
 export class CooldownIcon extends Phaser.GameObjects.Container {
-  private bg: Phaser.GameObjects.Rectangle;
+  private bg: Phaser.GameObjects.Arc;
   private iconText: Phaser.GameObjects.Text;
   private cooldownText: Phaser.GameObjects.Text;
   private isPulsing = false;
@@ -24,9 +24,9 @@ export class CooldownIcon extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, size = 48) {
     super(scene, x, y);
 
+    // Круглый фон
     this.bg = scene.add
-      .rectangle(0, 0, size, size, COLORS.bgIdle, 0.9)
-      .setOrigin(0.5)
+      .circle(0, 0, size / 2, COLORS.bgIdle, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.6);
 
     this.iconText = scene.add
