@@ -1,6 +1,7 @@
 export type TelegramWebApp = {
   ready: () => void;
   expand?: () => void;
+  requestFullscreen?: () => void;
   initData?: string;
 };
 
@@ -23,6 +24,7 @@ export const initTelegram = () => {
   try {
     tg.ready();
     tg.expand?.();
+    tg.requestFullscreen?.();
     // TODO: validate tg.initData on backend for production security.
   } catch (err) {
     console.warn("Telegram init failed", err);
