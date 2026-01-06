@@ -12,10 +12,16 @@ export let GAME_HEIGHT = BASE_HEIGHT;
 // Масштабный коэффициент
 export let SCALE = 1;
 
-// Установка реального размера экрана
-export function setScreenSize(width: number, height: number) {
+// Safe area insets (для iPhone notch, home indicator и т.д.)
+export let SAFE_TOP = 0;
+export let SAFE_BOTTOM = 0;
+
+// Установка реального размера экрана с учётом safe areas
+export function setScreenSize(width: number, height: number, safeTop = 0, safeBottom = 0) {
   GAME_WIDTH = width;
   GAME_HEIGHT = height;
+  SAFE_TOP = safeTop;
+  SAFE_BOTTOM = safeBottom;
   // Масштабируем по ширине, чтобы игра помещалась
   SCALE = width / BASE_WIDTH;
 }
@@ -121,21 +127,24 @@ export const MATCH_GAINS = {
 export const POWER_STRIKE_COST = 50;
 export const POWER_STRIKE_MULTIPLIER = 10;
 
-// UI Layout - динамические значения с учётом масштаба
+// UI Layout - динамические значения с учётом масштаба и safe areas
 export const getUILayout = () => {
   const s = SCALE;
   const boardHeight = BOARD_HEIGHT * getCellSize();
 
-  // Вычисляем позицию доски так, чтобы она была по центру с отступами
+  // Учитываем safe areas (iPhone notch сверху, home indicator снизу)
+  const topSpace = Math.floor(50 * s) + SAFE_TOP;
   const bottomPanelHeight = Math.floor(90 * s);
-  const topSpace = Math.floor(50 * s); // Отступ сверху для HP бара
-  const availableHeight = GAME_HEIGHT - bottomPanelHeight - topSpace;
+  const bottomSpace = bottomPanelHeight + SAFE_BOTTOM;
+
+  // Вычисляем позицию доски так, чтобы она была по центру с отступами
+  const availableHeight = GAME_HEIGHT - bottomSpace - topSpace;
   const boardOriginY = topSpace + Math.floor((availableHeight - boardHeight) / 2);
 
   return {
     topPanelY: Math.floor(90 * s),
     topPanelHeight: Math.floor(150 * s),
-    bottomPanelY: Math.floor(95 * s),
+    bottomPanelY: Math.floor(95 * s) + SAFE_BOTTOM, // Учитываем safe area снизу
     bottomPanelHeight: bottomPanelHeight,
     bossImageSize: Math.floor(353 * s),
     boardOriginY: boardOriginY,
@@ -148,6 +157,8 @@ export const getUILayout = () => {
     playerBarHeight: Math.floor(12 * s),
     avatarSize: Math.floor(44 * s),
     bossY: boardOriginY + Math.floor(boardHeight / 2), // Центр доски
+    safeTop: SAFE_TOP,
+    safeBottom: SAFE_BOTTOM,
   };
 };
 
