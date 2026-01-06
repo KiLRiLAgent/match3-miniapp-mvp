@@ -3,15 +3,17 @@ import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
 import { setScreenSize, updateScaledValues } from "./game/config";
-import { initTelegram } from "./telegram/telegram";
+import { initTelegram, getSafeAreaInsets } from "./telegram/telegram";
 
 // Инициализация Telegram WebApp до создания игры (fullscreen mode)
 initTelegram();
 
-// Определяем реальный размер экрана и обновляем масштаб
+// Определяем реальный размер экрана и safe areas
 const screenWidth = window.innerWidth;
 const screenHeight = window.innerHeight;
-setScreenSize(screenWidth, screenHeight);
+const safeArea = getSafeAreaInsets();
+
+setScreenSize(screenWidth, screenHeight, safeArea);
 updateScaledValues();
 
 const config: Phaser.Types.Core.GameConfig = {
