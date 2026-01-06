@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { createPulseAnimation } from "../utils/helpers";
+import { createPulseController } from "../utils/helpers";
 import type { BossAbilityType } from "../game/config";
 
 const COLORS = {
@@ -19,7 +19,7 @@ export class CooldownIcon extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Arc;
   private iconText: Phaser.GameObjects.Text;
   private cooldownText: Phaser.GameObjects.Text;
-  private isPulsing = false;
+  private pulse: () => void;
 
   constructor(scene: Phaser.Scene, x: number, y: number, size = 48) {
     super(scene, x, y);
@@ -46,6 +46,8 @@ export class CooldownIcon extends Phaser.GameObjects.Container {
 
     this.add([this.bg, this.iconText, this.cooldownText]);
     scene.add.existing(this);
+
+    this.pulse = createPulseController(scene, this);
   }
 
   setCooldown(value: number): void {
@@ -59,11 +61,5 @@ export class CooldownIcon extends Phaser.GameObjects.Container {
   setAbility(type: BossAbilityType, cooldown: number): void {
     this.iconText.setText(ABILITY_ICONS[type] || "\u2694");
     this.setCooldown(cooldown);
-  }
-
-  private pulse(): void {
-    if (this.isPulsing) return;
-    this.isPulsing = true;
-    createPulseAnimation(this.scene, this).then(() => (this.isPulsing = false));
   }
 }

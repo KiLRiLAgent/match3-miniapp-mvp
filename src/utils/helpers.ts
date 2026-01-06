@@ -10,7 +10,6 @@ export const wait = (scene: Phaser.Scene, ms: number): Promise<void> =>
 
 /**
  * Creates a pulse animation on a game object.
- * Returns a function to check/set isPulsing state for reuse prevention.
  */
 export function createPulseAnimation(
   scene: Phaser.Scene,
@@ -28,4 +27,24 @@ export function createPulseAnimation(
       onComplete: () => resolve(),
     });
   });
+}
+
+/**
+ * Creates a guarded pulse controller that prevents overlapping pulses.
+ * Returns a function that triggers the pulse animation only if not already pulsing.
+ */
+export function createPulseController(
+  scene: Phaser.Scene,
+  target: Phaser.GameObjects.GameObject,
+  scale = 1.15,
+  duration = 200
+): () => void {
+  let isPulsing = false;
+  return () => {
+    if (isPulsing) return;
+    isPulsing = true;
+    createPulseAnimation(scene, target, scale, duration).then(() => {
+      isPulsing = false;
+    });
+  };
 }

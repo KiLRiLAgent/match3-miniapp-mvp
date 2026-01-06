@@ -389,35 +389,7 @@ export class Match3Board {
       this.grid[pos.y][pos.x] = null;
     });
 
-    const moves: CollapseMove[] = [];
-    const newTiles: NewTile[] = [];
-
-    for (let x = 0; x < this.width; x++) {
-      let pointer = this.height - 1;
-      for (let y = this.height - 1; y >= 0; y--) {
-        const tile = this.grid[y][x];
-        if (tile) {
-          this.grid[pointer][x] = tile;
-          if (pointer !== y) {
-            moves.push({
-              tile,
-              from: { x, y },
-              to: { x, y: pointer },
-            });
-            this.grid[y][x] = null;
-          }
-          pointer--;
-        }
-      }
-
-      for (let fillY = pointer; fillY >= 0; fillY--) {
-        const tile = this.createTile(this.randomBase());
-        this.grid[fillY][x] = tile;
-        newTiles.push({ tile, pos: { x, y: fillY } });
-      }
-    }
-
-    return { moves, newTiles };
+    return this.collapseGrid();
   }
 
   /** Collapse grid after removing tiles (e.g. exploded bombs) - tiles fall down, new tiles spawn */
@@ -447,52 +419,6 @@ export class Match3Board {
     }
 
     return { moves, newTiles };
-  }
-
-  activateSpecial(pos: Position): ClearOutcome {
-    const tile = this.getTile(pos);
-    if (!tile || !this.isSpecial(tile.kind)) {
-      return { cleared: [], transforms: [], counts: baseCountTemplate() };
-    }
-
-    const clearSet = new Set<string>();
-    this.blastArea(pos, tile.kind).forEach((p) => clearSet.add(this.key(p)));
-
-    const { cleared, counts } = this.buildClearOutcome(clearSet);
-    return { cleared, transforms: [], counts };
-  }
-
-  clearPositions(positions: Position[]): ClearOutcome {
-    const clearSet = new Set<string>();
-    positions.forEach((pos) => {
-      if (this.inBounds(pos)) {
-        clearSet.add(this.key(pos));
-      }
-    });
-
-    // Expand to include triggered specials
-    const queue = Array.from(clearSet);
-    const visited = new Set<string>();
-    while (queue.length) {
-      const key = queue.pop();
-      if (!key || visited.has(key)) continue;
-      visited.add(key);
-
-      const pos = this.fromKey(key);
-      const tile = this.getTile(pos);
-      if (tile && this.isSpecial(tile.kind)) {
-        this.blastArea(pos, tile.kind).forEach((p) => {
-          const k = this.key(p);
-          if (!visited.has(k)) {
-            clearSet.add(k);
-            queue.push(k);
-          }
-        });
-      }
-    }
-
-    const { cleared, counts } = this.buildClearOutcome(clearSet);
-    return { cleared, transforms: [], counts };
   }
 
   blastArea(pos: Position, kind: TileKind): Position[] {
@@ -546,15 +472,6 @@ export class Match3Board {
         if (tile) fn({ x, y }, tile);
       }
     }
-  }
-
-  /** Collects tiles matching a predicate */
-  private collectTiles(predicate: (tile: Tile) => boolean): Array<{ pos: Position; tile: Tile }> {
-    const result: Array<{ pos: Position; tile: Tile }> = [];
-    this.forEachTile((pos, tile) => {
-      if (predicate(tile)) result.push({ pos, tile });
-    });
-    return result;
   }
 
   // === Bomb methods ===
@@ -639,9 +556,5 @@ export class Match3Board {
     }
 
     return bombsToRemove;
-  }
-
-  getAllBombs(): Array<{ pos: Position; tile: Tile }> {
-    return this.collectTiles((tile) => this.isBomb(tile.kind));
   }
 }
