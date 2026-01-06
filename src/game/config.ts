@@ -156,7 +156,7 @@ export const getUILayout = () => {
   const cooldownIconSize = 40;
   const hpBarWidth = boardWidth - cooldownIconSize - 8;
   const hpBarHeight = 16;
-  const bossHpBarY = boardOriginY - 6 - hpBarHeight - 50; // -50 поднимаем выше
+  const bossHpBarY = boardOriginY - 6 - hpBarHeight + 50; // +50 опускаем вниз
   const cooldownIconX = boardOriginX + hpBarWidth + 4 + cooldownIconSize / 2;
 
   // 7. Название босса (над HP баром)
@@ -164,7 +164,7 @@ export const getUILayout = () => {
 
   // === СВЕРХУ (растягивается) ===
   // Изображение босса занимает пространство от верха (с отступом для шторки) до HP бара
-  const bossImageTopY = 340; // Отступ сверху (+200 опускаем всё вниз)
+  const bossImageTopY = 140; // Отступ сверху (поднимаем всё на 200)
   const bossImageBottomY = bossNameY - 6;
   const bossImageHeight = bossImageBottomY - bossImageTopY;
   const bossImageCenterY = bossImageTopY + bossImageHeight / 2;
@@ -200,7 +200,7 @@ export const getUILayout = () => {
     playerBarHeight,
 
     // Кнопки скиллов (после аватара)
-    skillButtonsY: skillButtonsY + 40, // +40 опускаем вниз
+    skillButtonsY: skillButtonsY - 10, // поднимаем на 50 (было +40, стало -10)
     skillButtonSize,
     skillButtonSpacing,
     skillButtonsStartX: playerBarsX + 50, // +50 сдвигаем вправо
