@@ -117,11 +117,11 @@ export class GameScene extends Phaser.Scene {
   private buildHud() {
     const L = UI_LAYOUT;
 
-    // === ИЗОБРАЖЕНИЕ БОССА (сверху, сохраняем пропорции) ===
-    // Используем "cover" подход - заполняем область сохраняя пропорции
+    // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
+    // Используем "cover" подход, но выравниваем по верху чтобы голова была видна
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, L.bossImageCenterY, ASSET_KEYS.boss.normal)
-      .setOrigin(0.5)
+      .image(GAME_WIDTH / 2, 50, ASSET_KEYS.boss.normal) // +50 отступ от верха для шторки
+      .setOrigin(0.5, 0) // выравнивание по верху
       .setDepth(0);
 
     // Масштабируем сохраняя пропорции (cover)
@@ -156,9 +156,9 @@ export class GameScene extends Phaser.Scene {
     this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
     this.shieldIcon.setDepth(4);
 
-    // === АВАТАР ИГРОКА (во всю высоту: HP + MP + скиллы) ===
+    // === АВАТАР ИГРОКА (квадрат) ===
     this.playerAvatar = this.add
-      .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, UI_COLORS.playerHp, 0.9)
+      .rectangle(L.avatarX, L.avatarY, L.avatarSize, L.avatarSize, UI_COLORS.playerHp, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.5)
       .setDepth(4);
 
