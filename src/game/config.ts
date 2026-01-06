@@ -1,14 +1,44 @@
 import { TileKind } from "../match3/types";
 import type { BaseTileKind } from "../match3/types";
 
+// Базовые размеры дизайна (для масштабирования)
+const BASE_WIDTH = 480;
+const BASE_HEIGHT = 800;
+
+// Динамические размеры экрана
+export let GAME_WIDTH = BASE_WIDTH;
+export let GAME_HEIGHT = BASE_HEIGHT;
+
+// Масштабный коэффициент
+export let SCALE = 1;
+
+// Установка реального размера экрана
+export function setScreenSize(width: number, height: number) {
+  GAME_WIDTH = width;
+  GAME_HEIGHT = height;
+  // Масштабируем по ширине, чтобы игра помещалась
+  SCALE = width / BASE_WIDTH;
+}
+
 // Размер поля (8 ширина x 7 высота согласно прототипу)
 export const BOARD_WIDTH = 8;
 export const BOARD_HEIGHT = 7;
-export const CELL_SIZE = 56;
-export const BOARD_PADDING = 12;
+export const BASE_CELL_SIZE = 56;
+export const BASE_BOARD_PADDING = 12;
 
-export const GAME_WIDTH = 480;
-export const GAME_HEIGHT = 800;
+// Динамические размеры (пересчитываются)
+export const getCellSize = () => Math.floor(BASE_CELL_SIZE * SCALE);
+export const getBoardPadding = () => Math.floor(BASE_BOARD_PADDING * SCALE);
+
+// Для обратной совместимости (статические значения, обновляются в GameScene)
+export let CELL_SIZE = BASE_CELL_SIZE;
+export let BOARD_PADDING = BASE_BOARD_PADDING;
+
+export function updateScaledValues() {
+  CELL_SIZE = getCellSize();
+  BOARD_PADDING = getBoardPadding();
+  UI_LAYOUT = getUILayout();
+}
 
 // Параметры игрока
 export const PLAYER_HP_MAX = 200;
@@ -91,24 +121,38 @@ export const MATCH_GAINS = {
 export const POWER_STRIKE_COST = 50;
 export const POWER_STRIKE_MULTIPLIER = 10;
 
-// UI Layout constants
-export const UI_LAYOUT = {
-  topPanelY: 90,
-  topPanelHeight: 150,
-  bottomPanelY: 95, // from bottom
-  bottomPanelHeight: 70,
-  bossImageSize: 353,
-  boardOriginY: 220,
-  skillButtonSize: 70,
-  skillButtonSpacing: 8,
-  panelMargin: 32,
-  hpBarWidth: 300,
-  hpBarHeight: 16,
-  playerBarWidth: 170,
-  playerBarHeight: 12,
-  avatarSize: 44,
-  bossY: 150,
-} as const;
+// UI Layout - динамические значения с учётом масштаба
+export const getUILayout = () => {
+  const s = SCALE;
+  const boardHeight = BOARD_HEIGHT * getCellSize();
+
+  // Вычисляем позицию доски так, чтобы она была по центру с отступами
+  const bottomPanelHeight = Math.floor(90 * s);
+  const topSpace = Math.floor(50 * s); // Отступ сверху для HP бара
+  const availableHeight = GAME_HEIGHT - bottomPanelHeight - topSpace;
+  const boardOriginY = topSpace + Math.floor((availableHeight - boardHeight) / 2);
+
+  return {
+    topPanelY: Math.floor(90 * s),
+    topPanelHeight: Math.floor(150 * s),
+    bottomPanelY: Math.floor(95 * s),
+    bottomPanelHeight: bottomPanelHeight,
+    bossImageSize: Math.floor(353 * s),
+    boardOriginY: boardOriginY,
+    skillButtonSize: Math.floor(70 * s),
+    skillButtonSpacing: Math.floor(8 * s),
+    panelMargin: Math.floor(32 * s),
+    hpBarWidth: Math.floor(300 * s),
+    hpBarHeight: Math.floor(16 * s),
+    playerBarWidth: Math.floor(170 * s),
+    playerBarHeight: Math.floor(12 * s),
+    avatarSize: Math.floor(44 * s),
+    bossY: boardOriginY + Math.floor(boardHeight / 2), // Центр доски
+  };
+};
+
+// Для обратной совместимости - обновляется при вызове updateScaledValues
+export let UI_LAYOUT = getUILayout();
 
 // UI Colors - centralized color palette
 export const UI_COLORS = {
