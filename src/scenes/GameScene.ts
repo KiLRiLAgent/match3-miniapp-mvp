@@ -156,9 +156,9 @@ export class GameScene extends Phaser.Scene {
     this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
     this.shieldIcon.setDepth(4);
 
-    // === АВАТАР ИГРОКА (квадрат) ===
+    // === АВАТАР ИГРОКА (вертикальный прямоугольник от HP до низа скиллов) ===
     this.playerAvatar = this.add
-      .rectangle(L.avatarX, L.avatarY, L.avatarSize, L.avatarSize, UI_COLORS.playerHp, 0.9)
+      .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, UI_COLORS.playerHp, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.5)
       .setDepth(4);
 
