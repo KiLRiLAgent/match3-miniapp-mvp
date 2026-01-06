@@ -120,7 +120,7 @@ export class GameScene extends Phaser.Scene {
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
     // Выравниваем по верху изображения, чтобы голова была видна
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, -50, ASSET_KEYS.boss.normal) // выше верхней границы
+      .image(GAME_WIDTH / 2, 0, ASSET_KEYS.boss.normal) // верхняя граница экрана
       .setOrigin(0.5, 0) // выравнивание по верху изображения
       .setDepth(0);
 
