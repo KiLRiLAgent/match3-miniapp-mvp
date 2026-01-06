@@ -118,10 +118,10 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
 
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
-    // Используем "cover" подход, но выравниваем по верху чтобы голова была видна
+    // Выравниваем по верху изображения, чтобы голова была видна
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, 50, ASSET_KEYS.boss.normal) // +50 отступ от верха для шторки
-      .setOrigin(0.5, 0) // выравнивание по верху
+      .image(GAME_WIDTH / 2, -50, ASSET_KEYS.boss.normal) // выше верхней границы
+      .setOrigin(0.5, 0) // выравнивание по верху изображения
       .setDepth(0);
 
     // Масштабируем сохраняя пропорции (cover)
