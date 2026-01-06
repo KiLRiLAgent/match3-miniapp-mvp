@@ -16,6 +16,7 @@ import {
   SKILL_CONFIG,
   DAMAGE_PER_TILE,
   UI_LAYOUT,
+  UI_COLORS,
   INPUT_THRESHOLD,
   DAMAGE_TILES,
   RESOURCE_TILES,
@@ -33,7 +34,9 @@ import { Meter } from "../ui/Meter";
 import { SkillButton } from "../ui/SkillButton";
 import { CooldownIcon } from "../ui/CooldownIcon";
 import { showDamageNumber } from "../ui/DamageNumber";
-import { BossAbility } from "../game/BossAbility";
+import { BossAbilityManager } from "../game/BossAbility";
+import { BOSS_ABILITIES } from "../game/config";
+import { ShieldIcon } from "../ui/ShieldIcon";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
 import { initTelegram } from "../telegram/telegram";
@@ -58,9 +61,13 @@ export class GameScene extends Phaser.Scene {
   private manaBar?: Meter;
   private skillButtons: Partial<Record<SkillId, SkillButton>> = {};
 
-  private bossAbility!: BossAbility;
+  private bossAbilityManager!: BossAbilityManager;
   private cooldownIcon?: CooldownIcon;
+  private shieldIcon?: ShieldIcon;
   private playerAvatar?: Phaser.GameObjects.Rectangle;
+
+  private bossShieldDuration = 0;
+  private bombCooldownTexts = new Map<number, Phaser.GameObjects.Text>();
 
   private boardOrigin = { x: 0, y: 0 };
   private currentTurn: "player" | "boss" = "player";
@@ -95,112 +102,77 @@ export class GameScene extends Phaser.Scene {
     this.currentTurn = "player";
     this.gameOver = false;
     this.busy = false;
+    this.bossShieldDuration = 0;
     this.board = new Match3Board(BOARD_WIDTH, BOARD_HEIGHT);
-    this.bossAbility = BossAbility.createPowerStrike();
+    this.bossAbilityManager = new BossAbilityManager();
     this.tileSprites.clear();
     this.tilePositions.clear();
+    this.clearBombCooldownTexts();
     this.rebuildPositionMap();
+    this.shieldIcon?.hide();
+  }
+
+  private clearBombCooldownTexts() {
+    this.bombCooldownTexts.forEach(text => text.destroy());
+    this.bombCooldownTexts.clear();
   }
 
   private buildHud() {
-    const topPanel = this.add
-      .rectangle(
-        GAME_WIDTH / 2,
-        90,
-        GAME_WIDTH - 32,
-        150,
-        0x131a2d,
-        0.9
-      )
+    const { topPanelY, topPanelHeight, bottomPanelY, bottomPanelHeight, panelMargin, bossImageSize, bossY } = UI_LAYOUT;
+    const hpBarY = UI_LAYOUT.boardOriginY - 30;
+
+    // Top panel
+    this.add
+      .rectangle(GAME_WIDTH / 2, topPanelY, GAME_WIDTH - panelMargin, topPanelHeight, UI_COLORS.panelBg, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.1)
-      .setDepth(1);
-    topPanel.setOrigin(0.5, 0.5);
+      .setOrigin(0.5)
+      .setDepth(-1);
 
     this.add
-      .text(20, 28, "Lv. 30", {
-        fontSize: "20px",
-        color: "#9fb7ff",
-        fontFamily: "Arial, sans-serif",
-      })
+      .text(20, 28, "Lv. 30", { fontSize: "20px", color: "#9fb7ff", fontFamily: "Arial, sans-serif" })
       .setDepth(3);
-
-    const bossX = GAME_WIDTH / 2;
-    const bossY = 90;
 
     this.bossImage = this.add
-      .image(bossX, bossY, ASSET_KEYS.boss.normal)
-      .setDisplaySize(180, 180)
+      .image(GAME_WIDTH / 2, bossY, ASSET_KEYS.boss.normal)
+      .setDisplaySize(bossImageSize, bossImageSize)
       .setOrigin(0.5)
-      .setDepth(3);
+      .setDepth(0);
 
     this.bossHpBar = new Meter(
-      this,
-      GAME_WIDTH / 2 - 150,
-      bossY + 110,
-      300,
-      16,
-      "Boss HP",
-      0xde3e3e
+      this, GAME_WIDTH / 2 - UI_LAYOUT.hpBarWidth / 2, hpBarY,
+      UI_LAYOUT.hpBarWidth, UI_LAYOUT.hpBarHeight, "Boss HP", UI_COLORS.bossHp
     ).setDepth(4);
 
-    // Иконка кулдауна способности босса
-    this.cooldownIcon = new CooldownIcon(
-      this,
-      GAME_WIDTH / 2 + 180,
-      bossY + 110,
-      48
-    );
+    this.cooldownIcon = new CooldownIcon(this, GAME_WIDTH / 2 + 180, hpBarY + 8, 48);
     this.cooldownIcon.setDepth(4);
 
-    const bottomPanel = this.add
-      .rectangle(
-        GAME_WIDTH / 2,
-        GAME_HEIGHT - 95,
-        GAME_WIDTH - 32,
-        70,
-        0x111726,
-        0.92
-      )
+    // Bottom panel
+    this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - bottomPanelY, GAME_WIDTH - panelMargin, bottomPanelHeight, UI_COLORS.panelBgAlt, 0.92)
       .setStrokeStyle(2, 0xffffff, 0.08)
+      .setOrigin(0.5)
       .setDepth(1);
-    bottomPanel.setOrigin(0.5, 0.5);
 
-    // Аватар игрока слева
     this.playerAvatar = this.add
-      .rectangle(45, GAME_HEIGHT - 95, 44, 44, 0x4caf50, 0.8)
+      .rectangle(45, GAME_HEIGHT - bottomPanelY, UI_LAYOUT.avatarSize, UI_LAYOUT.avatarSize, UI_COLORS.playerHp, 0.8)
       .setStrokeStyle(2, 0xffffff, 0.5)
       .setDepth(4);
 
-    // HP бар справа от аватара (зелёный)
     this.playerHpBar = new Meter(
-      this,
-      80,
-      GAME_HEIGHT - 110,
-      170,
-      12,
-      "HP",
-      0x4caf50
+      this, 80, GAME_HEIGHT - 110, UI_LAYOUT.playerBarWidth, UI_LAYOUT.playerBarHeight, "HP", UI_COLORS.playerHp
     ).setDepth(4);
 
-    // Mana бар под HP (синий)
     this.manaBar = new Meter(
-      this,
-      80,
-      GAME_HEIGHT - 82,
-      170,
-      12,
-      "MP",
-      0x3b82f6
+      this, 80, GAME_HEIGHT - 82, UI_LAYOUT.playerBarWidth, UI_LAYOUT.playerBarHeight, "MP", UI_COLORS.playerMana
     ).setDepth(4);
 
     this.turnText = this.add
-      .text(GAME_WIDTH - 32, 26, "Ваш ход", {
-        fontSize: "18px",
-        color: "#ffffff",
-        fontFamily: "Arial, sans-serif",
-      })
+      .text(GAME_WIDTH - panelMargin, 26, "Ваш ход", { fontSize: "18px", color: "#ffffff", fontFamily: "Arial, sans-serif" })
       .setOrigin(1, 0)
       .setDepth(4);
+
+    this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, hpBarY - 35, 48);
+    this.shieldIcon.setDepth(4);
   }
 
   private buildBoard() {
@@ -217,7 +189,7 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0xffffff, 0.08);
-    bg.setDepth(0);
+    bg.setDepth(-1);
 
     for (let y = 0; y < BOARD_HEIGHT; y++) {
       for (let x = 0; x < BOARD_WIDTH; x++) {
@@ -363,6 +335,13 @@ export class GameScene extends Phaser.Scene {
       // Если игра закончилась - прекращаем цикл
       if (this.gameOver) break;
 
+      // Проверяем бомбы рядом с очищенными позициями
+      const clearedPositions = outcome.cleared.map(c => c.pos);
+      const adjacentBombs = this.board.getAdjacentBombs(clearedPositions);
+      if (adjacentBombs.length > 0) {
+        await this.defuseBombs(adjacentBombs);
+      }
+
       const collapse = this.board.applyClearOutcome(outcome);
       this.rebuildPositionMap();
       await this.animateCollapse(collapse);
@@ -399,6 +378,15 @@ export class GameScene extends Phaser.Scene {
 
   private applyDamageToBoss(damage: number) {
     if (damage <= 0) return;
+
+    // Проверка щита
+    if (this.bossShieldDuration > 0) {
+      if (this.bossImage) {
+        showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, 0, "shield");
+        this.shakeTarget(this.bossImage, VISUAL_EFFECTS.damageShakeOffset * 0.3);
+      }
+      return;
+    }
 
     this.bossHp = Math.max(0, this.bossHp - damage);
     if (this.bossImage) {
@@ -702,16 +690,14 @@ export class GameScene extends Phaser.Scene {
     this.manaBar?.setValue(this.mana, PLAYER_MANA_MAX);
     this.updateBossArt();
 
-    // Обновляем иконку кулдауна босса
-    this.cooldownIcon?.setCooldown(this.bossAbility.currentCooldown);
+    // Обновляем иконку кулдауна босса (показываем тип следующей атаки)
+    const abilityState = this.bossAbilityManager.state;
+    this.cooldownIcon?.setAbility(abilityState.type, abilityState.currentCooldown);
 
     if (this.turnText) {
-      this.turnText.setText(
-        this.currentTurn === "player" ? "Ваш ход" : "Ход босса"
-      );
-      this.turnText.setColor(
-        this.currentTurn === "player" ? "#9ef7a5" : "#ffb347"
-      );
+      const isPlayerTurn = this.currentTurn === "player";
+      this.turnText.setText(isPlayerTurn ? "Ваш ход" : "Ход босса");
+      this.turnText.setColor(isPlayerTurn ? UI_COLORS.playerTurnText : UI_COLORS.bossTurnText);
     }
 
     // Обновляем состояние всех 4 кнопок способностей
@@ -782,8 +768,18 @@ export class GameScene extends Phaser.Scene {
     this.checkGameOver();
     if (this.gameOver) return;
 
+    // Тикаем щит босса
+    if (this.bossShieldDuration > 0) {
+      this.bossShieldDuration--;
+      this.shieldIcon?.updateDuration(this.bossShieldDuration);
+    }
+
+    // Тикаем бомбы на поле
+    await this.processBombTick();
+    if (this.gameOver) return;
+
     // Тикаем кулдаун абилки босса
-    const abilityReady = this.bossAbility.tick();
+    const abilityReady = this.bossAbilityManager.tick();
     this.updateHud();
 
     if (abilityReady) {
@@ -793,7 +789,7 @@ export class GameScene extends Phaser.Scene {
       await wait(this, 200);
 
       await this.executeBossAbility();
-      this.bossAbility.reset();
+      this.bossAbilityManager.advance();
       this.updateHud();
 
       if (this.playerHp <= 0) {
@@ -809,23 +805,278 @@ export class GameScene extends Phaser.Scene {
     this.updateHud();
   }
 
+  private async processBombTick() {
+    const result = this.board.tickBombs();
+
+    this.updateBombCooldownTexts(result.remaining);
+
+    if (result.exploded.length > 0) {
+      await this.handleBombExplosions(result.exploded);
+    }
+  }
+
+  private updateBombCooldownTexts(remaining: Tile[]) {
+    remaining.forEach(tile => {
+      const text = this.bombCooldownTexts.get(tile.id);
+      if (text && tile.cooldown !== undefined) {
+        text.setText(tile.cooldown.toString());
+      }
+    });
+  }
+
+  private async handleBombExplosions(exploded: Array<{ pos: Position; tile: Tile }>) {
+    // Бомбы летят по одной с задержкой, каждая наносит урон отдельно
+    for (const { pos, tile } of exploded) {
+      await this.animateSingleBombExplode(tile);
+      this.removeBombSprite(tile.id);
+
+      // Урон от одной бомбы
+      this.applyDamageToPlayer(BOSS_ABILITIES.bombs.bombDamage);
+      this.updateHud();
+      this.checkGameOver();
+      if (this.gameOver) return;
+
+      this.board.removeTile(pos);
+      await wait(this, 150); // Пауза между бомбами
+    }
+
+    // Collapse после всех бомб
+    const collapse = this.board.collapseGrid();
+    this.rebuildPositionMap();
+    await this.animateCollapse(collapse);
+
+    // Проверяем матчи после collapse - это ход босса
+    const matches = this.board.findMatches();
+    if (matches.length > 0) {
+      await this.resolveBoard(matches, [], [], false, "boss");
+    }
+  }
+
+  private removeBombSprite(tileId: number, animated = false): Promise<void> {
+    const sprite = this.tileSprites.get(tileId);
+    const text = this.bombCooldownTexts.get(tileId);
+
+    if (!animated) {
+      sprite?.destroy();
+      this.tileSprites.delete(tileId);
+      text?.destroy();
+      this.bombCooldownTexts.delete(tileId);
+      return Promise.resolve();
+    }
+
+    const promises: Promise<void>[] = [];
+
+    if (sprite) {
+      promises.push(new Promise<void>(resolve => {
+        this.tweens.add({
+          targets: sprite,
+          scale: 1.5,
+          alpha: 0,
+          duration: 300,
+          ease: "Quad.easeOut",
+          onComplete: () => {
+            sprite.destroy();
+            this.tileSprites.delete(tileId);
+            resolve();
+          },
+        });
+      }));
+    }
+
+    if (text) {
+      this.tweens.add({
+        targets: text,
+        alpha: 0,
+        duration: 200,
+        onComplete: () => text.destroy(),
+      });
+      this.bombCooldownTexts.delete(tileId);
+    }
+
+    return Promise.all(promises).then(() => {});
+  }
+
   private async executeBossAbility() {
-    const damage = this.bossAbility.damage;
-    const { overlay, fullscreenBoss, abilityText } = this.createAbilityCutscene();
+    const abilityType = this.bossAbilityManager.currentType;
 
-    await this.showAbilityCutscene(overlay, fullscreenBoss, abilityText);
-    await wait(this, 600);
+    switch (abilityType) {
+      case "attack":
+        await this.executeAttack();
+        break;
+      case "bombs":
+        await this.executeBombs();
+        break;
+      case "shield":
+        await this.executeShield();
+        break;
+      case "powerStrike":
+        await this.executePowerStrike();
+        break;
+    }
+  }
 
-    this.cameras.main.shake(200, 0.01);
-    this.applyDamageToPlayer(damage);
+  private async executeAttack() {
+    const config = BOSS_ABILITIES.attack;
+    this.cameras.main.shake(200, 0.015);
+    this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
     this.updateHud();
+    await wait(this, 300);
+  }
 
+  private async withCutscene(abilityName: string, logic: () => Promise<void>) {
+    const { overlay, fullscreenBoss, abilityText } = this.createAbilityCutscene(abilityName);
+    await this.showAbilityCutscene(overlay, fullscreenBoss, abilityText);
+    await wait(this, 600);
+    await logic();
     await wait(this, 400);
     await this.hideAbilityCutscene(overlay, fullscreenBoss, abilityText);
   }
 
-  private createAbilityCutscene() {
+  private async executeBombs() {
+    const config = BOSS_ABILITIES.bombs;
+    await this.withCutscene(config.name, async () => {
+      const placedBombs = this.board.placeBombs(config.bombCount, config.bombCooldown);
+      this.rebuildPositionMap();
+      await this.animateBombsAppear(placedBombs);
+    });
+  }
+
+  private async executeShield() {
+    const config = BOSS_ABILITIES.shield;
+    await this.withCutscene(config.name, async () => {
+      this.bossShieldDuration = config.shieldDuration;
+      this.shieldIcon?.show(this.bossShieldDuration);
+      if (this.bossImage) {
+        showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, 0, "shield");
+      }
+    });
+  }
+
+  private async executePowerStrike() {
+    const config = BOSS_ABILITIES.powerStrike;
+    await this.withCutscene(config.name, async () => {
+      this.cameras.main.shake(300, 0.02);
+      this.applyDamageToPlayer(config.damage);
+      this.flashPlayerAvatar();
+
+      const manaDrain = Math.min(this.mana, config.manaDrain);
+      if (manaDrain > 0) {
+        this.mana -= manaDrain;
+        if (this.playerAvatar) {
+          showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 10, manaDrain, "mana_loss");
+        }
+      }
+      this.updateHud();
+    });
+  }
+
+  private async animateBombsAppear(bombs: Array<{ pos: Position; tile: Tile }>) {
+    const tweens: Promise<void>[] = [];
+
+    bombs.forEach(({ pos, tile }) => {
+      const worldPos = this.toWorld(pos);
+      const startY = this.boardOrigin.y - CELL_SIZE;
+
+      // Создаём спрайт бомбы
+      const sprite = this.spawnTileSprite(tile, pos, startY);
+      sprite.setPosition(worldPos.x, startY);
+
+      // Создаём текст кулдауна
+      const cooldownText = this.add.text(
+        worldPos.x + CELL_SIZE / 2 - 10,
+        worldPos.y + CELL_SIZE / 2 - 10,
+        tile.cooldown?.toString() ?? "",
+        {
+          fontSize: "16px",
+          fontFamily: "Arial, sans-serif",
+          color: "#ffffff",
+          fontStyle: "bold",
+          stroke: "#000000",
+          strokeThickness: 3,
+        }
+      ).setOrigin(0.5).setDepth(2);
+      this.bombCooldownTexts.set(tile.id, cooldownText);
+
+      // Анимация падения
+      tweens.push(
+        new Promise<void>(resolve => {
+          this.tweens.add({
+            targets: sprite,
+            y: worldPos.y,
+            duration: 400,
+            ease: "Bounce.easeOut",
+            onComplete: () => resolve(),
+          });
+          this.tweens.add({
+            targets: cooldownText,
+            y: worldPos.y + CELL_SIZE / 2 - 10,
+            duration: 400,
+            ease: "Bounce.easeOut",
+          });
+        })
+      );
+    });
+
+    await Promise.all(tweens);
+  }
+
+  private async animateSingleBombExplode(tile: Tile): Promise<void> {
+    const sprite = this.tileSprites.get(tile.id);
+    if (!sprite) return;
+
+    const playerTarget = this.playerAvatar
+      ? { x: this.playerAvatar.x, y: this.playerAvatar.y }
+      : { x: 45, y: GAME_HEIGHT - 95 };
+
+    return new Promise<void>(resolve => {
+      this.tweens.add({
+        targets: sprite,
+        x: playerTarget.x,
+        y: playerTarget.y,
+        scale: 0.5,
+        duration: 350,
+        ease: "Quad.easeIn",
+        onComplete: () => {
+          this.cameras.main.shake(120, 0.012);
+          this.flashPlayerAvatar();
+          resolve();
+        },
+      });
+    });
+  }
+
+  private async defuseBombs(bombPositions: Position[]) {
+    const tweens: Promise<void>[] = [];
+
+    bombPositions.forEach(pos => {
+      const tile = this.board.getTile(pos);
+      if (!tile) return;
+
+      this.board.removeTile(pos);
+      tweens.push(this.removeBombSprite(tile.id, true));
+      this.animateBombDefused(pos);
+    });
+
+    await Promise.all(tweens);
+  }
+
+  private animateBombDefused(pos: Position) {
+    const worldPos = this.toWorld(pos);
+    const flash = this.add.circle(worldPos.x, worldPos.y, CELL_SIZE / 2, UI_COLORS.defusedFlash, 0.8)
+      .setDepth(100);
+
+    this.tweens.add({
+      targets: flash,
+      scale: 1.5,
+      alpha: 0,
+      duration: ANIMATION_DURATIONS.abilityFadeOut,
+      ease: ANIMATION_EASING.fade,
+      onComplete: () => flash.destroy(),
+    });
+  }
+
+  private createAbilityCutscene(abilityName: string) {
     const overlay = this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0)
@@ -833,13 +1084,13 @@ export class GameScene extends Phaser.Scene {
 
     const fullscreenBoss = this.add
       .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, ASSET_KEYS.boss.ulta)
-      .setDisplaySize(300, 300)
+      .setDisplaySize(588, 588)
       .setOrigin(0.5)
       .setAlpha(0)
       .setDepth(501);
 
     const abilityText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, this.bossAbility.name, {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, abilityName, {
         fontSize: "32px",
         fontFamily: "Arial, sans-serif",
         color: "#ff4444",
@@ -901,10 +1152,9 @@ export class GameScene extends Phaser.Scene {
   private flashPlayerAvatar() {
     if (!this.playerAvatar) return;
 
-    const originalColor = 0x4caf50;
     this.playerAvatar.setFillStyle(0xffffff, 1);
     this.time.delayedCall(ANIMATION_DURATIONS.flashDuration, () => {
-      this.playerAvatar?.setFillStyle(originalColor, 0.8);
+      this.playerAvatar?.setFillStyle(UI_COLORS.playerHp, 0.8);
     });
   }
 

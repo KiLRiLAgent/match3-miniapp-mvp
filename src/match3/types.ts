@@ -6,6 +6,7 @@ export enum TileKind {
   BoosterRow = "boosterRow",
   BoosterCol = "boosterCol",
   Ultimate = "ultimate",
+  Bomb = "bomb",
 }
 
 export type BaseTileKind =
@@ -23,6 +24,7 @@ export type Tile = {
   id: number;
   kind: TileKind;
   base: BaseTileKind;
+  cooldown?: number;
 };
 
 export type MatchDirection = "row" | "col";

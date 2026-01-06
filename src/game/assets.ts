@@ -14,5 +14,6 @@ export const ASSET_KEYS = {
     [TileKind.BoosterRow]: "tile_booster_row",
     [TileKind.BoosterCol]: "tile_booster_col",
     [TileKind.Ultimate]: "tile_ultimate",
+    [TileKind.Bomb]: "tile_bomb",
   },
 };
