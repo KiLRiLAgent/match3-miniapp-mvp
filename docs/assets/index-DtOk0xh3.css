@@ -1,0 +1,1 @@
+*{box-sizing:border-box}html,body{margin:0;padding:0;width:100%;height:var(--tg-viewport-stable-height, 100vh);background:radial-gradient(circle at 20% 20%,#132033,#0b0d15);font-family:Arial,sans-serif;overflow:hidden;overscroll-behavior:none;touch-action:manipulation}#app{width:100%;height:100%;padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0)}
