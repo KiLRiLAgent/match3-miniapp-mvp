@@ -126,22 +126,26 @@ export const getUILayout = () => {
   // 1. Кнопки скиллов (круглые, самый низ)
   const skillButtonSize = 50;
   const skillButtonSpacing = 12;
-  const skillButtonsY = GAME_HEIGHT - bottomPadding - skillButtonSize / 2 - 14; // -14 для текста стоимости
+  const skillCostOffset = 18; // место для текста стоимости под кнопкой
+  const skillButtonsY = GAME_HEIGHT - bottomPadding - skillButtonSize / 2 - skillCostOffset;
 
-  // 2. MP бар игрока (сразу над скиллами)
+  // 2. MP бар игрока (над скиллами с отступом)
   const playerBarHeight = 14;
-  const playerMpBarY = skillButtonsY - skillButtonSize / 2 - 10;
+  const skillsTopY = skillButtonsY - skillButtonSize / 2; // верх кнопок скиллов
+  const playerMpBarY = skillsTopY - 16 - playerBarHeight; // 16px отступ между скиллами и MP баром
 
   // 3. HP бар игрока (над MP)
   const playerHpBarY = playerMpBarY - playerBarHeight - 6;
 
-  // 4. Аватар игрока - квадрат рядом с HP/MP барами
-  const avatarSize = 50;
-  const avatarX = screenPadding + avatarSize / 2;
-  const avatarY = (playerHpBarY + playerMpBarY + playerBarHeight) / 2; // между HP и MP
+  // 4. Аватар игрока - от HP бара до низа скиллов (включая текст стоимости)
+  const avatarWidth = 50;
+  const skillsBottomY = skillButtonsY + skillButtonSize / 2 + skillCostOffset; // низ текста стоимости
+  const avatarHeight = skillsBottomY - playerHpBarY;
+  const avatarX = screenPadding + avatarWidth / 2;
+  const avatarY = playerHpBarY + avatarHeight / 2;
 
   // HP/MP бары начинаются после аватара
-  const playerBarsX = avatarX + avatarSize / 2 + 8;
+  const playerBarsX = avatarX + avatarWidth / 2 + 8;
   const playerBarWidth = GAME_WIDTH - playerBarsX - screenPadding;
 
   // 5. Match-3 поле (над нижней панелью)
@@ -188,7 +192,8 @@ export const getUILayout = () => {
     // Игрок (снизу)
     avatarX,
     avatarY,
-    avatarSize,
+    avatarWidth,
+    avatarHeight,
     playerHpBarX: playerBarsX,
     playerHpBarY,
     playerMpBarY,
