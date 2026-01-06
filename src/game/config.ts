@@ -5,10 +5,20 @@ import type { BaseTileKind } from "../match3/types";
 export let GAME_WIDTH = 480;
 export let GAME_HEIGHT = 800;
 
-// Установка реального размера экрана
-export function setScreenSize(width: number, height: number) {
+// Safe area insets (from Telegram)
+export let SAFE_AREA = { top: 0, bottom: 0, left: 0, right: 0 };
+
+// Установка реального размера экрана и safe areas
+export function setScreenSize(
+  width: number,
+  height: number,
+  safeArea?: { top: number; bottom: number; left: number; right: number }
+) {
   GAME_WIDTH = width;
   GAME_HEIGHT = height;
+  if (safeArea) {
+    SAFE_AREA = safeArea;
+  }
 }
 
 // Размер поля (8 ширина x 7 высота)
@@ -111,10 +121,10 @@ export const getUILayout = () => {
 
   // === СНИЗУ ВВЕРХ ===
 
-  // 1. Кнопки скиллов (самый низ, с отступом)
+  // 1. Кнопки скиллов (самый низ, с отступом + safe area)
   const skillButtonSize = 52;
   const skillButtonSpacing = 10;
-  const bottomPadding = 16; // Отступ от низа экрана
+  const bottomPadding = 16 + SAFE_AREA.bottom; // Базовый отступ + safe area от Telegram
   const skillButtonsY = GAME_HEIGHT - bottomPadding - skillButtonSize / 2;
 
   // 2. HP/MP бары игрока (над кнопками)
