@@ -121,7 +121,7 @@ export const getUILayout = () => {
 
   // === СНИЗУ ВВЕРХ ===
   const screenPadding = 16; // Отступ от краёв экрана
-  const bottomPadding = 16 + SAFE_AREA.bottom + 200; // +200 поднимаем всё вверх
+  const bottomPadding = 16 + SAFE_AREA.bottom; // Базовый отступ
 
   // 1. Кнопки скиллов (круглые, самый низ)
   const skillButtonSize = 50;
@@ -156,7 +156,7 @@ export const getUILayout = () => {
   const cooldownIconSize = 40;
   const hpBarWidth = boardWidth - cooldownIconSize - 8;
   const hpBarHeight = 16;
-  const bossHpBarY = boardOriginY - 6 - hpBarHeight + 50; // +50 опускаем вниз
+  const bossHpBarY = boardOriginY - 6 - hpBarHeight; // над полем
   const cooldownIconX = boardOriginX + hpBarWidth + 4 + cooldownIconSize / 2;
 
   // 7. Название босса (над HP баром)
@@ -200,10 +200,10 @@ export const getUILayout = () => {
     playerBarHeight,
 
     // Кнопки скиллов (после аватара)
-    skillButtonsY: skillButtonsY - 10, // поднимаем на 50 (было +40, стало -10)
+    skillButtonsY,
     skillButtonSize,
     skillButtonSpacing,
-    skillButtonsStartX: playerBarsX + 50, // +50 сдвигаем вправо
+    skillButtonsStartX: playerBarsX,
 
     // Deprecated (для совместимости)
     topPanelY: 0,
