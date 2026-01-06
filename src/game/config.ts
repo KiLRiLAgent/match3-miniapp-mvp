@@ -121,7 +121,7 @@ export const getUILayout = () => {
 
   // === СНИЗУ ВВЕРХ ===
   const screenPadding = 16; // Отступ от краёв экрана
-  const bottomPadding = 16 + SAFE_AREA.bottom; // Базовый отступ + safe area от Telegram
+  const bottomPadding = 16 + SAFE_AREA.bottom + 200; // +200 поднимаем всё вверх
 
   // 1. Кнопки скиллов (круглые, самый низ)
   const skillButtonSize = 50;
