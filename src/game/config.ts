@@ -155,8 +155,8 @@ export const getUILayout = () => {
   const cooldownIconSize = 36;
 
   // === СВЕРХУ (растягивается) ===
-  // Изображение босса занимает всё пространство от верха до HP бара
-  const bossImageTopY = 0;
+  // Изображение босса занимает пространство от верха (с отступом для шторки) до HP бара
+  const bossImageTopY = 70; // Отступ сверху для телефонов с вырезом/шторкой
   const bossImageBottomY = bossNameY - 6;
   const bossImageHeight = bossImageBottomY - bossImageTopY;
   const bossImageCenterY = bossImageTopY + bossImageHeight / 2;

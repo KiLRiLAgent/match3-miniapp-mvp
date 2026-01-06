@@ -120,7 +120,7 @@ export class GameScene extends Phaser.Scene {
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, сохраняем пропорции) ===
     // Используем "cover" подход - заполняем область сохраняя пропорции
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, L.bossImageHeight / 2, ASSET_KEYS.boss.normal)
+      .image(GAME_WIDTH / 2, L.bossImageCenterY, ASSET_KEYS.boss.normal)
       .setOrigin(0.5)
       .setDepth(0);
 
