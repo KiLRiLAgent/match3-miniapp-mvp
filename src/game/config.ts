@@ -135,13 +135,11 @@ export const getUILayout = () => {
   // 3. HP бар игрока (над MP)
   const playerHpBarY = playerMpBarY - playerBarHeight - 6;
 
-  // 4. Аватар игрока - во всю высоту (от верха HP до низа скиллов)
+  // 4. Аватар игрока - только для HP и MP баров (не включая скиллы)
   const avatarWidth = 50;
-  const playerAreaTop = playerHpBarY;
-  const playerAreaBottom = skillButtonsY + skillButtonSize / 2 + 14; // +14 для текста стоимости
-  const avatarHeight = playerAreaBottom - playerAreaTop;
+  const avatarHeight = (playerMpBarY + playerBarHeight) - playerHpBarY + 8; // только HP + MP
   const avatarX = screenPadding + avatarWidth / 2;
-  const avatarY = (playerAreaTop + playerAreaBottom) / 2;
+  const avatarY = playerHpBarY + avatarHeight / 2;
 
   // HP/MP бары начинаются после аватара
   const playerBarsX = avatarX + avatarWidth / 2 + 8;
@@ -163,8 +161,8 @@ export const getUILayout = () => {
   const bossNameY = bossHpBarY - 18;
 
   // === СВЕРХУ (растягивается) ===
-  // Изображение босса занимает пространство от верха (с отступом для шторки) до HP бара
-  const bossImageTopY = 140; // Отступ сверху (поднимаем всё на 200)
+  // Изображение босса занимает пространство от верха до HP бара
+  const bossImageTopY = 0; // Без отступа - босс от самого верха
   const bossImageBottomY = bossNameY - 6;
   const bossImageHeight = bossImageBottomY - bossImageTopY;
   const bossImageCenterY = bossImageTopY + bossImageHeight / 2;
@@ -199,11 +197,11 @@ export const getUILayout = () => {
     playerBarWidth,
     playerBarHeight,
 
-    // Кнопки скиллов (после аватара)
+    // Кнопки скиллов (центрированы)
     skillButtonsY,
     skillButtonSize,
     skillButtonSpacing,
-    skillButtonsStartX: playerBarsX,
+    skillButtonsStartX: (GAME_WIDTH - (skillButtonSize * 4 + skillButtonSpacing * 3)) / 2 + skillButtonSize / 2,
 
     // Deprecated (для совместимости)
     topPanelY: 0,
