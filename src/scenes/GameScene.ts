@@ -39,7 +39,6 @@ import { BOSS_ABILITIES } from "../game/config";
 import { ShieldIcon } from "../ui/ShieldIcon";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
-import { initTelegram } from "../telegram/telegram";
 import { clamp, wait } from "../utils/helpers";
 
 export class GameScene extends Phaser.Scene {
@@ -79,7 +78,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    initTelegram();
     this.cameras.main.setBackgroundColor("#0d0f1a");
     const boardWidth = BOARD_WIDTH * CELL_SIZE;
     this.boardOrigin = {

@@ -3,6 +3,10 @@ import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
 import { GAME_HEIGHT, GAME_WIDTH } from "./game/config";
+import { initTelegram } from "./telegram/telegram";
+
+// Инициализация Telegram WebApp до создания игры
+initTelegram();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
