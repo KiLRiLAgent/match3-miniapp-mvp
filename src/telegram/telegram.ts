@@ -1,10 +1,3 @@
-export type SafeAreaInset = {
-  top: number;
-  bottom: number;
-  left: number;
-  right: number;
-};
-
 export type TelegramWebApp = {
   ready: () => void;
   expand?: () => void;
@@ -12,10 +5,6 @@ export type TelegramWebApp = {
   setHeaderColor?: (color: string) => void;
   setBackgroundColor?: (color: string) => void;
   disableVerticalSwipes?: () => void;
-  viewportHeight?: number;
-  viewportStableHeight?: number;
-  safeAreaInset?: SafeAreaInset;
-  contentSafeAreaInset?: SafeAreaInset;
   isFullscreen?: boolean;
   initData?: string;
 };
@@ -53,32 +42,4 @@ export const initTelegram = () => {
     console.warn("Telegram init failed", err);
   }
   return tg;
-};
-
-// Получение безопасных размеров viewport с учётом safe area
-export const getSafeViewport = () => {
-  const tg = getTelegram();
-
-  if (!tg) {
-    return {
-      width: window.innerWidth,
-      height: window.innerHeight,
-      safeTop: 0,
-      safeBottom: 0,
-    };
-  }
-
-  // Используем viewportStableHeight - стабильная высота, не меняется при свайпах
-  const height = tg.viewportStableHeight ?? tg.viewportHeight ?? window.innerHeight;
-
-  // Суммируем system safe area и content safe area
-  const safeTop = (tg.safeAreaInset?.top ?? 0) + (tg.contentSafeAreaInset?.top ?? 0);
-  const safeBottom = (tg.safeAreaInset?.bottom ?? 0) + (tg.contentSafeAreaInset?.bottom ?? 0);
-
-  return {
-    width: window.innerWidth,
-    height,
-    safeTop,
-    safeBottom,
-  };
 };
