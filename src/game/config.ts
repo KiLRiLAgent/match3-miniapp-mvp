@@ -157,7 +157,7 @@ export const getUILayout = () => {
   const cooldownIconSize = 40;
   const hpBarWidth = boardWidth - cooldownIconSize - 8;
   const hpBarHeight = 16;
-  const bossHpBarY = boardOriginY - 6 - hpBarHeight; // над полем
+  const bossHpBarY = boardOriginY - 6 - hpBarHeight - 20; // над полем, +20px выше
   const cooldownIconX = boardOriginX + hpBarWidth + 4 + cooldownIconSize / 2;
 
   // 7. Название босса (над HP баром)
