@@ -3,6 +3,7 @@ import Phaser from "phaser";
 type SkillState = {
   enabled: boolean;
   ready: boolean;
+  cooldown?: number;
   info?: string;
 };
 
@@ -10,6 +11,7 @@ const COLORS = {
   bgIdle: 0x4a3a6e,    // Фиолетовый как в референсе
   bgReady: 0x6b4a9e,   // Ярче когда готово
   bgDisabled: 0x2a2a3e,
+  bgCooldown: 0x1a1a2e, // Тёмный для кулдауна
 } as const;
 
 export class SkillButton extends Phaser.GameObjects.Container {
@@ -18,6 +20,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
   private costText: Phaser.GameObjects.Text;
   private clickCallback: () => void;
   private isEnabled = true;
+  private originalIcon: string;
 
   constructor(
     scene: Phaser.Scene,
@@ -30,6 +33,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
   ) {
     super(scene, x, y);
     this.clickCallback = onClick;
+    this.originalIcon = icon;
 
     // Круглый фон
     this.bg = scene.add
@@ -49,7 +53,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
 
     // Стоимость под кнопкой
     this.costText = scene.add
-      .text(0, size / 2 + 12, `${cost}`, {
+      .text(0, size / 2 + 12, `${cost} MP`, {
         fontSize: "12px",
         color: "#aabbff",
         fontFamily: "Arial, sans-serif",
@@ -63,8 +67,28 @@ export class SkillButton extends Phaser.GameObjects.Container {
   }
 
   applyState(state: SkillState) {
-    const { enabled, ready, info } = state;
+    const { enabled, ready, cooldown, info } = state;
+
+    // На кулдауне - показать цифру вместо иконки
+    if (cooldown && cooldown > 0) {
+      this.isEnabled = false;
+      this.iconText.setText(cooldown.toString());
+      this.iconText.setFontSize(28);
+      this.iconText.setY(0);
+      this.bg.setFillStyle(COLORS.bgCooldown, 0.9);
+      this.bg.setStrokeStyle(2, 0xff4444, 0.5);
+      this.bg.setAlpha(0.7);
+      this.iconText.setAlpha(1);
+      this.costText.setAlpha(0.5);
+      if (info) this.costText.setText(info);
+      return;
+    }
+
+    // Обычный режим
     this.isEnabled = enabled;
+    this.iconText.setText(this.originalIcon);
+    this.iconText.setFontSize(24);
+    this.iconText.setY(-2);
 
     const alpha = enabled ? 1 : 0.4;
     const bgColor = !enabled ? COLORS.bgDisabled : ready ? COLORS.bgReady : COLORS.bgIdle;

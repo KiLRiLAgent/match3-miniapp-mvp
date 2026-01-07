@@ -45,9 +45,9 @@ export const VISUAL_EFFECTS = {
  */
 export const FLYING_TILE = {
   size: 32,
-  arcHeight: 60,
-  arcVariation: 30,
-  targetSpread: 15,
+  arcHeight: 30,
+  arcVariation: 15,
+  targetSpread: 20,
   trailFade: 0.08,
   trailOpacity: 0.7,
   trailSize: 6,

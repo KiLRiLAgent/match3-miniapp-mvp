@@ -20,6 +20,8 @@ import {
   INPUT_THRESHOLD,
   DAMAGE_TILES,
   RESOURCE_TILES,
+  SAFE_AREA,
+  loadGameParams,
 } from "../game/config";
 import {
   ANIMATION_DURATIONS,
@@ -32,6 +34,7 @@ import { TileKind } from "../match3/types";
 import type { Match, Position, Tile, CountTotals } from "../match3/types";
 import { Meter } from "../ui/Meter";
 import { SkillButton } from "../ui/SkillButton";
+import { SettingsPanel } from "../ui/SettingsPanel";
 import { CooldownIcon } from "../ui/CooldownIcon";
 import { showDamageNumber } from "../ui/DamageNumber";
 import { BossAbilityManager } from "../game/BossAbility";
@@ -59,6 +62,16 @@ export class GameScene extends Phaser.Scene {
   private playerHpBar?: Meter;
   private manaBar?: Meter;
   private skillButtons: Partial<Record<SkillId, SkillButton>> = {};
+  private skillCooldowns: Record<SkillId, number> = {
+    powerStrike: 0,
+    stun: 0,
+    heal: 0,
+    hammer: 0,
+  };
+  private hammerMode = false;
+  private hammerOverlay?: Phaser.GameObjects.Rectangle;
+  private hammerHint?: Phaser.GameObjects.Text;
+  private settingsOpen = false;
 
   private bossAbilityManager!: BossAbilityManager;
   private cooldownIcon?: CooldownIcon;
@@ -78,6 +91,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Загрузить сохранённые параметры
+    loadGameParams();
+
     this.cameras.main.setBackgroundColor("#0d0f1a");
     this.boardOrigin = {
       x: UI_LAYOUT.boardOriginX,
@@ -180,6 +196,25 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(1, 0.5)
       .setDepth(4)
       .setVisible(false);
+
+    // === КНОПКА НАСТРОЕК ===
+    this.add
+      .text(GAME_WIDTH - 35, 15 + SAFE_AREA.top, "⚙️", {
+        fontSize: "26px",
+        fontFamily: "Arial, sans-serif",
+      })
+      .setOrigin(0.5)
+      .setDepth(5)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => this.openSettings());
+  }
+
+  private openSettings() {
+    if (this.settingsOpen || this.busy) return;
+    this.settingsOpen = true;
+    new SettingsPanel(this, () => {
+      this.settingsOpen = false;
+    });
   }
 
   private buildBoard() {
@@ -215,22 +250,18 @@ export class GameScene extends Phaser.Scene {
     const startX = L.skillButtonsStartX;
     const y = L.skillButtonsY;
 
-    // Эмодзи иконки для скиллов
-    const skillData: [SkillId, string, number][] = [
-      ["skill1", "💪", SKILL_CONFIG.skill1.cost],  // Power - сила
-      ["skill2", "💥", SKILL_CONFIG.skill2.cost],  // Blast - взрыв
-      ["skill3", "💚", SKILL_CONFIG.skill3.cost],  // Heal - лечение
-      ["skill4", "🌟", SKILL_CONFIG.skill4.cost],  // Ult - ульта
-    ];
+    // Скиллы с иконками из конфига
+    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 
-    skillData.forEach(([id, icon, cost], idx) => {
+    skillIds.forEach((id, idx) => {
+      const cfg = SKILL_CONFIG[id];
       const btn = new SkillButton(
         this,
         startX + idx * (btnSize + spacing),
         y,
         btnSize,
-        icon,
-        cost,
+        cfg.icon,
+        cfg.cost,
         () => this.activateSkill(id)
       );
       btn.setDepth(2);
@@ -479,6 +510,13 @@ export class GameScene extends Phaser.Scene {
       .setDisplaySize(CELL_SIZE - 6, CELL_SIZE - 6)
       .setInteractive({ useHandCursor: true });
     sprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      // Режим молотка — удаляем фишку
+      if (this.hammerMode) {
+        const current = this.tilePositions.get(tile.id) ?? pos;
+        this.removeWithHammer(current);
+        return;
+      }
+
       if (this.busy || this.bossHp <= 0) return;
       const current = this.tilePositions.get(tile.id) ?? pos;
       this.dragStart = {
@@ -642,6 +680,18 @@ export class GameScene extends Phaser.Scene {
       if (!sprite) return;
       const target = this.toWorld(to);
       tweens.push(this.createTween(sprite, target, ANIMATION_DURATIONS.tileCollapse));
+
+      // Анимировать текст кулдауна бомбы вместе со спрайтом
+      const cooldownText = this.bombCooldownTexts.get(tile.id);
+      if (cooldownText) {
+        this.tweens.add({
+          targets: cooldownText,
+          x: target.x + CELL_SIZE / 2 - 10,
+          y: target.y + CELL_SIZE / 2 - 10,
+          duration: ANIMATION_DURATIONS.tileCollapse,
+          ease: ANIMATION_EASING.collapse,
+        });
+      }
     });
 
     collapse.newTiles.forEach(({ tile, pos }) => {
@@ -689,12 +739,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Обновляем состояние всех 4 кнопок способностей
-    (["skill1", "skill2", "skill3", "skill4"] as SkillId[]).forEach((id) => {
+    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
+    skillIds.forEach((id) => {
       const cfg = SKILL_CONFIG[id];
-      const canUse = this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
+      const cooldown = this.skillCooldowns[id];
+      const canUse = cooldown === 0 && this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
       this.skillButtons[id]?.applyState({
         enabled: canUse,
         ready: canUse,
+        cooldown,
         info: `${cfg.cost} MP`,
       });
     });
@@ -711,20 +764,31 @@ export class GameScene extends Phaser.Scene {
     if (!this.canPlayerAct()) return;
 
     const cfg = SKILL_CONFIG[id];
+
+    // Проверяем кулдаун
+    if (this.skillCooldowns[id] > 0) return;
+    // Проверяем ману
     if (this.mana < cfg.cost) return;
 
     this.mana -= cfg.cost;
+    this.skillCooldowns[id] = cfg.cooldown; // Ставим на кулдаун
 
-    if (cfg.damage > 0) {
+    // Обработка разных скиллов
+    if (id === "powerStrike") {
       this.applyDamageToBoss(cfg.damage);
       this.flashBoss();
       if (this.bossImage) {
         this.shakeTarget(this.bossImage, VISUAL_EFFECTS.bossShakeOffset);
       }
-    }
-
-    if (cfg.heal > 0) {
+    } else if (id === "stun" && cfg.stunTurns) {
+      // Добавляем ходы к кулдауну босса
+      this.bossAbilityManager.addCooldown(cfg.stunTurns);
+      this.cooldownIcon?.setCooldown(this.bossAbilityManager.getCurrentCooldown());
+    } else if (id === "heal") {
       this.applyHealToPlayer(cfg.heal);
+    } else if (id === "hammer") {
+      this.enterHammerMode();
+      return; // Не обновляем HUD пока не выбрана фишка
     }
 
     this.updateHud();
@@ -734,6 +798,84 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     // Скилл НЕ заканчивает ход - игрок может ещё сделать match
+  }
+
+  private enterHammerMode() {
+    this.hammerMode = true;
+    this.busy = true;
+
+    // Затемнить экран (но не поле)
+    this.hammerOverlay = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
+      .setOrigin(0)
+      .setDepth(8);
+
+    // Подсказка
+    this.hammerHint = this.add
+      .text(GAME_WIDTH / 2, UI_LAYOUT.boardOriginY - 30, "Нажмите на фишку чтобы убрать её!", {
+        fontSize: "16px",
+        color: "#ffffff",
+        fontFamily: "Arial, sans-serif",
+        stroke: "#000000",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(12);
+
+    // Поле остаётся интерактивным поверх оверлея
+    this.tileSprites.forEach((sprite) => sprite.setDepth(10));
+  }
+
+  private exitHammerMode() {
+    this.hammerMode = false;
+    this.busy = false;
+    this.hammerOverlay?.destroy();
+    this.hammerHint?.destroy();
+    this.hammerOverlay = undefined;
+    this.hammerHint = undefined;
+
+    // Вернуть спрайты на обычный depth
+    this.tileSprites.forEach((sprite) => sprite.setDepth(1));
+  }
+
+  private async removeWithHammer(pos: Position) {
+    const tile = this.board.getTile(pos);
+    if (!tile) return;
+
+    // Удалить фишку без эффекта
+    this.board.removeTile(pos);
+    const sprite = this.tileSprites.get(tile.id);
+    sprite?.destroy();
+    this.tileSprites.delete(tile.id);
+
+    // Убрать текст бомбы если была
+    this.bombCooldownTexts.get(tile.id)?.destroy();
+    this.bombCooldownTexts.delete(tile.id);
+
+    // Выйти из режима молотка
+    this.exitHammerMode();
+
+    // Collapse + refill
+    const collapse = this.board.collapseGrid();
+    this.rebuildPositionMap();
+    await this.animateCollapse(collapse);
+
+    // Проверить каскадные матчи
+    const matches = this.board.findMatches();
+    if (matches.length > 0) {
+      await this.resolveBoard(matches, [], [], false, "player");
+    }
+
+    this.updateHud();
+  }
+
+  private tickSkillCooldowns() {
+    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
+    for (const id of skillIds) {
+      if (this.skillCooldowns[id] > 0) {
+        this.skillCooldowns[id]--;
+      }
+    }
   }
 
   private showVictory() {
@@ -751,9 +893,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private get bossTarget(): FlyTarget {
-    return this.bossImage
-      ? { x: this.bossImage.x, y: this.bossImage.y + 40 }
-      : { x: GAME_WIDTH / 2, y: 100 };
+    if (!this.bossImage) return { x: GAME_WIDTH / 2, y: 150 };
+    // Центр видимой части босса (учитывая что origin (0.5, 0) и Y=0)
+    const visibleHeight = Math.min(this.bossImage.displayHeight, UI_LAYOUT.bossImageHeight);
+    return {
+      x: this.bossImage.x,
+      y: this.bossImage.y + visibleHeight / 2,
+    };
   }
 
   private get playerTarget(): FlyTarget {
@@ -764,6 +910,9 @@ export class GameScene extends Phaser.Scene {
 
   private async finishPlayerTurn() {
     if (this.gameOver) return;
+
+    // Тикаем кулдауны скиллов игрока
+    this.tickSkillCooldowns();
 
     this.checkGameOver();
     if (this.gameOver) return;

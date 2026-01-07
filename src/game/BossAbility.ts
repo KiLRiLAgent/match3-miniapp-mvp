@@ -49,6 +49,15 @@ export class BossAbilityManager {
     return this.currentCooldown <= 0;
   }
 
+  // Добавить ходы к текущему кулдауну (для стана игрока)
+  addCooldown(turns: number): void {
+    this.currentCooldown += turns;
+  }
+
+  getCurrentCooldown(): number {
+    return this.currentCooldown;
+  }
+
   advance(): void {
     this.patternIndex = (this.patternIndex + 1) % BOSS_ABILITY_PATTERN.length;
     this.currentCooldown = this.getCurrentAbilityCooldown();

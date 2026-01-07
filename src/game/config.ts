@@ -33,19 +33,63 @@ export function updateScaledValues() {
   UI_LAYOUT = getUILayout();
 }
 
-// Параметры игрока
+// Параметры игрока (legacy, используем GAME_PARAMS)
 export const PLAYER_HP_MAX = 200;
 export const PLAYER_MANA_MAX = 100;
 export const PLAYER_PHYS_ATTACK = 10;
 export const PLAYER_MAG_ATTACK = 10;
-export const PLAYER_MAG_DAMAGE_MULTIPLIER = 0.5; // Магическая атака наносит 50% урона
+export const PLAYER_MAG_DAMAGE_MULTIPLIER = 0.5;
 export const HP_PER_TILE = 10;
 export const MP_PER_TILE = 10;
 
-// Параметры противника
+// Параметры противника (legacy)
 export const BOSS_HP_MAX = 500;
 export const BOSS_PHYS_ATTACK = 10;
-export const BOSS_DAMAGED_HP_THRESHOLD = 0.5; // Переход на damaged спрайт при HP < 50%
+export const BOSS_DAMAGED_HP_THRESHOLD = 0.5;
+
+// === МУТАБЕЛЬНЫЕ ПАРАМЕТРЫ ДЛЯ НАСТРОЕК ===
+export const GAME_PARAMS = {
+  player: {
+    hpMax: 200,
+    manaMax: 100,
+    physAttack: 10,
+    magAttack: 10,
+  },
+  boss: {
+    hpMax: 500,
+    physAttack: 10,
+  },
+  tiles: {
+    hpPerTile: 10,
+    mpPerTile: 10,
+    swordDamage: 10,
+    starDamage: 10,
+  },
+};
+
+// Загрузить из localStorage
+export function loadGameParams() {
+  try {
+    const saved = localStorage.getItem("match3_params");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      Object.assign(GAME_PARAMS.player, parsed.player || {});
+      Object.assign(GAME_PARAMS.boss, parsed.boss || {});
+      Object.assign(GAME_PARAMS.tiles, parsed.tiles || {});
+    }
+  } catch {
+    // Игнорируем ошибки
+  }
+}
+
+// Сохранить в localStorage
+export function saveGameParams() {
+  try {
+    localStorage.setItem("match3_params", JSON.stringify(GAME_PARAMS));
+  } catch {
+    // Игнорируем ошибки
+  }
+}
 
 // Способности босса
 export const BOSS_ABILITIES = {
@@ -235,43 +279,57 @@ export const INPUT_THRESHOLD = {
 export const DAMAGE_TILES: readonly TileKind[] = [TileKind.Sword, TileKind.Star] as const;
 export const RESOURCE_TILES: readonly TileKind[] = [TileKind.Mana, TileKind.Heal] as const;
 
-export type SkillId = "skill1" | "skill2" | "skill3" | "skill4";
+export type SkillId = "powerStrike" | "stun" | "heal" | "hammer";
 
 export interface SkillDef {
   name: string;
+  icon: string;
   cost: number;
   damage: number;
   heal: number;
+  cooldown: number;
+  stunTurns?: number;
+  isInteractive?: boolean;
   description: string;
 }
 
 export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
-  skill1: {
-    name: "Power",
-    cost: POWER_STRIKE_COST,
-    damage: PLAYER_PHYS_ATTACK * POWER_STRIKE_MULTIPLIER,
-    heal: 0,
-    description: "Физ x10",
-  },
-  skill2: {
-    name: "Blast",
-    cost: 100,
+  powerStrike: {
+    name: "Мощный удар",
+    icon: "💪",
+    cost: 70,
     damage: 100,
     heal: 0,
+    cooldown: 3,
     description: "100 урона",
   },
-  skill3: {
-    name: "Heal",
+  stun: {
+    name: "Стан",
+    icon: "🎯",
+    cost: 50,
+    damage: 0,
+    heal: 0,
+    cooldown: 5,
+    stunTurns: 2,
+    description: "+2 к кулдауну босса",
+  },
+  heal: {
+    name: "Хил",
+    icon: "💚",
     cost: 30,
     damage: 0,
     heal: 50,
+    cooldown: 2,
     description: "+50 HP",
   },
-  skill4: {
-    name: "Ult",
-    cost: 100,
-    damage: 200,
+  hammer: {
+    name: "Молоток",
+    icon: "🔨",
+    cost: 50,
+    damage: 0,
     heal: 0,
-    description: "200 урона",
+    cooldown: 3,
+    isInteractive: true,
+    description: "Удалить фишку",
   },
 };

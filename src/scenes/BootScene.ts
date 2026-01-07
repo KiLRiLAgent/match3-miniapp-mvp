@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
-import { CELL_SIZE, BASE_TYPES } from "../game/config";
+import { CELL_SIZE, BASE_TYPES, GAME_WIDTH, GAME_HEIGHT, setScreenSize, updateScaledValues } from "../game/config";
 import { TileKind } from "../match3/types";
+import { getSafeAreaInsets } from "../telegram/telegram";
 
 // Tile asset file extensions (most are png, heal is jpg)
 const TILE_EXTENSIONS: Record<string, string> = {
@@ -29,7 +30,52 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     this.buildSpecialTileTextures();
-    this.scene.start("GameScene");
+    this.showLoadingScreen();
+  }
+
+  private showLoadingScreen() {
+    // Тёмный фон
+    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x0d0f1a).setOrigin(0);
+
+    // Текст "Загрузка..."
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, "Загрузка...", {
+      fontSize: "24px",
+      color: "#ffffff",
+      fontFamily: "Arial, sans-serif",
+    }).setOrigin(0.5);
+
+    // Фон прогресс-бара
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 200, 20, 0x333333)
+      .setOrigin(0.5)
+      .setStrokeStyle(2, 0x555555);
+
+    // Заполнение прогресс-бара
+    const barFill = this.add.rectangle(
+      GAME_WIDTH / 2 - 98,
+      GAME_HEIGHT / 2 + 20,
+      0,
+      16,
+      0x4caf50
+    ).setOrigin(0, 0.5);
+
+    // Анимация прогресса (2 секунды)
+    this.tweens.add({
+      targets: barFill,
+      width: 196,
+      duration: 2000,
+      ease: "Linear",
+      onComplete: () => {
+        // Обновить layout с актуальными safe areas от Telegram
+        const safeArea = getSafeAreaInsets();
+        setScreenSize(window.innerWidth, window.innerHeight, safeArea);
+        updateScaledValues();
+
+        // Небольшая задержка и переход в игру
+        this.time.delayedCall(300, () => {
+          this.scene.start("GameScene");
+        });
+      },
+    });
   }
 
   private buildSpecialTileTextures() {
