@@ -27,24 +27,30 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     super(scene, 0, 0);
     this.onClose = onClose;
 
-    // Затемнённый фон
-    this.overlay = scene.add
-      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.8)
-      .setOrigin(0)
-      .setInteractive()
-      .on("pointerdown", () => this.close());
-
-    // Панель
+    // Панель (определяем размеры сначала для проверки в overlay)
     const panelWidth = GAME_WIDTH - 40;
     const panelHeight = GAME_HEIGHT - 100 - SAFE_AREA.top - SAFE_AREA.bottom;
     const panelX = 20;
     const panelY = 50 + SAFE_AREA.top;
 
+    // Затемнённый фон - закрывает только при клике ВНЕ панели
+    this.overlay = scene.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.8)
+      .setOrigin(0)
+      .setInteractive()
+      .on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+        // Закрываем только если клик вне панели
+        const inPanel = pointer.x >= panelX && pointer.x <= panelX + panelWidth &&
+                        pointer.y >= panelY && pointer.y <= panelY + panelHeight;
+        if (!inPanel) {
+          this.close();
+        }
+      });
+
     this.panel = scene.add
       .rectangle(panelX, panelY, panelWidth, panelHeight, 0x1a1a2e, 0.98)
       .setOrigin(0)
-      .setStrokeStyle(2, 0x4a4a6e)
-      .setInteractive(); // Блокирует клики от overlay
+      .setStrokeStyle(2, 0x4a4a6e);
 
     // Заголовок
     const title = scene.add
