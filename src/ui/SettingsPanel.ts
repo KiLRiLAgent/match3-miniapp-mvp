@@ -43,7 +43,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     this.panel = scene.add
       .rectangle(panelX, panelY, panelWidth, panelHeight, 0x1a1a2e, 0.98)
       .setOrigin(0)
-      .setStrokeStyle(2, 0x4a4a6e);
+      .setStrokeStyle(2, 0x4a4a6e)
+      .setInteractive(); // Блокирует клики от overlay
 
     // Заголовок
     const title = scene.add
