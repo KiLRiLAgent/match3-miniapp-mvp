@@ -316,6 +316,10 @@ export class GameScene extends Phaser.Scene {
     const tileA = this.board.getTile(a);
     const tileB = this.board.getTile(b);
     if (!tileA || !tileB) return;
+
+    // Бомбы нельзя перемещать
+    if (tileA.kind === TileKind.Bomb || tileB.kind === TileKind.Bomb) return;
+
     this.busy = true;
 
     this.board.swap(a, b);
@@ -517,6 +521,10 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (this.busy || this.bossHp <= 0) return;
+
+      // Бомбы нельзя перемещать
+      if (tile.kind === TileKind.Bomb) return;
+
       const current = this.tilePositions.get(tile.id) ?? pos;
       this.dragStart = {
         pos: { ...current },
