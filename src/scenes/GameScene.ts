@@ -111,7 +111,10 @@ export class GameScene extends Phaser.Scene {
     this.currentTurn = "player";
     this.gameOver = false;
     this.busy = false;
+    this.settingsOpen = false;
+    this.hammerMode = false;
     this.bossShieldDuration = 0;
+    this.skillCooldowns = { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
     this.board = new Match3Board(BOARD_WIDTH, BOARD_HEIGHT);
     this.bossAbilityManager = new BossAbilityManager();
     this.tileSprites.clear();
