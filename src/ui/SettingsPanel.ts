@@ -90,6 +90,14 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       { label: "MP за тайл", getValue: () => GAME_PARAMS.tiles.mpPerTile, setValue: (v) => GAME_PARAMS.tiles.mpPerTile = v, min: 1, max: 50, step: 1 },
       { label: "Урон меча", getValue: () => GAME_PARAMS.tiles.swordDamage, setValue: (v) => GAME_PARAMS.tiles.swordDamage = v, min: 1, max: 50, step: 1 },
       { label: "Урон звезды", getValue: () => GAME_PARAMS.tiles.starDamage, setValue: (v) => GAME_PARAMS.tiles.starDamage = v, min: 1, max: 50, step: 1 },
+      // Скиллы босса
+      { label: "⚔️ Урон атаки", getValue: () => GAME_PARAMS.bossAbilities.attackDamage, setValue: (v) => GAME_PARAMS.bossAbilities.attackDamage = v, min: 10, max: 200, step: 10 },
+      { label: "💣 Кол-во бомб", getValue: () => GAME_PARAMS.bossAbilities.bombCount, setValue: (v) => GAME_PARAMS.bossAbilities.bombCount = v, min: 1, max: 10, step: 1 },
+      { label: "💣 Таймер бомб", getValue: () => GAME_PARAMS.bossAbilities.bombCooldown, setValue: (v) => GAME_PARAMS.bossAbilities.bombCooldown = v, min: 1, max: 10, step: 1 },
+      { label: "💣 Урон бомбы", getValue: () => GAME_PARAMS.bossAbilities.bombDamage, setValue: (v) => GAME_PARAMS.bossAbilities.bombDamage = v, min: 10, max: 200, step: 10 },
+      { label: "🛡️ Длит. щита", getValue: () => GAME_PARAMS.bossAbilities.shieldDuration, setValue: (v) => GAME_PARAMS.bossAbilities.shieldDuration = v, min: 1, max: 10, step: 1 },
+      { label: "💥 Мощн. удар", getValue: () => GAME_PARAMS.bossAbilities.powerStrikeDamage, setValue: (v) => GAME_PARAMS.bossAbilities.powerStrikeDamage = v, min: 50, max: 500, step: 25 },
+      { label: "💥 Слив маны", getValue: () => GAME_PARAMS.bossAbilities.powerStrikeManaDrain, setValue: (v) => GAME_PARAMS.bossAbilities.powerStrikeManaDrain = v, min: 0, max: 100, step: 10 },
     ];
 
     // Добавляем параметры скиллов
@@ -106,24 +114,24 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       });
     });
 
-    // Создаём строки
-    const rowHeight = 32;
-    const startY = panelY + 55;
+    // Создаём строки (уменьшили высоту для вместимости)
+    const rowHeight = 28;
+    const startY = panelY + 45;
 
     params.forEach((param, idx) => {
       const y = startY + idx * rowHeight;
 
       const label = scene.add
         .text(panelX + 15, y, param.label, {
-          fontSize: "14px",
+          fontSize: "13px",
           color: "#cccccc",
           fontFamily: "Arial, sans-serif",
         })
         .setOrigin(0, 0.5);
 
       const minus = scene.add
-        .text(panelX + panelWidth - 100, y, "−", {
-          fontSize: "20px",
+        .text(panelX + panelWidth - 95, y, "−", {
+          fontSize: "18px",
           color: "#ff8888",
           fontFamily: "Arial, sans-serif",
           fontStyle: "bold",
@@ -133,8 +141,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         .on("pointerdown", () => this.adjustParam(param, -1));
 
       const value = scene.add
-        .text(panelX + panelWidth - 60, y, param.getValue().toString(), {
-          fontSize: "14px",
+        .text(panelX + panelWidth - 55, y, param.getValue().toString(), {
+          fontSize: "13px",
           color: "#ffffff",
           fontFamily: "Arial, sans-serif",
           fontStyle: "bold",
@@ -142,8 +150,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         .setOrigin(0.5);
 
       const plus = scene.add
-        .text(panelX + panelWidth - 20, y, "+", {
-          fontSize: "20px",
+        .text(panelX + panelWidth - 18, y, "+", {
+          fontSize: "18px",
           color: "#88ff88",
           fontFamily: "Arial, sans-serif",
           fontStyle: "bold",
