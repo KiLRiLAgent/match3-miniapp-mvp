@@ -8,27 +8,29 @@ import { initTelegram, getSafeAreaInsets } from "./telegram/telegram";
 // Инициализация Telegram WebApp до создания игры (fullscreen mode)
 initTelegram();
 
-// Определяем реальный размер экрана и safe areas
-const screenWidth = window.innerWidth;
-const screenHeight = window.innerHeight;
-const safeArea = getSafeAreaInsets();
+// Ждём 100ms для полной инициализации Telegram API (safeAreaInset)
+setTimeout(() => {
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+  const safeArea = getSafeAreaInsets();
 
-setScreenSize(screenWidth, screenHeight, safeArea);
-updateScaledValues();
+  setScreenSize(screenWidth, screenHeight, safeArea);
+  updateScaledValues();
 
-const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
-  width: screenWidth,
-  height: screenHeight,
-  parent: "app",
-  backgroundColor: "#0d0f1a",
-  scene: [BootScene, GameScene],
-  scale: {
-    mode: Phaser.Scale.NONE, // Без масштабирования - используем реальный размер
-  },
-  physics: {
-    default: "arcade",
-  },
-};
+  const config: Phaser.Types.Core.GameConfig = {
+    type: Phaser.AUTO,
+    width: screenWidth,
+    height: screenHeight,
+    parent: "app",
+    backgroundColor: "#0d0f1a",
+    scene: [BootScene, GameScene],
+    scale: {
+      mode: Phaser.Scale.NONE,
+    },
+    physics: {
+      default: "arcade",
+    },
+  };
 
-new Phaser.Game(config);
+  new Phaser.Game(config);
+}, 100);
