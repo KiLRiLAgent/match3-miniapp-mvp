@@ -65,6 +65,19 @@ export const GAME_PARAMS = {
     swordDamage: 10,
     starDamage: 10,
   },
+  bossAbilities: {
+    attackDamage: 30,
+    attackCooldown: 1,
+    bombCount: 5,
+    bombCooldown: 3,
+    bombDamage: 30,
+    bombsAbilityCooldown: 2,
+    shieldDuration: 2,
+    shieldCooldown: 1,
+    powerStrikeDamage: 100,
+    powerStrikeManaDrain: 50,
+    powerStrikeCooldown: 2,
+  },
 };
 
 // Загрузить из localStorage
@@ -76,6 +89,7 @@ export function loadGameParams() {
       Object.assign(GAME_PARAMS.player, parsed.player || {});
       Object.assign(GAME_PARAMS.boss, parsed.boss || {});
       Object.assign(GAME_PARAMS.tiles, parsed.tiles || {});
+      Object.assign(GAME_PARAMS.bossAbilities, parsed.bossAbilities || {});
     }
   } catch {
     // Игнорируем ошибки
@@ -91,36 +105,44 @@ export function saveGameParams() {
   }
 }
 
-// Способности босса
+// Способности босса (используют GAME_PARAMS)
 export const BOSS_ABILITIES = {
-  attack: {
-    name: "Атака",
-    cooldown: 1,
-    damage: BOSS_PHYS_ATTACK * 3, // 30
-    hasCutscene: false,
+  get attack() {
+    return {
+      name: "Атака",
+      cooldown: GAME_PARAMS.bossAbilities.attackCooldown,
+      damage: GAME_PARAMS.bossAbilities.attackDamage,
+      hasCutscene: false,
+    };
   },
-  bombs: {
-    name: "Бомбы",
-    cooldown: 2,
-    bombCount: 5,
-    bombCooldown: 3,
-    bombDamage: BOSS_PHYS_ATTACK * 3, // 30 за бомбу
-    hasCutscene: true,
+  get bombs() {
+    return {
+      name: "Бомбы",
+      cooldown: GAME_PARAMS.bossAbilities.bombsAbilityCooldown,
+      bombCount: GAME_PARAMS.bossAbilities.bombCount,
+      bombCooldown: GAME_PARAMS.bossAbilities.bombCooldown,
+      bombDamage: GAME_PARAMS.bossAbilities.bombDamage,
+      hasCutscene: true,
+    };
   },
-  shield: {
-    name: "Щит",
-    cooldown: 1,
-    shieldDuration: 2,
-    hasCutscene: true,
+  get shield() {
+    return {
+      name: "Щит",
+      cooldown: GAME_PARAMS.bossAbilities.shieldCooldown,
+      shieldDuration: GAME_PARAMS.bossAbilities.shieldDuration,
+      hasCutscene: true,
+    };
   },
-  powerStrike: {
-    name: "Мощный удар",
-    cooldown: 2,
-    damage: BOSS_PHYS_ATTACK * 10, // 100
-    manaDrain: 50,
-    hasCutscene: true,
+  get powerStrike() {
+    return {
+      name: "Мощный удар",
+      cooldown: GAME_PARAMS.bossAbilities.powerStrikeCooldown,
+      damage: GAME_PARAMS.bossAbilities.powerStrikeDamage,
+      manaDrain: GAME_PARAMS.bossAbilities.powerStrikeManaDrain,
+      hasCutscene: true,
+    };
   },
-} as const;
+};
 
 // Паттерн способностей босса (зацикливается)
 export const BOSS_ABILITY_PATTERN = [
