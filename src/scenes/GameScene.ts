@@ -4,17 +4,12 @@ import {
   BOARD_PADDING,
   BOARD_WIDTH,
   BOARD_HEIGHT,
-  BOSS_HP_MAX,
   BOSS_DAMAGED_HP_THRESHOLD,
   CELL_SIZE,
   GAME_HEIGHT,
   GAME_WIDTH,
-  MATCH_GAINS,
-  PLAYER_HP_MAX,
-  PLAYER_MANA_MAX,
   PLAYER_MAG_DAMAGE_MULTIPLIER,
   SKILL_CONFIG,
-  DAMAGE_PER_TILE,
   UI_LAYOUT,
   UI_COLORS,
   INPUT_THRESHOLD,
@@ -22,6 +17,7 @@ import {
   RESOURCE_TILES,
   SAFE_AREA,
   loadGameParams,
+  GAME_PARAMS,
 } from "../game/config";
 import {
   ANIMATION_DURATIONS,
@@ -53,8 +49,8 @@ export class GameScene extends Phaser.Scene {
     | null = null;
   private busy = false;
 
-  private bossHp = BOSS_HP_MAX;
-  private playerHp = PLAYER_HP_MAX;
+  private bossHp = 0;
+  private playerHp = 0;
   private mana = 0;
 
   private bossImage?: Phaser.GameObjects.Image;
@@ -109,8 +105,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private resetState() {
-    this.bossHp = BOSS_HP_MAX;
-    this.playerHp = PLAYER_HP_MAX;
+    this.bossHp = GAME_PARAMS.boss.hpMax;
+    this.playerHp = GAME_PARAMS.player.hpMax;
     this.mana = 0;
     this.currentTurn = "player";
     this.gameOver = false;
@@ -396,11 +392,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyMatchResults(totals: CountTotals, actor: "player" | "boss") {
-    const physDamage = totals[TileKind.Sword] * DAMAGE_PER_TILE[TileKind.Sword];
-    const magDamage = totals[TileKind.Star] * DAMAGE_PER_TILE[TileKind.Star];
+    const physDamage = totals[TileKind.Sword] * GAME_PARAMS.tiles.swordDamage;
+    const magDamage = totals[TileKind.Star] * GAME_PARAMS.tiles.starDamage;
     const damage = physDamage + Math.floor(magDamage * PLAYER_MAG_DAMAGE_MULTIPLIER);
-    const manaGain = totals[TileKind.Mana] * MATCH_GAINS.mana;
-    const healGain = totals[TileKind.Heal] * MATCH_GAINS.heal;
+    const manaGain = totals[TileKind.Mana] * GAME_PARAMS.tiles.mpPerTile;
+    const healGain = totals[TileKind.Heal] * GAME_PARAMS.tiles.hpPerTile;
 
     if (actor === "player") {
       this.applyDamageToBoss(damage);
@@ -438,7 +434,7 @@ export class GameScene extends Phaser.Scene {
   private applyDamageToPlayer(damage: number) {
     if (damage <= 0) return;
 
-    this.playerHp = clamp(this.playerHp - damage, 0, PLAYER_HP_MAX);
+    this.playerHp = clamp(this.playerHp - damage, 0, GAME_PARAMS.player.hpMax);
     if (this.playerAvatar) {
       showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 30, damage, "damage");
     }
@@ -448,7 +444,7 @@ export class GameScene extends Phaser.Scene {
     if (manaGain <= 0) return;
 
     const oldMana = this.mana;
-    this.mana = clamp(this.mana + manaGain, 0, PLAYER_MANA_MAX);
+    this.mana = clamp(this.mana + manaGain, 0, GAME_PARAMS.player.manaMax);
     const actualGain = this.mana - oldMana;
 
     if (actualGain > 0 && this.playerAvatar) {
@@ -460,7 +456,7 @@ export class GameScene extends Phaser.Scene {
     if (healGain <= 0) return;
 
     const oldHp = this.playerHp;
-    this.playerHp = clamp(this.playerHp + healGain, 0, PLAYER_HP_MAX);
+    this.playerHp = clamp(this.playerHp + healGain, 0, GAME_PARAMS.player.hpMax);
     const actualHeal = this.playerHp - oldHp;
 
     if (actualHeal > 0 && this.playerAvatar) {
@@ -470,7 +466,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyHealToBoss(healGain: number) {
     if (healGain <= 0) return;
-    this.bossHp = clamp(this.bossHp + healGain, 0, BOSS_HP_MAX);
+    this.bossHp = clamp(this.bossHp + healGain, 0, GAME_PARAMS.boss.hpMax);
   }
 
   private shakeTarget(target: Phaser.GameObjects.Image, offset: number) {
@@ -723,9 +719,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateHud() {
-    this.bossHpBar?.setValue(this.bossHp, BOSS_HP_MAX);
-    this.playerHpBar?.setValue(this.playerHp, PLAYER_HP_MAX);
-    this.manaBar?.setValue(this.mana, PLAYER_MANA_MAX);
+    this.bossHpBar?.setValue(this.bossHp, GAME_PARAMS.boss.hpMax);
+    this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
+    this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
     this.updateBossArt();
 
     // Обновляем иконку кулдауна босса (показываем тип следующей атаки)
@@ -755,7 +751,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateBossArt() {
     if (!this.bossImage) return;
-    const ratio = this.bossHp / BOSS_HP_MAX;
+    const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
     const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.damaged;
     this.bossImage.setTexture(key);
   }
