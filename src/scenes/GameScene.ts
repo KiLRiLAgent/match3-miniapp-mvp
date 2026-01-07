@@ -199,7 +199,7 @@ export class GameScene extends Phaser.Scene {
 
     // === КНОПКА НАСТРОЕК ===
     this.add
-      .text(GAME_WIDTH - 35, 15 + SAFE_AREA.top, "⚙️", {
+      .text(GAME_WIDTH - 35, 65 + SAFE_AREA.top, "⚙️", {
         fontSize: "26px",
         fontFamily: "Arial, sans-serif",
       })
