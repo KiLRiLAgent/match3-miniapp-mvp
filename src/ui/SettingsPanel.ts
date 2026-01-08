@@ -16,6 +16,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   private panel: Phaser.GameObjects.Rectangle;
   private scrollContainer: Phaser.GameObjects.Container;
   private scrollMask: Phaser.GameObjects.Graphics;
+  private scrollbar: Phaser.GameObjects.Rectangle | null = null;
   private rows: Array<{
     label: Phaser.GameObjects.Text;
     value: Phaser.GameObjects.Text;
@@ -28,9 +29,20 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   private onClose: () => void;
   private scrollY = 0;
   private maxScrollY = 0;
-  private isDragging = false;
+  private scrollAreaTop = 0;
+  private scrollAreaHeight = 0;
+  private scrollAreaLeft = 0;
+  private scrollAreaRight = 0;
+  private contentHeight = 0;
+
+  // Для отслеживания скролла
   private dragStartY = 0;
   private scrollStartY = 0;
+  private isDragging = false;
+  private pointerDownHandler: ((pointer: Phaser.Input.Pointer) => void) | null = null;
+  private pointerMoveHandler: ((pointer: Phaser.Input.Pointer) => void) | null = null;
+  private pointerUpHandler: (() => void) | null = null;
+  private wheelHandler: ((pointer: Phaser.Input.Pointer, gameObjects: Phaser.GameObjects.GameObject[], deltaX: number, deltaY: number) => void) | null = null;
 
   constructor(scene: Phaser.Scene, onClose: () => void) {
     super(scene, 0, 0);
@@ -125,13 +137,15 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     // Размеры для скролла
     const headerHeight = 55;
     const footerHeight = 70;
-    const scrollAreaTop = panelY + headerHeight;
-    const scrollAreaHeight = panelHeight - headerHeight - footerHeight;
+    this.scrollAreaTop = panelY + headerHeight;
+    this.scrollAreaHeight = panelHeight - headerHeight - footerHeight;
+    this.scrollAreaLeft = panelX;
+    this.scrollAreaRight = panelX + panelWidth;
 
     // Создаём маску для скролла
     this.scrollMask = scene.add.graphics();
     this.scrollMask.fillStyle(0xffffff);
-    this.scrollMask.fillRect(panelX, scrollAreaTop, panelWidth, scrollAreaHeight);
+    this.scrollMask.fillRect(panelX, this.scrollAreaTop, panelWidth, this.scrollAreaHeight);
 
     // Контейнер для скроллируемого контента
     this.scrollContainer = scene.add.container(0, 0);
@@ -140,7 +154,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     // Создаём строки с увеличенными размерами
     const rowHeight = 44;
     const buttonSize = 36;
-    const startY = scrollAreaTop + 10;
+    const startY = this.scrollAreaTop + 10;
 
     params.forEach((param, idx) => {
       const y = startY + idx * rowHeight;
@@ -205,60 +219,21 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     });
 
     // Вычисляем максимальный скролл
-    const contentHeight = params.length * rowHeight + 20;
-    this.maxScrollY = Math.max(0, contentHeight - scrollAreaHeight);
+    this.contentHeight = params.length * rowHeight + 20;
+    this.maxScrollY = Math.max(0, this.contentHeight - this.scrollAreaHeight);
 
     this.add(this.scrollContainer);
 
-    // Обработка скролла через drag
-    const scrollZone = scene.add
-      .rectangle(panelX, scrollAreaTop, panelWidth, scrollAreaHeight, 0x000000, 0)
-      .setOrigin(0)
-      .setInteractive({ draggable: true });
-
-    scrollZone.on("dragstart", (_pointer: Phaser.Input.Pointer) => {
-      this.isDragging = true;
-      this.dragStartY = _pointer.y;
-      this.scrollStartY = this.scrollY;
-    });
-
-    scrollZone.on("drag", (_pointer: Phaser.Input.Pointer) => {
-      if (this.isDragging) {
-        const deltaY = _pointer.y - this.dragStartY;
-        this.scrollY = Phaser.Math.Clamp(this.scrollStartY - deltaY, 0, this.maxScrollY);
-        this.updateScrollPosition();
-      }
-    });
-
-    scrollZone.on("dragend", () => {
-      this.isDragging = false;
-    });
-
-    // Колесо мыши для десктопа
-    scene.input.on("wheel", (_pointer: Phaser.Input.Pointer, _gameObjects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number) => {
-      if (this.visible) {
-        this.scrollY = Phaser.Math.Clamp(this.scrollY + deltaY * 0.5, 0, this.maxScrollY);
-        this.updateScrollPosition();
-      }
-    });
-
-    this.add(scrollZone);
+    // Обработка скролла через scene input (не блокирует кнопки)
+    this.setupScrollHandlers(scene);
 
     // Индикатор скролла (полоса справа)
     if (this.maxScrollY > 0) {
-      const scrollbarHeight = (scrollAreaHeight / contentHeight) * scrollAreaHeight;
-      const scrollbar = scene.add
-        .rectangle(panelX + panelWidth - 4, scrollAreaTop, 3, scrollbarHeight, 0x666666, 0.5)
+      const scrollbarHeight = (this.scrollAreaHeight / this.contentHeight) * this.scrollAreaHeight;
+      this.scrollbar = scene.add
+        .rectangle(panelX + panelWidth - 4, this.scrollAreaTop, 3, scrollbarHeight, 0x666666, 0.5)
         .setOrigin(0.5, 0);
-      this.add(scrollbar);
-
-      // Обновление позиции скроллбара
-      scene.events.on("update", () => {
-        if (this.active) {
-          const scrollProgress = this.scrollY / this.maxScrollY;
-          scrollbar.y = scrollAreaTop + scrollProgress * (scrollAreaHeight - scrollbarHeight);
-        }
-      });
+      this.add(this.scrollbar);
     }
 
     // Кнопка "Применить и перезапустить"
@@ -285,8 +260,63 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     this.setDepth(100);
   }
 
+  private setupScrollHandlers(scene: Phaser.Scene) {
+    // Обработчик нажатия - начало скролла
+    this.pointerDownHandler = (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible) return;
+
+      // Проверяем, что клик в области скролла
+      if (this.isInScrollArea(pointer.x, pointer.y)) {
+        this.isDragging = true;
+        this.dragStartY = pointer.y;
+        this.scrollStartY = this.scrollY;
+      }
+    };
+
+    // Обработчик движения - скролл
+    this.pointerMoveHandler = (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || !this.isDragging) return;
+
+      const deltaY = pointer.y - this.dragStartY;
+      // Инвертируем: тянем вниз - контент вверх
+      this.scrollY = Phaser.Math.Clamp(this.scrollStartY - deltaY, 0, this.maxScrollY);
+      this.updateScrollPosition();
+    };
+
+    // Обработчик отпускания
+    this.pointerUpHandler = () => {
+      this.isDragging = false;
+    };
+
+    // Колесо мыши
+    this.wheelHandler = (_pointer: Phaser.Input.Pointer, _gameObjects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number) => {
+      if (!this.visible) return;
+      this.scrollY = Phaser.Math.Clamp(this.scrollY + deltaY * 0.5, 0, this.maxScrollY);
+      this.updateScrollPosition();
+    };
+
+    scene.input.on("pointerdown", this.pointerDownHandler);
+    scene.input.on("pointermove", this.pointerMoveHandler);
+    scene.input.on("pointerup", this.pointerUpHandler);
+    scene.input.on("wheel", this.wheelHandler);
+  }
+
+  private isInScrollArea(x: number, y: number): boolean {
+    return x >= this.scrollAreaLeft &&
+           x <= this.scrollAreaRight &&
+           y >= this.scrollAreaTop &&
+           y <= this.scrollAreaTop + this.scrollAreaHeight;
+  }
+
   private updateScrollPosition() {
     this.scrollContainer.y = -this.scrollY;
+
+    // Обновляем позицию скроллбара
+    if (this.scrollbar && this.maxScrollY > 0) {
+      const scrollbarHeight = (this.scrollAreaHeight / this.contentHeight) * this.scrollAreaHeight;
+      const scrollProgress = this.scrollY / this.maxScrollY;
+      this.scrollbar.y = this.scrollAreaTop + scrollProgress * (this.scrollAreaHeight - scrollbarHeight);
+    }
   }
 
   private adjustParam(param: ParamRow, direction: number) {
@@ -308,6 +338,20 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   }
 
   private close() {
+    // Удаляем обработчики скролла
+    if (this.pointerDownHandler) {
+      this.scene.input.off("pointerdown", this.pointerDownHandler);
+    }
+    if (this.pointerMoveHandler) {
+      this.scene.input.off("pointermove", this.pointerMoveHandler);
+    }
+    if (this.pointerUpHandler) {
+      this.scene.input.off("pointerup", this.pointerUpHandler);
+    }
+    if (this.wheelHandler) {
+      this.scene.input.off("wheel", this.wheelHandler);
+    }
+
     this.destroy();
     this.onClose();
   }
