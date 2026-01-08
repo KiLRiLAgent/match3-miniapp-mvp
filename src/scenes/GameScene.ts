@@ -635,6 +635,13 @@ export class GameScene extends Phaser.Scene {
       const sprite = this.tileSprites.get(tile.id);
       if (!sprite) return;
 
+      // Clean up bomb cooldown text if this tile was a bomb
+      if (tile.kind === TileKind.Bomb) {
+        const text = this.bombCooldownTexts.get(tile.id);
+        text?.destroy();
+        this.bombCooldownTexts.delete(tile.id);
+      }
+
       const worldPos = this.toWorld(pos);
       const tileData = { x: worldPos.x, y: worldPos.y, kind: tile.kind };
 
@@ -688,13 +695,13 @@ export class GameScene extends Phaser.Scene {
       const target = this.toWorld(to);
       tweens.push(this.createTween(sprite, target, ANIMATION_DURATIONS.tileCollapse));
 
-      // Анимировать текст кулдауна бомбы вместе со спрайтом
+      // Animate bomb cooldown text along with sprite
       const cooldownText = this.bombCooldownTexts.get(tile.id);
       if (cooldownText) {
         this.tweens.add({
           targets: cooldownText,
-          x: target.x + CELL_SIZE / 2 - 10,
-          y: target.y + CELL_SIZE / 2 - 10,
+          x: target.x,
+          y: target.y,
           duration: ANIMATION_DURATIONS.tileCollapse,
           ease: ANIMATION_EASING.collapse,
         });
@@ -981,27 +988,38 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async handleBombExplosions(exploded: Array<{ pos: Position; tile: Tile }>) {
-    // Бомбы летят по одной с задержкой, каждая наносит урон отдельно
+    // Process bombs one by one with delay, each deals damage separately
     for (const { pos, tile } of exploded) {
+      // Verify bomb still exists at this position (might have been cleared by booster)
+      const currentTile = this.board.getTile(pos);
+      if (!currentTile || currentTile.id !== tile.id) {
+        continue;
+      }
+
+      // Animate bomb flying to player
       await this.animateSingleBombExplode(tile);
+
+      // Clean up sprite and text
       this.removeBombSprite(tile.id);
 
-      // Урон от одной бомбы
+      // Remove from grid
+      this.board.removeTile(pos);
+
+      // Apply damage
       this.applyDamageToPlayer(BOSS_ABILITIES.bombs.bombDamage);
       this.updateHud();
       this.checkGameOver();
       if (this.gameOver) return;
 
-      this.board.removeTile(pos);
-      await wait(this, 150); // Пауза между бомбами
+      await wait(this, 150);
     }
 
-    // Collapse после всех бомб
+    // Collapse and refill after all bombs processed
     const collapse = this.board.collapseGrid();
     this.rebuildPositionMap();
     await this.animateCollapse(collapse);
 
-    // Проверяем матчи после collapse - это ход босса
+    // Check for cascade matches (boss's turn)
     const matches = this.board.findMatches();
     if (matches.length > 0) {
       await this.resolveBoard(matches, [], [], false, "boss");
@@ -1142,14 +1160,14 @@ export class GameScene extends Phaser.Scene {
       const worldPos = this.toWorld(pos);
       const startY = this.boardOrigin.y - CELL_SIZE;
 
-      // Создаём спрайт бомбы
+      // Create bomb sprite
       const sprite = this.spawnTileSprite(tile, pos, startY);
       sprite.setPosition(worldPos.x, startY);
 
-      // Создаём текст кулдауна
+      // Create cooldown text (positioned at cell center since toWorld returns center)
       const cooldownText = this.add.text(
-        worldPos.x + CELL_SIZE / 2 - 10,
-        worldPos.y + CELL_SIZE / 2 - 10,
+        worldPos.x,
+        startY,
         tile.cooldown?.toString() ?? "",
         {
           fontSize: "16px",
@@ -1162,7 +1180,7 @@ export class GameScene extends Phaser.Scene {
       ).setOrigin(0.5).setDepth(2);
       this.bombCooldownTexts.set(tile.id, cooldownText);
 
-      // Анимация падения
+      // Animate drop
       tweens.push(
         new Promise<void>(resolve => {
           this.tweens.add({
@@ -1174,7 +1192,7 @@ export class GameScene extends Phaser.Scene {
           });
           this.tweens.add({
             targets: cooldownText,
-            y: worldPos.y + CELL_SIZE / 2 - 10,
+            y: worldPos.y,
             duration: 400,
             ease: "Bounce.easeOut",
           });
@@ -1189,6 +1207,8 @@ export class GameScene extends Phaser.Scene {
     const sprite = this.tileSprites.get(tile.id);
     if (!sprite) return;
 
+    // Also animate the cooldown text to fly with the bomb
+    const cooldownText = this.bombCooldownTexts.get(tile.id);
     const target = this.playerTarget;
 
     return new Promise<void>(resolve => {
@@ -1205,6 +1225,18 @@ export class GameScene extends Phaser.Scene {
           resolve();
         },
       });
+
+      // Animate cooldown text along with sprite (fade out during flight)
+      if (cooldownText) {
+        this.tweens.add({
+          targets: cooldownText,
+          x: target.x,
+          y: target.y,
+          alpha: 0,
+          duration: 350,
+          ease: "Quad.easeIn",
+        });
+      }
     });
   }
 
