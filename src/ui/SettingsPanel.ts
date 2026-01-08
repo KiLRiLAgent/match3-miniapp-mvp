@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, SKILL_CONFIG, saveGameParams, SAFE_AREA } from "../game/config";
+import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, SKILL_CONFIG, saveGameParams, SAFE_AREA, ABILITY_NAMES } from "../game/config";
 import type { SkillId } from "../game/config";
 
 type ParamRow = {
@@ -9,6 +9,7 @@ type ParamRow = {
   min: number;
   max: number;
   step: number;
+  isPattern?: boolean; // Для отображения названия способности вместо числа
 };
 
 export class SettingsPanel extends Phaser.GameObjects.Container {
@@ -97,30 +98,45 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
 
     // Параметры для редактирования
     const params: ParamRow[] = [
-      // Игрок
+      // === ИГРОК ===
       { label: "❤️ HP игрока", getValue: () => GAME_PARAMS.player.hpMax, setValue: (v) => GAME_PARAMS.player.hpMax = v, min: 50, max: 1000, step: 10 },
       { label: "💧 MP игрока", getValue: () => GAME_PARAMS.player.manaMax, setValue: (v) => GAME_PARAMS.player.manaMax = v, min: 50, max: 500, step: 10 },
       { label: "⚔️ Физ. атака", getValue: () => GAME_PARAMS.player.physAttack, setValue: (v) => GAME_PARAMS.player.physAttack = v, min: 1, max: 50, step: 1 },
       { label: "✨ Маг. атака", getValue: () => GAME_PARAMS.player.magAttack, setValue: (v) => GAME_PARAMS.player.magAttack = v, min: 1, max: 50, step: 1 },
-      // Босс
+
+      // === БОСС ===
       { label: "👿 HP босса", getValue: () => GAME_PARAMS.boss.hpMax, setValue: (v) => GAME_PARAMS.boss.hpMax = v, min: 100, max: 2000, step: 50 },
       { label: "👊 Атака босса", getValue: () => GAME_PARAMS.boss.physAttack, setValue: (v) => GAME_PARAMS.boss.physAttack = v, min: 1, max: 50, step: 1 },
-      // Тайлы
+
+      // === ТАЙЛЫ ===
       { label: "💚 HP за тайл", getValue: () => GAME_PARAMS.tiles.hpPerTile, setValue: (v) => GAME_PARAMS.tiles.hpPerTile = v, min: 1, max: 50, step: 1 },
       { label: "💙 MP за тайл", getValue: () => GAME_PARAMS.tiles.mpPerTile, setValue: (v) => GAME_PARAMS.tiles.mpPerTile = v, min: 1, max: 50, step: 1 },
       { label: "🗡️ Урон меча", getValue: () => GAME_PARAMS.tiles.swordDamage, setValue: (v) => GAME_PARAMS.tiles.swordDamage = v, min: 1, max: 50, step: 1 },
       { label: "⭐ Урон звезды", getValue: () => GAME_PARAMS.tiles.starDamage, setValue: (v) => GAME_PARAMS.tiles.starDamage = v, min: 1, max: 50, step: 1 },
-      // Скиллы босса
+
+      // === СПОСОБНОСТИ БОССА ===
       { label: "🔴 Урон атаки", getValue: () => GAME_PARAMS.bossAbilities.attackDamage, setValue: (v) => GAME_PARAMS.bossAbilities.attackDamage = v, min: 10, max: 200, step: 10 },
+      { label: "🔴 КД атаки", getValue: () => GAME_PARAMS.bossAbilities.attackCooldown, setValue: (v) => GAME_PARAMS.bossAbilities.attackCooldown = v, min: 1, max: 10, step: 1 },
       { label: "💣 Кол-во бомб", getValue: () => GAME_PARAMS.bossAbilities.bombCount, setValue: (v) => GAME_PARAMS.bossAbilities.bombCount = v, min: 1, max: 10, step: 1 },
-      { label: "⏱️ Таймер бомб", getValue: () => GAME_PARAMS.bossAbilities.bombCooldown, setValue: (v) => GAME_PARAMS.bossAbilities.bombCooldown = v, min: 1, max: 10, step: 1 },
-      { label: "💥 Урон бомбы", getValue: () => GAME_PARAMS.bossAbilities.bombDamage, setValue: (v) => GAME_PARAMS.bossAbilities.bombDamage = v, min: 10, max: 200, step: 10 },
+      { label: "💣 Таймер бомб", getValue: () => GAME_PARAMS.bossAbilities.bombCooldown, setValue: (v) => GAME_PARAMS.bossAbilities.bombCooldown = v, min: 1, max: 10, step: 1 },
+      { label: "💣 Урон бомбы", getValue: () => GAME_PARAMS.bossAbilities.bombDamage, setValue: (v) => GAME_PARAMS.bossAbilities.bombDamage = v, min: 10, max: 200, step: 10 },
+      { label: "💣 КД бомб", getValue: () => GAME_PARAMS.bossAbilities.bombsAbilityCooldown, setValue: (v) => GAME_PARAMS.bossAbilities.bombsAbilityCooldown = v, min: 1, max: 10, step: 1 },
       { label: "🛡️ Длит. щита", getValue: () => GAME_PARAMS.bossAbilities.shieldDuration, setValue: (v) => GAME_PARAMS.bossAbilities.shieldDuration = v, min: 1, max: 10, step: 1 },
+      { label: "🛡️ КД щита", getValue: () => GAME_PARAMS.bossAbilities.shieldCooldown, setValue: (v) => GAME_PARAMS.bossAbilities.shieldCooldown = v, min: 1, max: 10, step: 1 },
       { label: "⚡ Мощн. удар", getValue: () => GAME_PARAMS.bossAbilities.powerStrikeDamage, setValue: (v) => GAME_PARAMS.bossAbilities.powerStrikeDamage = v, min: 50, max: 500, step: 25 },
+      { label: "⚡ КД удара", getValue: () => GAME_PARAMS.bossAbilities.powerStrikeCooldown, setValue: (v) => GAME_PARAMS.bossAbilities.powerStrikeCooldown = v, min: 1, max: 10, step: 1 },
       { label: "🌀 Слив маны", getValue: () => GAME_PARAMS.bossAbilities.powerStrikeManaDrain, setValue: (v) => GAME_PARAMS.bossAbilities.powerStrikeManaDrain = v, min: 0, max: 100, step: 10 },
+
+      // === ПАТТЕРН БОССА (1=Атака, 2=Бомбы, 3=Щит, 4=Удар) ===
+      { label: "📋 Слот 1", getValue: () => GAME_PARAMS.bossPattern[0], setValue: (v) => GAME_PARAMS.bossPattern[0] = v, min: 1, max: 4, step: 1, isPattern: true },
+      { label: "📋 Слот 2", getValue: () => GAME_PARAMS.bossPattern[1], setValue: (v) => GAME_PARAMS.bossPattern[1] = v, min: 1, max: 4, step: 1, isPattern: true },
+      { label: "📋 Слот 3", getValue: () => GAME_PARAMS.bossPattern[2], setValue: (v) => GAME_PARAMS.bossPattern[2] = v, min: 1, max: 4, step: 1, isPattern: true },
+      { label: "📋 Слот 4", getValue: () => GAME_PARAMS.bossPattern[3], setValue: (v) => GAME_PARAMS.bossPattern[3] = v, min: 1, max: 4, step: 1, isPattern: true },
+      { label: "📋 Слот 5", getValue: () => GAME_PARAMS.bossPattern[4], setValue: (v) => GAME_PARAMS.bossPattern[4] = v, min: 1, max: 4, step: 1, isPattern: true },
+      { label: "📋 Слот 6", getValue: () => GAME_PARAMS.bossPattern[5], setValue: (v) => GAME_PARAMS.bossPattern[5] = v, min: 1, max: 4, step: 1, isPattern: true },
     ];
 
-    // Добавляем параметры скиллов
+    // Добавляем параметры скиллов игрока
     const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
     skillIds.forEach((id) => {
       const cfg = SKILL_CONFIG[id];
@@ -186,9 +202,14 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         })
         .setOrigin(0.5);
 
+      // Для паттерна показываем название способности
+      const displayValue = param.isPattern
+        ? ABILITY_NAMES[param.getValue()] || param.getValue().toString()
+        : param.getValue().toString();
+
       const value = scene.add
-        .text(panelX + panelWidth - 65, y, param.getValue().toString(), {
-          fontSize: "16px",
+        .text(panelX + panelWidth - 65, y, displayValue, {
+          fontSize: param.isPattern ? "12px" : "16px",
           color: "#ffffff",
           fontFamily: "Arial, sans-serif",
           fontStyle: "bold",
@@ -328,7 +349,13 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
 
   private updateValues() {
     this.rows.forEach((row) => {
-      row.value.setText(row.param.getValue().toString());
+      const val = row.param.getValue();
+      // Для паттерна показываем название способности
+      if (row.param.isPattern) {
+        row.value.setText(ABILITY_NAMES[val] || val.toString());
+      } else {
+        row.value.setText(val.toString());
+      }
     });
   }
 

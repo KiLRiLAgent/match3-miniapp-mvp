@@ -1,6 +1,6 @@
 import {
   BOSS_ABILITIES,
-  BOSS_ABILITY_PATTERN,
+  getBossAbilityPattern,
   type BossAbilityType,
 } from "./config";
 
@@ -21,7 +21,8 @@ export class BossAbilityManager {
   }
 
   get currentType(): BossAbilityType {
-    return BOSS_ABILITY_PATTERN[this.patternIndex];
+    const pattern = getBossAbilityPattern();
+    return pattern[this.patternIndex % pattern.length];
   }
 
   get currentAbility() {
@@ -59,7 +60,8 @@ export class BossAbilityManager {
   }
 
   advance(): void {
-    this.patternIndex = (this.patternIndex + 1) % BOSS_ABILITY_PATTERN.length;
+    const pattern = getBossAbilityPattern();
+    this.patternIndex = (this.patternIndex + 1) % pattern.length;
     this.currentCooldown = this.getCurrentAbilityCooldown();
   }
 

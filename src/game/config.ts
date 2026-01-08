@@ -56,12 +56,12 @@ export const GAME_PARAMS = {
     magAttack: 10,
   },
   boss: {
-    hpMax: 500,
+    hpMax: 1000,
     physAttack: 10,
   },
   tiles: {
-    hpPerTile: 10,
-    mpPerTile: 10,
+    hpPerTile: 2,
+    mpPerTile: 5,
     swordDamage: 10,
     starDamage: 10,
   },
@@ -78,6 +78,8 @@ export const GAME_PARAMS = {
     powerStrikeManaDrain: 50,
     powerStrikeCooldown: 2,
   },
+  // Паттерн способностей босса (1=атака, 2=бомбы, 3=щит, 4=мощный удар)
+  bossPattern: [1, 2, 1, 3, 1, 4] as number[],
 };
 
 // Загрузить из localStorage
@@ -90,6 +92,16 @@ export function loadGameParams() {
       Object.assign(GAME_PARAMS.boss, parsed.boss || {});
       Object.assign(GAME_PARAMS.tiles, parsed.tiles || {});
       Object.assign(GAME_PARAMS.bossAbilities, parsed.bossAbilities || {});
+      if (parsed.bossPattern && Array.isArray(parsed.bossPattern)) {
+        GAME_PARAMS.bossPattern = parsed.bossPattern;
+      }
+      // Загружаем стоимость скиллов
+      if (parsed.skillCosts) {
+        if (parsed.skillCosts.powerStrike !== undefined) SKILL_CONFIG.powerStrike.cost = parsed.skillCosts.powerStrike;
+        if (parsed.skillCosts.stun !== undefined) SKILL_CONFIG.stun.cost = parsed.skillCosts.stun;
+        if (parsed.skillCosts.heal !== undefined) SKILL_CONFIG.heal.cost = parsed.skillCosts.heal;
+        if (parsed.skillCosts.hammer !== undefined) SKILL_CONFIG.hammer.cost = parsed.skillCosts.hammer;
+      }
     }
   } catch {
     // Игнорируем ошибки
@@ -99,7 +111,16 @@ export function loadGameParams() {
 // Сохранить в localStorage
 export function saveGameParams() {
   try {
-    localStorage.setItem("match3_params", JSON.stringify(GAME_PARAMS));
+    const dataToSave = {
+      ...GAME_PARAMS,
+      skillCosts: {
+        powerStrike: SKILL_CONFIG.powerStrike.cost,
+        stun: SKILL_CONFIG.stun.cost,
+        heal: SKILL_CONFIG.heal.cost,
+        hammer: SKILL_CONFIG.hammer.cost,
+      },
+    };
+    localStorage.setItem("match3_params", JSON.stringify(dataToSave));
   } catch {
     // Игнорируем ошибки
   }
@@ -144,17 +165,29 @@ export const BOSS_ABILITIES = {
   },
 };
 
-// Паттерн способностей босса (зацикливается)
-export const BOSS_ABILITY_PATTERN = [
-  "attack",
-  "bombs",
-  "attack",
-  "shield",
-  "attack",
-  "powerStrike",
-] as const;
+// Типы способностей босса
+export type BossAbilityType = "attack" | "bombs" | "shield" | "powerStrike";
 
-export type BossAbilityType = typeof BOSS_ABILITY_PATTERN[number];
+// Маппинг числа на тип способности
+const ABILITY_MAP: Record<number, BossAbilityType> = {
+  1: "attack",
+  2: "bombs",
+  3: "shield",
+  4: "powerStrike",
+};
+
+// Названия способностей для UI
+export const ABILITY_NAMES: Record<number, string> = {
+  1: "Атака",
+  2: "Бомбы",
+  3: "Щит",
+  4: "Удар",
+};
+
+// Паттерн способностей босса (динамический, из GAME_PARAMS)
+export function getBossAbilityPattern(): BossAbilityType[] {
+  return GAME_PARAMS.bossPattern.map(n => ABILITY_MAP[n] || "attack");
+}
 
 export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Sword,
@@ -319,7 +352,7 @@ export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   powerStrike: {
     name: "Мощный удар",
     icon: "💪",
-    cost: 70,
+    cost: 40,
     damage: 100,
     heal: 0,
     cooldown: 3,
@@ -347,7 +380,7 @@ export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   hammer: {
     name: "Молоток",
     icon: "🔨",
-    cost: 50,
+    cost: 20,
     damage: 0,
     heal: 0,
     cooldown: 3,
