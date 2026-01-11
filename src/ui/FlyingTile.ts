@@ -57,21 +57,35 @@ export function flyTileToTarget(
 
     const baseScale = tile.scaleX;
     const trailGraphics = scene.add.graphics().setDepth(199);
-    const trailPoints: { x: number; y: number; alpha: number }[] = [];
+
+    // Circular buffer for trail points - avoids O(n) shift operations
+    const MAX_TRAIL_POINTS = 32;
+    const trailPoints: Array<{ x: number; y: number; alpha: number }> = [];
+    let trailHead = 0;
 
     let progress = 0;
     const startTime = scene.time.now + delay;
+    let isCleanedUp = false;
 
     const cleanup = () => {
+      if (isCleanedUp) return;
+      isCleanedUp = true;
+
       scene.events.off("update", updateHandler);
       scene.events.off("shutdown", cleanup);
-      tile.destroy();
-      trailGraphics.destroy();
+
+      if (tile.scene) tile.destroy();
+      if (trailGraphics.scene) trailGraphics.destroy();
+
       resolve();
     };
 
     const updateHandler = () => {
-      if (!scene.sys.isActive()) return cleanup();
+      if (isCleanedUp) return;
+      if (!scene.sys.isActive()) {
+        cleanup();
+        return;
+      }
 
       const now = scene.time.now;
       if (now < startTime) return;
@@ -91,10 +105,18 @@ export function flyTileToTarget(
       tile.setPosition(x, y);
       tile.setScale(baseScale * (1 - progress * FLYING_TILE.flyingTileScaleReduction));
 
-      trailPoints.push({ x, y, alpha: 1 });
+      // Add new trail point using circular buffer pattern
+      if (trailPoints.length < MAX_TRAIL_POINTS) {
+        trailPoints.push({ x, y, alpha: 1 });
+      } else {
+        trailPoints[trailHead] = { x, y, alpha: 1 };
+        trailHead = (trailHead + 1) % MAX_TRAIL_POINTS;
+      }
 
+      // Render trail - iterate all points and fade them
       trailGraphics.clear();
-      for (const point of trailPoints) {
+      for (let i = 0; i < trailPoints.length; i++) {
+        const point = trailPoints[i];
         point.alpha -= FLYING_TILE.trailFade;
         if (point.alpha > 0) {
           trailGraphics.fillStyle(color, point.alpha * FLYING_TILE.trailOpacity);
@@ -102,22 +124,24 @@ export function flyTileToTarget(
         }
       }
 
-      while (trailPoints.length > 0 && trailPoints[0].alpha <= 0) {
-        trailPoints.shift();
-      }
-
       if (progress >= 1) {
         scene.events.off("update", updateHandler);
         scene.events.off("shutdown", cleanup);
-        tile.destroy();
 
-        scene.tweens.add({
-          targets: trailGraphics,
-          alpha: 0,
-          duration: 150,
-          onComplete: () => trailGraphics.destroy(),
-        });
+        if (tile.scene) tile.destroy();
 
+        if (trailGraphics.scene) {
+          scene.tweens.add({
+            targets: trailGraphics,
+            alpha: 0,
+            duration: 150,
+            onComplete: () => {
+              if (trailGraphics.scene) trailGraphics.destroy();
+            },
+          });
+        }
+
+        isCleanedUp = true;
         resolve();
       }
     };

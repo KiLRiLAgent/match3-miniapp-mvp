@@ -33,19 +33,10 @@ export function updateScaledValues() {
   UI_LAYOUT = getUILayout();
 }
 
-// Параметры игрока (legacy, используем GAME_PARAMS)
-export const PLAYER_HP_MAX = 200;
-export const PLAYER_MANA_MAX = 100;
-export const PLAYER_PHYS_ATTACK = 10;
-export const PLAYER_MAG_ATTACK = 10;
-export const PLAYER_MAG_DAMAGE_MULTIPLIER = 0.5;
-export const HP_PER_TILE = 10;
-export const MP_PER_TILE = 10;
-
-// Параметры противника (legacy)
-export const BOSS_HP_MAX = 500;
-export const BOSS_PHYS_ATTACK = 10;
+// Порог для смены спрайта босса при низком HP
 export const BOSS_DAMAGED_HP_THRESHOLD = 0.5;
+// Множитель магического урона
+export const PLAYER_MAG_DAMAGE_MULTIPLIER = 0.5;
 
 // === МУТАБЕЛЬНЫЕ ПАРАМЕТРЫ ДЛЯ НАСТРОЕК ===
 export const GAME_PARAMS = {
@@ -82,29 +73,96 @@ export const GAME_PARAMS = {
   bossPattern: [1, 2, 1, 3, 1, 4] as number[],
 };
 
+// Валидация числового значения
+function isValidNumber(value: unknown, min = 0, max = 10000): value is number {
+  return typeof value === "number" && !isNaN(value) && value >= min && value <= max;
+}
+
+// Безопасное присваивание числового параметра
+function safeAssignNumber<T extends Record<string, number>>(
+  target: T,
+  key: keyof T,
+  value: unknown,
+  min = 0,
+  max = 10000
+): void {
+  if (isValidNumber(value, min, max)) {
+    target[key] = value as T[keyof T];
+  }
+}
+
 // Загрузить из localStorage
 export function loadGameParams() {
   try {
     const saved = localStorage.getItem("match3_params");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      Object.assign(GAME_PARAMS.player, parsed.player || {});
-      Object.assign(GAME_PARAMS.boss, parsed.boss || {});
-      Object.assign(GAME_PARAMS.tiles, parsed.tiles || {});
-      Object.assign(GAME_PARAMS.bossAbilities, parsed.bossAbilities || {});
-      if (parsed.bossPattern && Array.isArray(parsed.bossPattern)) {
-        GAME_PARAMS.bossPattern = parsed.bossPattern;
-      }
-      // Загружаем стоимость скиллов
-      if (parsed.skillCosts) {
-        if (parsed.skillCosts.powerStrike !== undefined) SKILL_CONFIG.powerStrike.cost = parsed.skillCosts.powerStrike;
-        if (parsed.skillCosts.stun !== undefined) SKILL_CONFIG.stun.cost = parsed.skillCosts.stun;
-        if (parsed.skillCosts.heal !== undefined) SKILL_CONFIG.heal.cost = parsed.skillCosts.heal;
-        if (parsed.skillCosts.hammer !== undefined) SKILL_CONFIG.hammer.cost = parsed.skillCosts.hammer;
+    if (!saved) return;
+
+    const parsed: unknown = JSON.parse(saved);
+    if (typeof parsed !== "object" || parsed === null) return;
+
+    const data = parsed as Record<string, unknown>;
+
+    // Валидируем player параметры
+    if (typeof data.player === "object" && data.player !== null) {
+      const player = data.player as Record<string, unknown>;
+      safeAssignNumber(GAME_PARAMS.player, "hpMax", player.hpMax, 1, 10000);
+      safeAssignNumber(GAME_PARAMS.player, "manaMax", player.manaMax, 1, 10000);
+      safeAssignNumber(GAME_PARAMS.player, "physAttack", player.physAttack, 0, 1000);
+      safeAssignNumber(GAME_PARAMS.player, "magAttack", player.magAttack, 0, 1000);
+    }
+
+    // Валидируем boss параметры
+    if (typeof data.boss === "object" && data.boss !== null) {
+      const boss = data.boss as Record<string, unknown>;
+      safeAssignNumber(GAME_PARAMS.boss, "hpMax", boss.hpMax, 1, 100000);
+      safeAssignNumber(GAME_PARAMS.boss, "physAttack", boss.physAttack, 0, 1000);
+    }
+
+    // Валидируем tiles параметры
+    if (typeof data.tiles === "object" && data.tiles !== null) {
+      const tiles = data.tiles as Record<string, unknown>;
+      safeAssignNumber(GAME_PARAMS.tiles, "hpPerTile", tiles.hpPerTile, 0, 1000);
+      safeAssignNumber(GAME_PARAMS.tiles, "mpPerTile", tiles.mpPerTile, 0, 1000);
+      safeAssignNumber(GAME_PARAMS.tiles, "swordDamage", tiles.swordDamage, 0, 1000);
+      safeAssignNumber(GAME_PARAMS.tiles, "starDamage", tiles.starDamage, 0, 1000);
+    }
+
+    // Валидируем bossAbilities параметры
+    if (typeof data.bossAbilities === "object" && data.bossAbilities !== null) {
+      const ba = data.bossAbilities as Record<string, unknown>;
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "attackDamage", ba.attackDamage, 0, 1000);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "attackCooldown", ba.attackCooldown, 1, 100);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "bombCount", ba.bombCount, 0, 56);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "bombCooldown", ba.bombCooldown, 1, 100);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "bombDamage", ba.bombDamage, 0, 1000);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "bombsAbilityCooldown", ba.bombsAbilityCooldown, 1, 100);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "shieldDuration", ba.shieldDuration, 1, 100);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "shieldCooldown", ba.shieldCooldown, 1, 100);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "powerStrikeDamage", ba.powerStrikeDamage, 0, 10000);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "powerStrikeManaDrain", ba.powerStrikeManaDrain, 0, 1000);
+      safeAssignNumber(GAME_PARAMS.bossAbilities, "powerStrikeCooldown", ba.powerStrikeCooldown, 1, 100);
+    }
+
+    // Валидируем bossPattern
+    if (Array.isArray(data.bossPattern)) {
+      const validPattern = data.bossPattern.filter(
+        (n): n is number => isValidNumber(n, 1, 4)
+      );
+      if (validPattern.length > 0) {
+        GAME_PARAMS.bossPattern = validPattern;
       }
     }
+
+    // Валидируем skillCosts
+    if (typeof data.skillCosts === "object" && data.skillCosts !== null) {
+      const costs = data.skillCosts as Record<string, unknown>;
+      if (isValidNumber(costs.powerStrike, 0, 1000)) SKILL_CONFIG.powerStrike.cost = costs.powerStrike;
+      if (isValidNumber(costs.stun, 0, 1000)) SKILL_CONFIG.stun.cost = costs.stun;
+      if (isValidNumber(costs.heal, 0, 1000)) SKILL_CONFIG.heal.cost = costs.heal;
+      if (isValidNumber(costs.hammer, 0, 1000)) SKILL_CONFIG.hammer.cost = costs.hammer;
+    }
   } catch {
-    // Игнорируем ошибки
+    // Игнорируем ошибки парсинга
   }
 }
 
@@ -195,23 +253,6 @@ export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Mana,
   TileKind.Heal,
 ];
-
-// Урон за фишку = атака игрока (физ/маг) * 1
-export const DAMAGE_PER_TILE: Record<BaseTileKind, number> = {
-  [TileKind.Sword]: PLAYER_PHYS_ATTACK,
-  [TileKind.Star]: PLAYER_MAG_ATTACK,
-  [TileKind.Mana]: 0,
-  [TileKind.Heal]: 0,
-};
-
-export const MATCH_GAINS = {
-  mana: MP_PER_TILE,
-  heal: HP_PER_TILE,
-};
-
-// Способность игрока "Мощный удар"
-export const POWER_STRIKE_COST = 50;
-export const POWER_STRIKE_MULTIPLIER = 10;
 
 // UI Layout - строится СНИЗУ ВВЕРХ с фиксированными размерами
 export const getUILayout = () => {
@@ -335,6 +376,9 @@ export const DAMAGE_TILES: readonly TileKind[] = [TileKind.Sword, TileKind.Star]
 export const RESOURCE_TILES: readonly TileKind[] = [TileKind.Mana, TileKind.Heal] as const;
 
 export type SkillId = "powerStrike" | "stun" | "heal" | "hammer";
+
+// Порядок скиллов для UI
+export const SKILL_IDS: readonly SkillId[] = ["powerStrike", "stun", "heal", "hammer"] as const;
 
 export interface SkillDef {
   name: string;

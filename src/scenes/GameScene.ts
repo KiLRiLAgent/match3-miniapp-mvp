@@ -10,6 +10,7 @@ import {
   GAME_WIDTH,
   PLAYER_MAG_DAMAGE_MULTIPLIER,
   SKILL_CONFIG,
+  SKILL_IDS,
   UI_LAYOUT,
   UI_COLORS,
   INPUT_THRESHOLD,
@@ -127,6 +128,12 @@ export class GameScene extends Phaser.Scene {
   private clearBombCooldownTexts() {
     this.bombCooldownTexts.forEach(text => text.destroy());
     this.bombCooldownTexts.clear();
+  }
+
+  private cleanupBombText(tileId: number): void {
+    const text = this.bombCooldownTexts.get(tileId);
+    text?.destroy();
+    this.bombCooldownTexts.delete(tileId);
   }
 
   private buildHud() {
@@ -250,9 +257,8 @@ export class GameScene extends Phaser.Scene {
     const y = L.skillButtonsY;
 
     // Скиллы с иконками из конфига
-    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
-
-    skillIds.forEach((id, idx) => {
+    
+    SKILL_IDS.forEach((id, idx) => {
       const cfg = SKILL_CONFIG[id];
       const btn = new SkillButton(
         this,
@@ -293,6 +299,13 @@ export class GameScene extends Phaser.Scene {
     return !this.busy && !this.gameOver && this.currentTurn === "player" && this.playerHp > 0 && this.bossHp > 0;
   }
 
+  // Atomically try to acquire action lock - prevents race conditions
+  private tryStartAction(): boolean {
+    if (!this.canPlayerAct()) return false;
+    this.busy = true;
+    return true;
+  }
+
   private getSwipeDirection(dx: number, dy: number): Position {
     return Math.abs(dx) > Math.abs(dy)
       ? { x: Math.sign(dx), y: 0 }
@@ -302,13 +315,15 @@ export class GameScene extends Phaser.Scene {
   private handleTap(pos: Position) {
     const tile = this.board.getTile(pos);
     if (!tile || !this.board.isSpecial(tile.kind)) return;
+    if (!this.tryStartAction()) return;
 
-    this.busy = true;
-    this.resolveBoard([], [pos], [], true, "player").finally(() => {
-      if (!this.gameOver && this.currentTurn === "player") {
-        this.busy = false;
-      }
-    });
+    this.resolveBoard([], [pos], [], true, "player")
+      .catch((err) => this.handleAsyncError(err))
+      .finally(() => {
+        if (!this.gameOver && this.currentTurn === "player") {
+          this.busy = false;
+        }
+      });
   }
 
   private attemptSwap(a: Position, b: Position) {
@@ -319,8 +334,7 @@ export class GameScene extends Phaser.Scene {
 
     // Бомбы нельзя перемещать
     if (tileA.kind === TileKind.Bomb || tileB.kind === TileKind.Bomb) return;
-
-    this.busy = true;
+    if (!this.tryStartAction()) return;
 
     this.board.swap(a, b);
     this.rebuildPositionMap();
@@ -344,11 +358,18 @@ export class GameScene extends Phaser.Scene {
         }
         return this.resolveBoard(matches, specials, [a, b], true, "player");
       })
+      .catch((err) => this.handleAsyncError(err))
       .finally(() => {
         if (!this.gameOver && this.currentTurn === "player") {
           this.busy = false;
         }
       });
+  }
+
+  private handleAsyncError(err: unknown): void {
+    console.error("[GameScene] Async error:", err);
+    // Reset busy flag to allow recovery
+    this.busy = false;
   }
 
   private async resolveBoard(
@@ -637,9 +658,7 @@ export class GameScene extends Phaser.Scene {
 
       // Clean up bomb cooldown text if this tile was a bomb
       if (tile.kind === TileKind.Bomb) {
-        const text = this.bombCooldownTexts.get(tile.id);
-        text?.destroy();
-        this.bombCooldownTexts.delete(tile.id);
+        this.cleanupBombText(tile.id);
       }
 
       const worldPos = this.toWorld(pos);
@@ -753,8 +772,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Обновляем состояние всех 4 кнопок способностей
-    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
-    skillIds.forEach((id) => {
+        SKILL_IDS.forEach((id) => {
       const cfg = SKILL_CONFIG[id];
       const cooldown = this.skillCooldowns[id];
       const canUse = cooldown === 0 && this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
@@ -863,8 +881,7 @@ export class GameScene extends Phaser.Scene {
     this.tileSprites.delete(tile.id);
 
     // Убрать текст бомбы если была
-    this.bombCooldownTexts.get(tile.id)?.destroy();
-    this.bombCooldownTexts.delete(tile.id);
+    this.cleanupBombText(tile.id);
 
     // Выйти из режима молотка
     this.exitHammerMode();
@@ -884,8 +901,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private tickSkillCooldowns() {
-    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
-    for (const id of skillIds) {
+        for (const id of SKILL_IDS) {
       if (this.skillCooldowns[id] > 0) {
         this.skillCooldowns[id]--;
       }
@@ -1028,13 +1044,11 @@ export class GameScene extends Phaser.Scene {
 
   private removeBombSprite(tileId: number, animated = false): Promise<void> {
     const sprite = this.tileSprites.get(tileId);
-    const text = this.bombCooldownTexts.get(tileId);
 
     if (!animated) {
       sprite?.destroy();
       this.tileSprites.delete(tileId);
-      text?.destroy();
-      this.bombCooldownTexts.delete(tileId);
+      this.cleanupBombText(tileId);
       return Promise.resolve();
     }
 
@@ -1057,6 +1071,7 @@ export class GameScene extends Phaser.Scene {
       }));
     }
 
+    const text = this.bombCooldownTexts.get(tileId);
     if (text) {
       this.tweens.add({
         targets: text,
