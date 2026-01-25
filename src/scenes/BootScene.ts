@@ -4,10 +4,8 @@ import { CELL_SIZE, BASE_TYPES, GAME_WIDTH, GAME_HEIGHT, setScreenSize, updateSc
 import { TileKind } from "../match3/types";
 import { getSafeAreaInsets } from "../telegram/telegram";
 
-// Tile asset file extensions (most are png, heal is jpg)
-const TILE_EXTENSIONS: Record<string, string> = {
-  [TileKind.Heal]: "jpg",
-};
+// All tiles use png
+const TILE_EXTENSIONS: Record<string, string> = {};
 
 export class BootScene extends Phaser.Scene {
   constructor() {
