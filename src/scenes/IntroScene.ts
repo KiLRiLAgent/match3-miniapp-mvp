@@ -213,16 +213,6 @@ export class IntroScene extends Phaser.Scene {
 
     await Promise.all([zoomPromise, vsPromise]);
 
-    // Пульсация VS лого
-    this.tweens.add({
-      targets: this.vsLogo,
-      scale: 0.55,
-      duration: 300,
-      yoyo: true,
-      repeat: 2,
-      ease: "Sine.easeInOut",
-    });
-
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
