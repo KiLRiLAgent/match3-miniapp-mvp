@@ -54,3 +54,28 @@ export const FLYING_TILE = {
   delayBetweenTiles: 30,
   flyingTileScaleReduction: 0.6,
 } as const;
+
+/**
+ * Intro sequence animation parameters
+ * Controls timing for level start cinematic
+ */
+export const INTRO_ANIMATION = {
+  backgroundFadeIn: 800,
+  safiraFadeIn: 800,
+  speechBubbleFadeIn: 300,
+  speechBubbleHold: 2000,
+  poseTransitionDuration: 500,
+  cameraZoomDuration: 1500,
+  vsFadeIn: 500,
+  vsHold: 1000,
+  vsFadeOut: 500,
+  gameElementsFadeIn: 800,
+  initialZoom: 0.6,
+  finalZoom: 1.0,
+} as const;
+
+export const INTRO_EASING = {
+  fade: "Quad.easeOut",
+  zoom: "Sine.easeInOut",
+  scale: "Back.easeOut",
+} as const;

@@ -1,6 +1,7 @@
 import "./style.css";
 import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
+import { IntroScene } from "./scenes/IntroScene";
 import { GameScene } from "./scenes/GameScene";
 import { setScreenSize, updateScaledValues } from "./game/config";
 import { initTelegram, getSafeAreaInsets } from "./telegram/telegram";
@@ -23,7 +24,7 @@ setTimeout(() => {
     height: screenHeight,
     parent: "app",
     backgroundColor: "#0d0f1a",
-    scene: [BootScene, GameScene],
+    scene: [BootScene, IntroScene, GameScene],
     scale: {
       mode: Phaser.Scale.NONE,
     },

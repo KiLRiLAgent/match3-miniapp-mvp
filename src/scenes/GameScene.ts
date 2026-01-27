@@ -39,6 +39,8 @@ import { ShieldIcon } from "../ui/ShieldIcon";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
 import { clamp, wait } from "../utils/helpers";
+import { SpeechBubble } from "../ui/SpeechBubble";
+import { INTRO_ANIMATION } from "../game/animations";
 
 export class GameScene extends Phaser.Scene {
   private board!: Match3Board;
@@ -86,7 +88,7 @@ export class GameScene extends Phaser.Scene {
     super("GameScene");
   }
 
-  create() {
+  create(data?: { fromIntro?: boolean; finalDialogue?: string }) {
     // Загрузить сохранённые параметры
     loadGameParams();
 
@@ -102,6 +104,25 @@ export class GameScene extends Phaser.Scene {
     this.buildSkills();
     this.setupInputHandlers();
     this.updateHud();
+
+    // Show final dialogue bubble if coming from intro
+    if (data?.fromIntro && data?.finalDialogue) {
+      this.showFinalIntroBubble(data.finalDialogue);
+    }
+  }
+
+  private async showFinalIntroBubble(text: string) {
+    const bubbleY = UI_LAYOUT.bossNameY - 40;
+    const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
+      text,
+      tailDirection: "up",
+      maxWidth: 280,
+    });
+    bubble.setDepth(100);
+
+    await bubble.fadeIn();
+    await wait(this, INTRO_ANIMATION.speechBubbleHold);
+    await bubble.fadeOut();
   }
 
   private resetState() {
@@ -171,11 +192,19 @@ export class GameScene extends Phaser.Scene {
     this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
     this.shieldIcon.setDepth(4);
 
-    // === АВАТАР ИГРОКА (вертикальный прямоугольник от HP до низа скиллов) ===
-    this.playerAvatar = this.add
-      .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, UI_COLORS.playerHp, 0.9)
-      .setStrokeStyle(2, 0xffffff, 0.5)
+    // === АВАТАР ИГРОКА (изображение) ===
+    const playerAvatarImg = this.add
+      .image(L.avatarX, L.avatarY, ASSET_KEYS.player.avatar)
       .setDepth(4);
+    // Масштабируем чтобы вписать в отведённое пространство
+    const avatarScaleX = L.avatarWidth / playerAvatarImg.width;
+    const avatarScaleY = L.avatarHeight / playerAvatarImg.height;
+    const avatarScale = Math.min(avatarScaleX, avatarScaleY);
+    playerAvatarImg.setScale(avatarScale);
+    // Используем изображение как таргет для анимаций
+    this.playerAvatar = this.add
+      .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, 0x000000, 0)
+      .setDepth(3);
 
     // === HP БАР ИГРОКА ===
     this.playerHpBar = new Meter(
@@ -770,7 +799,7 @@ export class GameScene extends Phaser.Scene {
   private updateBossArt() {
     if (!this.bossImage) return;
     const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
-    const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.damaged;
+    const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.battle;
     this.bossImage.setTexture(key);
   }
 

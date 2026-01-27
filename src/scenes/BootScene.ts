@@ -13,10 +13,17 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Load boss sprites
-    Object.entries(ASSET_KEYS.boss).forEach(([, key]) => {
-      this.load.image(key, `assets/${key}.png`);
-    });
+    // Load boss sprites (new Safira assets)
+    this.load.image(ASSET_KEYS.boss.normal, "assets/safira/safira_normal.png");
+    this.load.image(ASSET_KEYS.boss.battle, "assets/safira/safira_battle.png");
+    this.load.image(ASSET_KEYS.boss.ulta, "assets/safira/safira_ulta.png");
+
+    // Load intro assets
+    this.load.image(ASSET_KEYS.intro.background, "assets/intro/background.png");
+    this.load.image(ASSET_KEYS.intro.vsLogo, "assets/intro/vs.png");
+
+    // Load player avatar
+    this.load.image(ASSET_KEYS.player.avatar, "assets/player/player.png");
 
     // Load base tile sprites
     BASE_TYPES.forEach((kind) => {
@@ -68,9 +75,9 @@ export class BootScene extends Phaser.Scene {
         setScreenSize(window.innerWidth, window.innerHeight, safeArea);
         updateScaledValues();
 
-        // Небольшая задержка и переход в игру
+        // Небольшая задержка и переход в интро
         this.time.delayedCall(300, () => {
-          this.scene.start("GameScene");
+          this.scene.start("IntroScene");
         });
       },
     });

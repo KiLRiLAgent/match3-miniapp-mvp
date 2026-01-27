@@ -48,3 +48,19 @@ export function createPulseController(
     });
   };
 }
+
+/**
+ * Wraps a Phaser tween in a Promise for async/await usage.
+ * Simplifies animation sequencing in scene code.
+ */
+export function tweenPromise(
+  scene: Phaser.Scene,
+  config: Phaser.Types.Tweens.TweenBuilderConfig
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    scene.tweens.add({
+      ...config,
+      onComplete: () => resolve(),
+    });
+  });
+}
