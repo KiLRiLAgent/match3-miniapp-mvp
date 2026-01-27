@@ -16,6 +16,7 @@ export class IntroScene extends Phaser.Scene {
   private safira!: Phaser.GameObjects.Image;
   private speechBubble?: SpeechBubble;
   private vsLogo?: Phaser.GameObjects.Image;
+  private vsContainer?: Phaser.GameObjects.Container;
   private sceneCenter!: { x: number; y: number };
   private scaleFactor!: number;
 
@@ -87,7 +88,8 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step3_firstDialogue(): Promise<void> {
-    const bubbleY = this.safira.y + this.safira.displayHeight * 0.35;
+    // Позиция бабла ближе к талии Сафиры (выше чем раньше)
+    const bubbleY = this.safira.y + this.safira.displayHeight * 0.05;
 
     this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, bubbleY, {
       text: DIALOGUE.first,
@@ -141,11 +143,57 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step5_zoomAndVS(): Promise<void> {
-    this.vsLogo = this.add.image(this.sceneCenter.x, this.sceneCenter.y, ASSET_KEYS.intro.vsLogo);
-    this.vsLogo.setScale(0.8);
-    this.vsLogo.setAlpha(0);
-    this.vsLogo.setDepth(20);
+    // Создаём контейнер для VS экрана
+    this.vsContainer = this.add.container(this.sceneCenter.x, this.sceneCenter.y);
+    this.vsContainer.setDepth(20);
+    this.vsContainer.setAlpha(0);
 
+    // Текст "Сафира: Пламя Бездны" сверху
+    const bossNameText = this.add.text(0, -120, "Сафира: Пламя Бездны", {
+      fontSize: "24px",
+      fontFamily: "Arial, sans-serif",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 4,
+    }).setOrigin(0.5);
+
+    // VS логотип (меньше размером)
+    this.vsLogo = this.add.image(0, -40, ASSET_KEYS.intro.vsLogo);
+    this.vsLogo.setScale(0.5);
+
+    // Текст "Игрок" под VS
+    const playerNameText = this.add.text(0, 30, "Игрок", {
+      fontSize: "22px",
+      fontFamily: "Arial, sans-serif",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 4,
+    }).setOrigin(0.5);
+
+    // Золотая рамка для игрока
+    const frameWidth = 140;
+    const frameHeight = 180;
+    const frameY = 160;
+
+    // Золотой фон рамки
+    const frameBg = this.add.graphics();
+    frameBg.fillStyle(0xc9a227, 1);
+    frameBg.fillRoundedRect(-frameWidth / 2 - 6, frameY - frameHeight / 2 - 6, frameWidth + 12, frameHeight + 12, 8);
+    frameBg.fillStyle(0x1a1a2e, 1);
+    frameBg.fillRoundedRect(-frameWidth / 2, frameY - frameHeight / 2, frameWidth, frameHeight, 6);
+
+    // Аватар игрока
+    const playerAvatar = this.add.image(0, frameY, ASSET_KEYS.player.avatar);
+    const avatarScale = Math.min(
+      (frameWidth - 16) / playerAvatar.width,
+      (frameHeight - 16) / playerAvatar.height
+    );
+    playerAvatar.setScale(avatarScale);
+
+    // Добавляем всё в контейнер
+    this.vsContainer.add([frameBg, bossNameText, this.vsLogo, playerNameText, playerAvatar]);
+
+    // Зум камеры
     const zoomPromise = tweenPromise(this, {
       targets: this.cameras.main,
       zoom: INTRO_ANIMATION.finalZoom,
@@ -155,19 +203,20 @@ export class IntroScene extends Phaser.Scene {
 
     await wait(this, 500);
 
+    // Показываем VS контейнер
     const vsPromise = tweenPromise(this, {
-      targets: this.vsLogo,
+      targets: this.vsContainer,
       alpha: 1,
-      scale: 1,
       duration: INTRO_ANIMATION.vsFadeIn,
-      ease: INTRO_EASING.scale,
+      ease: INTRO_EASING.fade,
     });
 
     await Promise.all([zoomPromise, vsPromise]);
 
+    // Пульсация VS лого
     this.tweens.add({
       targets: this.vsLogo,
-      scale: 1.05,
+      scale: 0.55,
       duration: 300,
       yoyo: true,
       repeat: 2,
@@ -178,15 +227,14 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step6_transitionToGame(): Promise<void> {
-    if (this.vsLogo) {
+    if (this.vsContainer) {
       await tweenPromise(this, {
-        targets: this.vsLogo,
+        targets: this.vsContainer,
         alpha: 0,
-        scale: 1.2,
         duration: INTRO_ANIMATION.vsFadeOut,
         ease: INTRO_EASING.fade,
       });
-      this.vsLogo.destroy();
+      this.vsContainer.destroy();
     }
 
     this.scene.start("GameScene", { fromIntro: true, finalDialogue: DIALOGUE.final });

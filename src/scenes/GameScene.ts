@@ -170,7 +170,7 @@ export class GameScene extends Phaser.Scene {
 
     // === НАЗВАНИЕ БОССА ===
     this.add
-      .text(L.bossHpBarX, L.bossNameY, "Тёмная королева Ур.1", {
+      .text(L.bossHpBarX, L.bossNameY, "Сафира: Пламя Бездны", {
         fontSize: "16px",
         color: "#ffffff",
         fontFamily: "Arial, sans-serif",
@@ -192,16 +192,36 @@ export class GameScene extends Phaser.Scene {
     this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
     this.shieldIcon.setDepth(4);
 
-    // === АВАТАР ИГРОКА (изображение) ===
+    // === АВАТАР ИГРОКА (изображение с золотой рамкой) ===
+    // Золотая рамка
+    const frameGraphics = this.add.graphics();
+    const framePadding = 4;
+    frameGraphics.fillStyle(0xc9a227, 1); // Золотой цвет
+    frameGraphics.fillRoundedRect(
+      L.avatarX - L.avatarWidth / 2 - framePadding,
+      L.avatarY - L.avatarHeight / 2 - framePadding,
+      L.avatarWidth + framePadding * 2,
+      L.avatarHeight + framePadding * 2,
+      6
+    );
+    frameGraphics.setDepth(3);
+
+    // Тёмный фон под аватаром
+    this.add
+      .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, 0x1a1a2e)
+      .setDepth(3);
+
+    // Изображение аватара
     const playerAvatarImg = this.add
       .image(L.avatarX, L.avatarY, ASSET_KEYS.player.avatar)
       .setDepth(4);
-    // Масштабируем чтобы вписать в отведённое пространство
+    // Масштабируем чтобы заполнить рамку (cover)
     const avatarScaleX = L.avatarWidth / playerAvatarImg.width;
     const avatarScaleY = L.avatarHeight / playerAvatarImg.height;
-    const avatarScale = Math.min(avatarScaleX, avatarScaleY);
+    const avatarScale = Math.max(avatarScaleX, avatarScaleY);
     playerAvatarImg.setScale(avatarScale);
-    // Используем изображение как таргет для анимаций
+
+    // Невидимый прямоугольник как таргет для анимаций
     this.playerAvatar = this.add
       .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, 0x000000, 0)
       .setDepth(3);
