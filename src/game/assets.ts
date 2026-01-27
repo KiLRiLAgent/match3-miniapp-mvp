@@ -4,6 +4,7 @@ export const ASSET_KEYS = {
   boss: {
     normal: "safira_normal",
     battle: "safira_battle",
+    damaged: "safira_damaged",
     ulta: "safira_ulta",
   },
   intro: {

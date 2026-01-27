@@ -16,6 +16,7 @@ export class BootScene extends Phaser.Scene {
     // Load boss sprites (new Safira assets)
     this.load.image(ASSET_KEYS.boss.normal, "assets/safira/safira_normal.png");
     this.load.image(ASSET_KEYS.boss.battle, "assets/safira/safira_battle.png");
+    this.load.image(ASSET_KEYS.boss.damaged, "assets/safira/safira_damaged.png");
     this.load.image(ASSET_KEYS.boss.ulta, "assets/safira/safira_ulta.png");
 
     // Load intro assets

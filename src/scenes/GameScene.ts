@@ -819,7 +819,7 @@ export class GameScene extends Phaser.Scene {
   private updateBossArt() {
     if (!this.bossImage) return;
     const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
-    const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.battle;
+    const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.damaged;
     this.bossImage.setTexture(key);
   }
 
