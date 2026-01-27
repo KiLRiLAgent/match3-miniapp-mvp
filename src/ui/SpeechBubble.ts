@@ -13,12 +13,12 @@ export interface SpeechBubbleConfig {
 }
 
 const DEFAULT_CONFIG = {
-  maxWidth: 280,
+  maxWidth: 300,
   tailDirection: "down" as const,
   backgroundColor: 0xffffff,
   textColor: "#222222",
-  fontSize: "18px",
-  padding: 16,
+  fontSize: "24px",
+  padding: 18,
 };
 
 const CORNER_RADIUS = 12;

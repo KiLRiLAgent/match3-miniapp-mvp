@@ -192,7 +192,7 @@ export class GameScene extends Phaser.Scene {
     this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
     this.shieldIcon.setDepth(4);
 
-    // === АВАТАР ИГРОКА (изображение с золотой рамкой) ===
+    // === АВАТАР ИГРОКА (изображение с золотой рамкой и маской) ===
     // Золотая рамка
     const frameGraphics = this.add.graphics();
     const framePadding = 4;
@@ -215,11 +215,22 @@ export class GameScene extends Phaser.Scene {
     const playerAvatarImg = this.add
       .image(L.avatarX, L.avatarY, ASSET_KEYS.player.avatar)
       .setDepth(4);
-    // Масштабируем чтобы заполнить рамку (cover)
+    // Масштабируем чтобы заполнить рамку (cover), но на 5% меньше
     const avatarScaleX = L.avatarWidth / playerAvatarImg.width;
     const avatarScaleY = L.avatarHeight / playerAvatarImg.height;
-    const avatarScale = Math.max(avatarScaleX, avatarScaleY);
+    const avatarScale = Math.max(avatarScaleX, avatarScaleY) * 0.95;
     playerAvatarImg.setScale(avatarScale);
+
+    // Маска для обрезки аватара по рамке
+    const avatarMask = this.add.graphics();
+    avatarMask.fillStyle(0xffffff);
+    avatarMask.fillRect(
+      L.avatarX - L.avatarWidth / 2,
+      L.avatarY - L.avatarHeight / 2,
+      L.avatarWidth,
+      L.avatarHeight
+    );
+    playerAvatarImg.setMask(avatarMask.createGeometryMask());
 
     // Невидимый прямоугольник как таргет для анимаций
     this.playerAvatar = this.add

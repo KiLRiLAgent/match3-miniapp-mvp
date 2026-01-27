@@ -144,49 +144,49 @@ export class IntroScene extends Phaser.Scene {
 
   private async step5_zoomAndVS(): Promise<void> {
     // Создаём контейнер для VS экрана
-    this.vsContainer = this.add.container(this.sceneCenter.x, this.sceneCenter.y);
+    this.vsContainer = this.add.container(this.sceneCenter.x, this.sceneCenter.y + 50);
     this.vsContainer.setDepth(20);
     this.vsContainer.setAlpha(0);
 
     // Текст "Сафира: Пламя Бездны" сверху
-    const bossNameText = this.add.text(0, -120, "Сафира: Пламя Бездны", {
-      fontSize: "24px",
+    const bossNameText = this.add.text(0, -80, "Сафира: Пламя Бездны", {
+      fontSize: "18px",
       fontFamily: "Arial, sans-serif",
       color: "#ffffff",
       stroke: "#000000",
-      strokeThickness: 4,
+      strokeThickness: 3,
     }).setOrigin(0.5);
 
-    // VS логотип (меньше размером)
-    this.vsLogo = this.add.image(0, -40, ASSET_KEYS.intro.vsLogo);
-    this.vsLogo.setScale(0.5);
+    // VS логотип (очень маленький)
+    this.vsLogo = this.add.image(0, -20, ASSET_KEYS.intro.vsLogo);
+    this.vsLogo.setScale(0.15);
 
     // Текст "Игрок" под VS
-    const playerNameText = this.add.text(0, 30, "Игрок", {
-      fontSize: "22px",
+    const playerNameText = this.add.text(0, 35, "Игрок", {
+      fontSize: "16px",
       fontFamily: "Arial, sans-serif",
       color: "#ffffff",
       stroke: "#000000",
-      strokeThickness: 4,
+      strokeThickness: 3,
     }).setOrigin(0.5);
 
     // Золотая рамка для игрока
-    const frameWidth = 140;
-    const frameHeight = 180;
-    const frameY = 160;
+    const frameWidth = 100;
+    const frameHeight = 130;
+    const frameY = 120;
 
     // Золотой фон рамки
     const frameBg = this.add.graphics();
     frameBg.fillStyle(0xc9a227, 1);
-    frameBg.fillRoundedRect(-frameWidth / 2 - 6, frameY - frameHeight / 2 - 6, frameWidth + 12, frameHeight + 12, 8);
+    frameBg.fillRoundedRect(-frameWidth / 2 - 4, frameY - frameHeight / 2 - 4, frameWidth + 8, frameHeight + 8, 6);
     frameBg.fillStyle(0x1a1a2e, 1);
-    frameBg.fillRoundedRect(-frameWidth / 2, frameY - frameHeight / 2, frameWidth, frameHeight, 6);
+    frameBg.fillRoundedRect(-frameWidth / 2, frameY - frameHeight / 2, frameWidth, frameHeight, 4);
 
-    // Аватар игрока
+    // Аватар игрока (не используем маску в контейнере - просто масштабируем)
     const playerAvatar = this.add.image(0, frameY, ASSET_KEYS.player.avatar);
     const avatarScale = Math.min(
-      (frameWidth - 16) / playerAvatar.width,
-      (frameHeight - 16) / playerAvatar.height
+      (frameWidth - 10) / playerAvatar.width,
+      (frameHeight - 10) / playerAvatar.height
     );
     playerAvatar.setScale(avatarScale);
 
