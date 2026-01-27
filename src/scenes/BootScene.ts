@@ -22,6 +22,7 @@ export class BootScene extends Phaser.Scene {
     // Load intro assets
     this.load.image(ASSET_KEYS.intro.background, "assets/intro/background.png");
     this.load.image(ASSET_KEYS.intro.vsLogo, "assets/intro/vs.png");
+    this.load.image(ASSET_KEYS.intro.swords, "assets/intro/swords.png");
 
     // Load player avatar
     this.load.image(ASSET_KEYS.player.avatar, "assets/player/player.png");
