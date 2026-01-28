@@ -88,7 +88,7 @@ export class GameScene extends Phaser.Scene {
     super("GameScene");
   }
 
-  create(data?: { fromIntro?: boolean; finalDialogue?: string }) {
+  create(data?: { fromIntro?: boolean; finalDialogue?: string; startHidden?: boolean }) {
     // Загрузить сохранённые параметры
     loadGameParams();
 
@@ -98,17 +98,47 @@ export class GameScene extends Phaser.Scene {
       y: UI_LAYOUT.boardOriginY,
     };
 
-    this.buildHud();
+    const startHidden = data?.startHidden ?? false;
+
+    this.buildHud(startHidden);
     this.resetState();
-    this.buildBoard();
-    this.buildSkills();
+    this.buildBoard(startHidden);
+    this.buildSkills(startHidden);
     this.setupInputHandlers();
     this.updateHud();
 
-    // Show final dialogue bubble if coming from intro
-    if (data?.fromIntro && data?.finalDialogue) {
+    // Если запущено из интро со скрытым UI - плавно показать
+    if (startHidden) {
+      this.fadeInUI().then(() => {
+        if (data?.finalDialogue) {
+          this.showFinalIntroBubble(data.finalDialogue);
+        }
+      });
+    } else if (data?.fromIntro && data?.finalDialogue) {
       this.showFinalIntroBubble(data.finalDialogue);
     }
+  }
+
+  private async fadeInUI(): Promise<void> {
+    const elementsToFade: Phaser.GameObjects.GameObject[] = [];
+
+    // Собираем все UI элементы кроме босса
+    this.children.list.forEach(child => {
+      if (child !== this.bossImage && (child as any).alpha !== undefined) {
+        elementsToFade.push(child);
+      }
+    });
+
+    // Fade in
+    return new Promise(resolve => {
+      this.tweens.add({
+        targets: elementsToFade,
+        alpha: 1,
+        duration: INTRO_ANIMATION.gameElementsFadeIn,
+        ease: "Quad.easeOut",
+        onComplete: () => resolve(),
+      });
+    });
   }
 
   private async showFinalIntroBubble(text: string) {
@@ -150,14 +180,15 @@ export class GameScene extends Phaser.Scene {
     this.bombCooldownTexts.clear();
   }
 
-  private buildHud() {
+  private buildHud(startHidden = false) {
     const L = UI_LAYOUT;
+    const initialAlpha = startHidden ? 0 : 1;
 
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
-    // Выравниваем по верху изображения, чтобы голова была видна
+    // Босс всегда видим (даже при startHidden) - для бесшовного перехода
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, 0, ASSET_KEYS.boss.normal) // верхняя граница экрана
-      .setOrigin(0.5, 0) // выравнивание по верху изображения
+      .image(GAME_WIDTH / 2, 0, ASSET_KEYS.boss.normal)
+      .setOrigin(0.5, 0)
       .setDepth(0);
 
     // Масштабируем сохраняя пропорции (cover)
@@ -165,7 +196,7 @@ export class GameScene extends Phaser.Scene {
     const imgHeight = this.bossImage.height;
     const scaleX = GAME_WIDTH / imgWidth;
     const scaleY = L.bossImageHeight / imgHeight;
-    const scale = Math.max(scaleX, scaleY); // cover - берём больший масштаб
+    const scale = Math.max(scaleX, scaleY);
     this.bossImage.setScale(scale);
 
     // === НАЗВАНИЕ БОССА ===
@@ -176,27 +207,28 @@ export class GameScene extends Phaser.Scene {
         fontFamily: "Arial, sans-serif",
       })
       .setOrigin(0, 0.5)
-      .setDepth(4);
+      .setDepth(4)
+      .setAlpha(initialAlpha);
 
     // === HP БАР БОССА ===
     this.bossHpBar = new Meter(
       this, L.bossHpBarX, L.bossHpBarY,
       L.hpBarWidth, L.hpBarHeight, "", UI_COLORS.bossHp
-    ).setDepth(4);
+    ).setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА КУЛДАУНА ===
     this.cooldownIcon = new CooldownIcon(this, L.cooldownIconX, L.cooldownIconY, L.cooldownIconSize);
-    this.cooldownIcon.setDepth(4);
+    this.cooldownIcon.setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА ЩИТА ===
     this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
-    this.shieldIcon.setDepth(4);
+    this.shieldIcon.setDepth(4).setAlpha(initialAlpha);
 
     // === АВАТАР ИГРОКА (изображение с золотой рамкой и маской) ===
     // Золотая рамка
     const frameGraphics = this.add.graphics();
     const framePadding = 4;
-    frameGraphics.fillStyle(0xc9a227, 1); // Золотой цвет
+    frameGraphics.fillStyle(0xc9a227, 1);
     frameGraphics.fillRoundedRect(
       L.avatarX - L.avatarWidth / 2 - framePadding,
       L.avatarY - L.avatarHeight / 2 - framePadding,
@@ -204,18 +236,19 @@ export class GameScene extends Phaser.Scene {
       L.avatarHeight + framePadding * 2,
       6
     );
-    frameGraphics.setDepth(3);
+    frameGraphics.setDepth(3).setAlpha(initialAlpha);
 
     // Тёмный фон под аватаром
     this.add
       .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, 0x1a1a2e)
-      .setDepth(3);
+      .setDepth(3)
+      .setAlpha(initialAlpha);
 
     // Изображение аватара
     const playerAvatarImg = this.add
       .image(L.avatarX, L.avatarY, ASSET_KEYS.player.avatar)
-      .setDepth(4);
-    // Масштабируем чтобы заполнить рамку (cover), но на 5% меньше
+      .setDepth(4)
+      .setAlpha(initialAlpha);
     const avatarScaleX = L.avatarWidth / playerAvatarImg.width;
     const avatarScaleY = L.avatarHeight / playerAvatarImg.height;
     const avatarScale = Math.max(avatarScaleX, avatarScaleY) * 0.95;
@@ -241,13 +274,13 @@ export class GameScene extends Phaser.Scene {
     this.playerHpBar = new Meter(
       this, L.playerHpBarX, L.playerHpBarY,
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp
-    ).setDepth(4);
+    ).setDepth(4).setAlpha(initialAlpha);
 
     // === MANA БАР ИГРОКА ===
     this.manaBar = new Meter(
       this, L.playerHpBarX, L.playerMpBarY,
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerMana
-    ).setDepth(4);
+    ).setDepth(4).setAlpha(initialAlpha);
 
     // Текст хода (скрыт, не нужен по референсу)
     this.turnText = this.add
@@ -264,6 +297,7 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(5)
+      .setAlpha(initialAlpha)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.openSettings());
   }
@@ -276,7 +310,9 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private buildBoard() {
+  private buildBoard(startHidden = false) {
+    const initialAlpha = startHidden ? 0 : 1;
+
     const widthPx = BOARD_WIDTH * CELL_SIZE;
     const heightPx = BOARD_HEIGHT * CELL_SIZE;
     const bg = this.add
@@ -289,27 +325,28 @@ export class GameScene extends Phaser.Scene {
         0.9
       )
       .setOrigin(0, 0)
-      .setStrokeStyle(2, 0xffffff, 0.08);
+      .setStrokeStyle(2, 0xffffff, 0.08)
+      .setAlpha(initialAlpha);
     bg.setDepth(-1);
 
     for (let y = 0; y < BOARD_HEIGHT; y++) {
       for (let x = 0; x < BOARD_WIDTH; x++) {
         const tile = this.board.getTile({ x, y });
         if (tile) {
-          this.spawnTileSprite(tile, { x, y });
+          this.spawnTileSprite(tile, { x, y }, initialAlpha);
         }
       }
     }
   }
 
-  private buildSkills() {
+  private buildSkills(startHidden = false) {
     const L = UI_LAYOUT;
     const btnSize = L.skillButtonSize;
     const spacing = L.skillButtonSpacing;
     const startX = L.skillButtonsStartX;
     const y = L.skillButtonsY;
+    const initialAlpha = startHidden ? 0 : 1;
 
-    // Скиллы с иконками из конфига
     const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 
     skillIds.forEach((id, idx) => {
@@ -323,7 +360,7 @@ export class GameScene extends Phaser.Scene {
         cfg.cost,
         () => this.activateSkill(id)
       );
-      btn.setDepth(2);
+      btn.setDepth(2).setAlpha(initialAlpha);
       this.skillButtons[id] = btn;
     });
   }
@@ -566,11 +603,16 @@ export class GameScene extends Phaser.Scene {
     return ASSET_KEYS.tiles[tile.kind] ?? tile.kind;
   }
 
-  private spawnTileSprite(tile: Tile, pos: Position, startY?: number) {
+  private spawnTileSprite(tile: Tile, pos: Position, startYOrAlpha?: number, initialAlpha?: number) {
     const world = this.toWorld(pos);
+    // Если передан startY как число > 1, это Y-координата. Иначе это alpha.
+    const startY = (startYOrAlpha !== undefined && startYOrAlpha > 1) ? startYOrAlpha : undefined;
+    const alpha = initialAlpha ?? ((startYOrAlpha !== undefined && startYOrAlpha <= 1) ? startYOrAlpha : 1);
+
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
       .setDisplaySize(CELL_SIZE - 6, CELL_SIZE - 6)
+      .setAlpha(alpha)
       .setInteractive({ useHandCursor: true });
     sprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       // Режим молотка — удаляем фишку
