@@ -61,7 +61,22 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
-  // Сафира сразу в игровой позиции (верх экрана, как в GameScene)
+  // Сафира КРУПНАЯ для интро диалогов (60% видимой высоты)
+  private getIntroPosition(): { x: number; y: number; scale: number; originY: number } {
+    const imgHeight = this.textures.get(ASSET_KEYS.boss.normal).getSourceImage().height;
+    // Целевая высота: 60% видимой области (с учётом зума)
+    const targetHeight = GAME_HEIGHT * this.scaleFactor * 0.6;
+    const scale = targetHeight / imgHeight;
+
+    return {
+      x: this.sceneCenter.x,
+      y: this.sceneCenter.y * 0.8, // Выше центра
+      scale,
+      originY: 0.5, // Центр по вертикали
+    };
+  }
+
+  // Сафира в игровой позиции (верх экрана, как в GameScene)
   private getGameplayPosition(): { x: number; y: number; scale: number; originY: number } {
     const L = UI_LAYOUT;
     const imgWidth = this.textures.get(ASSET_KEYS.boss.normal).getSourceImage().width;
@@ -78,28 +93,32 @@ export class IntroScene extends Phaser.Scene {
     };
   }
 
-  private async step2_safiraAppear(): Promise<void> {
-    const gameplayPos = this.getGameplayPosition();
+  // Позиция бабла на уровне груди (40% от верха изображения)
+  private getBubbleY(): number {
+    return this.safira.y - this.safira.displayHeight * 0.1;
+  }
 
-    this.safira = this.add.image(gameplayPos.x, gameplayPos.y, ASSET_KEYS.boss.normal);
-    this.safira.setOrigin(0.5, gameplayPos.originY);
-    this.safira.setScale(gameplayPos.scale * 0.95);
+  private async step2_safiraAppear(): Promise<void> {
+    // Используем КРУПНУЮ позицию для интро диалогов
+    const introPos = this.getIntroPosition();
+
+    this.safira = this.add.image(introPos.x, introPos.y, ASSET_KEYS.boss.normal);
+    this.safira.setOrigin(0.5, introPos.originY);
+    this.safira.setScale(introPos.scale * 0.95);
     this.safira.setAlpha(0);
     this.safira.setDepth(1);
 
     return tweenPromise(this, {
       targets: this.safira,
       alpha: 1,
-      scale: gameplayPos.scale,
+      scale: introPos.scale,
       duration: INTRO_ANIMATION.safiraFadeIn,
       ease: INTRO_EASING.scale,
     });
   }
 
   private async step3_firstDialogue(): Promise<void> {
-    const bubbleY = this.safira.y + this.safira.displayHeight + 40;
-
-    this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, bubbleY, {
+    this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, this.getBubbleY(), {
       text: DIALOGUE.first,
       tailDirection: "up",
       maxWidth: 280,
@@ -130,17 +149,16 @@ export class IntroScene extends Phaser.Scene {
       }) : Promise.resolve(),
     ]);
 
-    // Меняем позу
+    // Меняем позу, но остаёмся в intro позиции (КРУПНАЯ)
     this.safira.setTexture(ASSET_KEYS.boss.battle);
-    const gameplayPos = this.getGameplayPosition();
-    this.safira.setScale(gameplayPos.scale);
+    const introPos = this.getIntroPosition();
+    this.safira.setScale(introPos.scale);
 
-    // Новый бабл с другим размером
+    // Новый бабл на уровне груди
     if (this.speechBubble) {
       this.speechBubble.destroy();
     }
-    const bubbleY = this.safira.y + this.safira.displayHeight + 40;
-    this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, bubbleY, {
+    this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, this.getBubbleY(), {
       text: DIALOGUE.second,
       tailDirection: "up",
       maxWidth: 320,
@@ -175,12 +193,37 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step5_zoomAndVS(): Promise<void> {
+    const introPos = this.getIntroPosition();
+    const gameplayPos = this.getGameplayPosition();
+
     // Зум камеры
     const zoomPromise = tweenPromise(this, {
       targets: this.cameras.main,
       zoom: INTRO_ANIMATION.finalZoom,
       duration: INTRO_ANIMATION.cameraZoomDuration,
       ease: INTRO_EASING.zoom,
+    });
+
+    // Анимируем Сафиру к игровой позиции параллельно с зумом
+    const safiraPromise = new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: this.safira,
+        x: gameplayPos.x,
+        y: gameplayPos.y,
+        scale: gameplayPos.scale,
+        duration: INTRO_ANIMATION.cameraZoomDuration,
+        ease: INTRO_EASING.zoom,
+        onUpdate: (tween) => {
+          // Плавно интерполируем origin используя прогресс твина
+          const progress = tween.progress;
+          const newOriginY = Phaser.Math.Linear(introPos.originY, gameplayPos.originY, progress);
+          this.safira.setOrigin(0.5, newOriginY);
+        },
+        onComplete: () => {
+          this.safira.setOrigin(0.5, gameplayPos.originY);
+          resolve();
+        },
+      });
     });
 
     await wait(this, 600);
@@ -195,7 +238,7 @@ export class IntroScene extends Phaser.Scene {
       ease: INTRO_EASING.fade,
     });
 
-    await Promise.all([zoomPromise, vsPromise]);
+    await Promise.all([zoomPromise, safiraPromise, vsPromise]);
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
@@ -292,35 +335,36 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step6_transitionToGame(): Promise<void> {
+    // Меняем текстуру Сафиры на normal чтобы совпадала с GameScene
+    this.safira.setTexture(ASSET_KEYS.boss.normal);
+
     // Запускаем GameScene параллельно (не заменяем!)
     this.scene.launch("GameScene", {
       fromIntro: true,
       finalDialogue: DIALOGUE.final,
-      startHidden: true  // GameScene начнёт со скрытыми UI элементами
+      startHidden: true,
     });
 
     // Даём GameScene время на инициализацию
-    await wait(this, 50);
+    await wait(this, 100);
 
-    // Фейдим VS элементы
-    if (this.vsContainer) {
-      await tweenPromise(this, {
+    // Фейдим все элементы интро одновременно
+    // GameScene boss уже виден под Сафирой (alpha=1)
+    await Promise.all([
+      tweenPromise(this, {
         targets: this.vsContainer,
         alpha: 0,
         duration: INTRO_ANIMATION.vsFadeOut,
         ease: INTRO_EASING.fade,
-      });
-    }
+      }),
+      tweenPromise(this, {
+        targets: [this.background, this.safira],
+        alpha: 0,
+        duration: INTRO_ANIMATION.vsFadeOut,
+        ease: INTRO_EASING.fade,
+      }),
+    ]);
 
-    // Фейдим фон интро
-    await tweenPromise(this, {
-      targets: this.background,
-      alpha: 0,
-      duration: 300,
-      ease: "Quad.easeIn",
-    });
-
-    // Останавливаем IntroScene
     this.scene.stop("IntroScene");
   }
 }
