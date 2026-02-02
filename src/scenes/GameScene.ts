@@ -149,7 +149,8 @@ export class GameScene extends Phaser.Scene {
     const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text,
       tailDirection: "up",
-      maxWidth: 280,
+      maxWidth: 240,
+      fontSize: "16px",
     });
     bubble.setDepth(100);
 
