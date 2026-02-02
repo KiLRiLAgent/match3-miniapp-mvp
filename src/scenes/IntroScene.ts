@@ -335,10 +335,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step6_transitionToGame(): Promise<void> {
-    // Меняем текстуру Сафиры на normal чтобы совпадала с GameScene
-    this.safira.setTexture(ASSET_KEYS.boss.normal);
-
-    // Запускаем GameScene параллельно (не заменяем!)
+    // Запускаем GameScene со скрытым UI (босс виден с текстурой battle)
     this.scene.launch("GameScene", {
       fromIntro: true,
       finalDialogue: DIALOGUE.final,
@@ -348,8 +345,7 @@ export class IntroScene extends Phaser.Scene {
     // Даём GameScene время на инициализацию
     await wait(this, 100);
 
-    // Фейдим все элементы интро одновременно
-    // GameScene boss уже виден под Сафирой (alpha=1)
+    // ФАЗА 1: Fade out фона и VS (Сафира ОСТАЁТСЯ)
     await Promise.all([
       tweenPromise(this, {
         targets: this.vsContainer,
@@ -358,12 +354,21 @@ export class IntroScene extends Phaser.Scene {
         ease: INTRO_EASING.fade,
       }),
       tweenPromise(this, {
-        targets: [this.background, this.safira],
+        targets: this.background,
         alpha: 0,
         duration: INTRO_ANIMATION.vsFadeOut,
         ease: INTRO_EASING.fade,
       }),
     ]);
+
+    // ФАЗА 2: Cross dissolve — fade out IntroScene Safira
+    // GameScene Safira уже видна под ней (с battle), UI появляется
+    await tweenPromise(this, {
+      targets: this.safira,
+      alpha: 0,
+      duration: 400,
+      ease: "Quad.easeInOut",
+    });
 
     this.scene.stop("IntroScene");
   }

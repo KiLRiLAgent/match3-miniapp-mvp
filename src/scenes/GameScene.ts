@@ -186,8 +186,9 @@ export class GameScene extends Phaser.Scene {
 
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
     // Босс всегда видим (даже при startHidden) - для бесшовного перехода
+    // Используем battle текстуру для синхронизации с интро
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, 0, ASSET_KEYS.boss.normal)
+      .image(GAME_WIDTH / 2, 0, ASSET_KEYS.boss.battle)
       .setOrigin(0.5, 0)
       .setDepth(0);
 
@@ -872,7 +873,8 @@ export class GameScene extends Phaser.Scene {
   private updateBossArt() {
     if (!this.bossImage) return;
     const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
-    const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.normal : ASSET_KEYS.boss.damaged;
+    // Используем battle (не normal) для синхронизации с интро
+    const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.battle : ASSET_KEYS.boss.damaged;
     this.bossImage.setTexture(key);
   }
 
