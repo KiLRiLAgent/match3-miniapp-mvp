@@ -129,7 +129,10 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Fade in
+    // Задержка для синхронизации с IntroScene фазой 1 (fade out фона и VS)
+    await wait(this, INTRO_ANIMATION.vsFadeOut);
+
+    // Fade in - cross dissolve с фейдом Сафиры в IntroScene
     return new Promise(resolve => {
       this.tweens.add({
         targets: elementsToFade,

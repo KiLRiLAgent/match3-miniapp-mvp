@@ -260,7 +260,7 @@ export class IntroScene extends Phaser.Scene {
     container.add(darkOverlay);
 
     // Текст "Сафира: Пламя Бездны" - оранжевый, сверху
-    const bossNameText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 130, "Сафира: Пламя Бездны", {
+    const bossNameText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 160, "Сафира: Пламя Бездны", {
       fontSize: "24px",
       fontFamily: "Arial, sans-serif",
       color: "#ff6b35",
@@ -287,7 +287,7 @@ export class IntroScene extends Phaser.Scene {
     container.add(vsText);
 
     // Текст "Игрок" - голубой, под VS
-    const playerNameText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 50, "Игрок", {
+    const playerNameText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100, "Игрок", {
       fontSize: "20px",
       fontFamily: "Arial, sans-serif",
       color: "#4fc3f7",
@@ -300,7 +300,7 @@ export class IntroScene extends Phaser.Scene {
     // Большой аватар игрока с золотой рамкой - крупнее
     const frameWidth = 140;
     const frameHeight = 180;
-    const frameY = GAME_HEIGHT / 2 + 160;
+    const frameY = GAME_HEIGHT / 2 + 210;
 
     // Золотая рамка
     const frameBg = this.add.graphics();
