@@ -79,8 +79,9 @@ export class IntroScene extends Phaser.Scene {
   // Сафира в игровой позиции (верх экрана, как в GameScene)
   private getGameplayPosition(): { x: number; y: number; scale: number; originY: number } {
     const L = UI_LAYOUT;
-    const imgWidth = this.textures.get(ASSET_KEYS.boss.normal).getSourceImage().width;
-    const imgHeight = this.textures.get(ASSET_KEYS.boss.normal).getSourceImage().height;
+    // Используем battle текстуру — такую же как в GameScene
+    const imgWidth = this.textures.get(ASSET_KEYS.boss.battle).getSourceImage().width;
+    const imgHeight = this.textures.get(ASSET_KEYS.boss.battle).getSourceImage().height;
     const scaleX = GAME_WIDTH / imgWidth;
     const scaleY = L.bossImageHeight / imgHeight;
     const scale = Math.max(scaleX, scaleY);
