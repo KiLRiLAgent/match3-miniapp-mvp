@@ -275,6 +275,7 @@ export class GameScene extends Phaser.Scene {
       L.avatarWidth,
       L.avatarHeight
     );
+    avatarMask.setVisible(false);
     playerAvatarImg.setMask(avatarMask.createGeometryMask());
 
     // Невидимый прямоугольник как таргет для анимаций
