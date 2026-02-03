@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
-import { CELL_SIZE, BASE_TYPES, GAME_WIDTH, GAME_HEIGHT, setScreenSize, updateScaledValues } from "../game/config";
+import { CELL_SIZE, BASE_TYPES, setScreenSize, updateScaledValues } from "../game/config";
 import { TileKind } from "../match3/types";
 import { getSafeAreaInsets } from "../telegram/telegram";
 
