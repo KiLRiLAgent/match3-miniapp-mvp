@@ -104,9 +104,9 @@ export class IntroScene extends Phaser.Scene {
     };
   }
 
-  // Позиция бабла — ниже Сафиры но выше, чтобы видеть верхнюю часть
+  // Позиция бабла — ближе к Сафире
   private getBubbleY(): number {
-    return this.safira.y + this.safira.displayHeight * 0.3;
+    return this.safira.y + this.safira.displayHeight * 0.1;
   }
 
   private async step2_safiraAppear(): Promise<void> {
@@ -316,30 +316,40 @@ export class IntroScene extends Phaser.Scene {
 
     await wait(this, 100);
 
-    // 1. Fade out VS полностью
-    const vsElements = this.vsContainer?.getAll() || [];
-    if (vsElements.length > 0) {
-      await tweenPromise(this, {
-        targets: vsElements,
-        alpha: 0,
-        duration: 800,
-        ease: "Quad.easeInOut",
+    // 1. Fade out VS и Сафира одновременно
+    const fadePromises: Promise<void>[] = [];
+
+    // Фейдим каждый элемент VS отдельно
+    if (this.vsContainer) {
+      this.vsContainer.getAll().forEach((element) => {
+        fadePromises.push(
+          tweenPromise(this, {
+            targets: element,
+            alpha: 0,
+            duration: 800,
+            ease: "Quad.easeInOut",
+          })
+        );
       });
     }
 
-    // 2. Fade out Сафира
-    await tweenPromise(this, {
-      targets: this.safira,
-      alpha: 0,
-      duration: 400,
-      ease: "Quad.easeInOut",
-    });
+    // Фейдим Сафиру параллельно
+    fadePromises.push(
+      tweenPromise(this, {
+        targets: this.safira,
+        alpha: 0,
+        duration: 800,
+        ease: "Quad.easeInOut",
+      })
+    );
 
-    // 3. Теперь показываем игровое поле с финальным диалогом
+    await Promise.all(fadePromises);
+
+    // 2. Теперь показываем игровое поле с финальным диалогом
     const gameScene = this.scene.get("GameScene") as GameScene;
     await gameScene.triggerFadeIn(DIALOGUE.final);
 
-    // 4. Останавливаем IntroScene
+    // 3. Останавливаем IntroScene
     this.scene.stop("IntroScene");
   }
 }
