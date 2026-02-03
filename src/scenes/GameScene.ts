@@ -149,8 +149,8 @@ export class GameScene extends Phaser.Scene {
     const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text,
       tailDirection: "up",
-      maxWidth: 360,
-      fontSize: "28px",
+      maxWidth: 320,
+      fontSize: "22px",
     });
     bubble.setDepth(100);
 
@@ -188,11 +188,11 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН (тот же что в интро для бесшовного перехода) ===
+    // === ФОН (тот же что в интро, с зумом 1.3x для бесшовного перехода) ===
     const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, ASSET_KEYS.intro.background);
     const bgScaleX = GAME_WIDTH / bg.width;
     const bgScaleY = GAME_HEIGHT / bg.height;
-    bg.setScale(Math.max(bgScaleX, bgScaleY));
+    bg.setScale(Math.max(bgScaleX, bgScaleY) * 1.3);
     bg.setDepth(-2);
 
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===

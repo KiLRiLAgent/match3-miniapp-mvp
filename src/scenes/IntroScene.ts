@@ -125,8 +125,8 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, this.getBubbleY(), {
       text: DIALOGUE.first,
       tailDirection: "up",
-      maxWidth: 360,
-      fontSize: "28px",
+      maxWidth: 320,
+      fontSize: "22px",
     });
     this.speechBubble.setDepth(10);
 
@@ -163,8 +163,8 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, this.getBubbleY(), {
       text: DIALOGUE.second,
       tailDirection: "up",
-      maxWidth: 520,
-      fontSize: "28px",
+      maxWidth: 380,
+      fontSize: "22px",
     });
     this.speechBubble.setDepth(10);
     this.speechBubble.setAlpha(0);
