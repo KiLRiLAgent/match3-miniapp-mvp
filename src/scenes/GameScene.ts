@@ -145,12 +145,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async showFinalIntroBubble(text: string) {
-    const bubbleY = UI_LAYOUT.bossNameY - 40;
+    const bubbleY = UI_LAYOUT.bossNameY - 100;
     const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text,
       tailDirection: "up",
-      maxWidth: 240,
-      fontSize: "16px",
+      maxWidth: 360,
+      fontSize: "24px",
     });
     bubble.setDepth(100);
 
