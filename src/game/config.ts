@@ -237,7 +237,7 @@ export const getUILayout = () => {
   const playerHpBarY = playerMpBarY - playerBarHeight - 6;
 
   // 4. Аватар игрока - от HP бара до низа скиллов (включая текст стоимости)
-  const avatarWidth = 50;
+  const avatarWidth = 65; // На 30% шире (было 50)
   const skillsBottomY = skillButtonsY + skillButtonSize / 2 + skillCostOffset; // низ текста стоимости
   const avatarHeight = skillsBottomY - playerHpBarY;
   const avatarX = screenPadding + avatarWidth / 2;
