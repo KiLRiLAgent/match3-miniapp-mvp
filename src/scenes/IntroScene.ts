@@ -248,21 +248,13 @@ export class IntroScene extends Phaser.Scene {
     container.setDepth(20);
     container.setAlpha(0);
 
-    // Затемнение - горизонтальная полоса по центру экрана
-    const overlayHeight = 320;
-    const darkOverlay = this.add.rectangle(
-      GAME_WIDTH / 2,
-      GAME_HEIGHT / 2,
-      GAME_WIDTH,
-      overlayHeight,
-      0x000000,
-      0.75
-    );
-    container.add(darkOverlay);
+    // Позиции элементов по референсу
+    const centerY = GAME_HEIGHT * 0.42;
+    const playerFrameY = GAME_HEIGHT * 0.78;
 
-    // Текст "Сафира: Пламя Бездны" - оранжевый, сверху
-    const bossNameText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 140, "Сафира: Пламя Бездны", {
-      fontSize: "24px",
+    // Текст "Сафира: Пламя Бездны" - оранжевый
+    const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 60, "Сафира: Пламя Бездны", {
+      fontSize: "26px",
       fontFamily: "Arial, sans-serif",
       color: "#ff6b35",
       stroke: "#000000",
@@ -271,64 +263,44 @@ export class IntroScene extends Phaser.Scene {
     }).setOrigin(0.5);
     container.add(bossNameText);
 
-    // Мечи позади VS - крупнее
-    const swordsImg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, ASSET_KEYS.intro.swords);
-    const swordsScale = 220 / swordsImg.width;
+    // Мечи позади VS
+    const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 20, ASSET_KEYS.intro.swords);
+    const swordsScale = 200 / swordsImg.width;
     swordsImg.setScale(swordsScale);
     container.add(swordsImg);
 
-    // VS текст - крупный, белый, по центру поверх мечей
-    const vsText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, "VS", {
-      fontSize: "56px",
+    // VS текст - оранжево-красный как на референсе
+    const vsText = this.add.text(GAME_WIDTH / 2, centerY + 20, "VS", {
+      fontSize: "52px",
       fontFamily: "Arial Black, sans-serif",
-      color: "#ffffff",
+      color: "#ff4422",
       stroke: "#000000",
-      strokeThickness: 8,
+      strokeThickness: 6,
     }).setOrigin(0.5);
     container.add(vsText);
 
-    // Текст "Игрок" - голубой, под VS
-    const playerNameText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80, "Игрок", {
-      fontSize: "20px",
+    // Текст "Игрок" - белый, над рамкой игрока
+    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 100, "Игрок", {
+      fontSize: "24px",
       fontFamily: "Arial, sans-serif",
-      color: "#4fc3f7",
+      color: "#ffffff",
       stroke: "#000000",
-      strokeThickness: 3,
+      strokeThickness: 4,
       fontStyle: "bold",
     }).setOrigin(0.5);
     container.add(playerNameText);
 
-    // Большой аватар игрока с золотой рамкой - крупнее
-    const frameWidth = 140;
-    const frameHeight = 180;
-    const frameY = GAME_HEIGHT / 2 + 190;
+    // Жёлтая рамка игрока (из изображения)
+    const playerFrame = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerFrame);
+    const frameTargetWidth = GAME_WIDTH * 0.85;
+    const frameScale = frameTargetWidth / playerFrame.width;
+    playerFrame.setScale(frameScale);
+    container.add(playerFrame);
 
-    // Золотая рамка
-    const frameBg = this.add.graphics();
-    frameBg.fillStyle(0xc9a227, 1);
-    frameBg.fillRoundedRect(
-      GAME_WIDTH / 2 - frameWidth / 2 - 6,
-      frameY - frameHeight / 2 - 6,
-      frameWidth + 12,
-      frameHeight + 12,
-      10
-    );
-    frameBg.fillStyle(0x1a1a2e, 1);
-    frameBg.fillRoundedRect(
-      GAME_WIDTH / 2 - frameWidth / 2,
-      frameY - frameHeight / 2,
-      frameWidth,
-      frameHeight,
-      8
-    );
-    container.add(frameBg);
-
-    // Аватар игрока
-    const playerAvatar = this.add.image(GAME_WIDTH / 2, frameY, ASSET_KEYS.player.avatar);
-    const avatarScale = Math.min(
-      (frameWidth - 20) / playerAvatar.width,
-      (frameHeight - 20) / playerAvatar.height
-    );
+    // Аватар игрока внутри рамки
+    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.player.avatar);
+    const frameHeight = playerFrame.displayHeight;
+    const avatarScale = (frameHeight * 0.85) / playerAvatar.height;
     playerAvatar.setScale(avatarScale);
     container.add(playerAvatar);
 
