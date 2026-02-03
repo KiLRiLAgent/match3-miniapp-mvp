@@ -8,7 +8,7 @@ import { wait, tweenPromise } from "../utils/helpers";
 // Диалоги с намеренными переносами строк для акцента
 const DIALOGUE = {
   first: "Как ты посмел\nбросить вызов Сафире?",
-  second: "Ты лишь искра,\nкоторую я сейчас растопчу",
+  second: "Ты лишь искра, которую я сейчас\nрастопчу",
   final: "Ты сгоришь в пламени Бездны!",
 };
 
@@ -122,8 +122,8 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, this.getBubbleY(), {
       text: DIALOGUE.first,
       tailDirection: "up",
-      maxWidth: 280,
-      fontSize: "22px",
+      maxWidth: 360,
+      fontSize: "28px",
     });
     this.speechBubble.setDepth(10);
 
@@ -162,8 +162,8 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, this.getBubbleY(), {
       text: DIALOGUE.second,
       tailDirection: "up",
-      maxWidth: 320,
-      fontSize: "22px",
+      maxWidth: 420,
+      fontSize: "28px",
     });
     this.speechBubble.setDepth(10);
     this.speechBubble.setAlpha(0);
