@@ -195,10 +195,9 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step5_zoomAndVS(): Promise<void> {
-    const farPos = this.getFarPosition();
     const closePos = this.getClosePosition();
 
-    // Зум фона
+    // Зум фона + fade out далёкой Сафиры параллельно
     const zoomedScale = this.getBackgroundScale() * 1.3;
     const bgZoomPromise = tweenPromise(this, {
       targets: this.background,
@@ -207,32 +206,29 @@ export class IntroScene extends Phaser.Scene {
       ease: "Quad.easeInOut",
     });
 
-    // Сафира приближается — из далёкой позиции в близкую
-    const safiraPromise = new Promise<void>((resolve) => {
-      this.tweens.add({
-        targets: this.safira,
-        x: closePos.x,
-        y: closePos.y,
-        scale: closePos.scale,
-        duration: 1200,
-        ease: "Quad.easeInOut",
-        onUpdate: (tween) => {
-          const progress = tween.progress;
-          const newOriginY = Phaser.Math.Linear(farPos.originY, closePos.originY, progress);
-          this.safira.setOrigin(0.5, newOriginY);
-        },
-        onComplete: () => {
-          this.safira.setOrigin(0.5, closePos.originY);
-          resolve();
-        },
-      });
+    const fadeOutPromise = tweenPromise(this, {
+      targets: this.safira,
+      alpha: 0,
+      duration: 600,
+      ease: "Quad.easeIn",
     });
 
-    await wait(this, 400);
+    await Promise.all([bgZoomPromise, fadeOutPromise]);
 
-    // VS контейнер появляется во время зума
+    // Перемещаем Сафиру в близкую позицию
+    this.safira.setPosition(closePos.x, closePos.y);
+    this.safira.setOrigin(0.5, closePos.originY);
+    this.safira.setScale(closePos.scale);
+
+    // Fade in Сафиры + VS контейнер
+    const fadeInPromise = tweenPromise(this, {
+      targets: this.safira,
+      alpha: 1,
+      duration: 400,
+      ease: "Quad.easeOut",
+    });
+
     this.vsContainer = this.createVSScreen();
-
     const vsPromise = tweenPromise(this, {
       targets: this.vsContainer,
       alpha: 1,
@@ -240,7 +236,7 @@ export class IntroScene extends Phaser.Scene {
       ease: INTRO_EASING.fade,
     });
 
-    await Promise.all([bgZoomPromise, safiraPromise, vsPromise]);
+    await Promise.all([fadeInPromise, vsPromise]);
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
