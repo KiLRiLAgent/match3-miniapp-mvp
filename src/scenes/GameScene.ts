@@ -188,6 +188,13 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
+    // === ФОН (тот же что в интро для бесшовного перехода) ===
+    const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, ASSET_KEYS.intro.background);
+    const bgScaleX = GAME_WIDTH / bg.width;
+    const bgScaleY = GAME_HEIGHT / bg.height;
+    bg.setScale(Math.max(bgScaleX, bgScaleY));
+    bg.setDepth(-2);
+
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
     // Босс всегда видим (даже при startHidden) - для бесшовного перехода
     // Используем battle текстуру для синхронизации с интро

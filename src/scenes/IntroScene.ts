@@ -346,21 +346,14 @@ export class IntroScene extends Phaser.Scene {
     // Даём GameScene время на инициализацию
     await wait(this, 100);
 
-    // ФАЗА 1: Fade out фона и VS (Сафира ОСТАЁТСЯ)
-    await Promise.all([
-      tweenPromise(this, {
-        targets: this.vsContainer,
-        alpha: 0,
-        duration: INTRO_ANIMATION.vsFadeOut,
-        ease: INTRO_EASING.fade,
-      }),
-      tweenPromise(this, {
-        targets: this.background,
-        alpha: 0,
-        duration: INTRO_ANIMATION.vsFadeOut,
-        ease: INTRO_EASING.fade,
-      }),
-    ]);
+    // ФАЗА 1: Fade out VS (фон и Сафира ОСТАЮТСЯ)
+    // Фон не фейдим — в GameScene такой же фон уже есть
+    await tweenPromise(this, {
+      targets: this.vsContainer,
+      alpha: 0,
+      duration: INTRO_ANIMATION.vsFadeOut,
+      ease: INTRO_EASING.fade,
+    });
 
     // ФАЗА 2: Cross dissolve — fade out IntroScene Safira
     // GameScene Safira уже видна под ней (с battle), UI появляется
