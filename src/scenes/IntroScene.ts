@@ -351,8 +351,8 @@ export class IntroScene extends Phaser.Scene {
     await tweenPromise(this, {
       targets: this.vsContainer,
       alpha: 0,
-      duration: INTRO_ANIMATION.vsFadeOut,
-      ease: INTRO_EASING.fade,
+      duration: 800,
+      ease: "Quad.easeInOut",
     });
 
     // ФАЗА 2: Cross dissolve — fade out IntroScene Safira
