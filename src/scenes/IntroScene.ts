@@ -4,6 +4,7 @@ import { GAME_WIDTH, GAME_HEIGHT, UI_LAYOUT } from "../game/config";
 import { INTRO_ANIMATION, INTRO_EASING } from "../game/animations";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { wait, tweenPromise } from "../utils/helpers";
+import { GameScene } from "./GameScene";
 
 // Диалоги с намеренными переносами строк для акцента
 const DIALOGUE = {
@@ -307,16 +308,15 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step6_transitionToGame(): Promise<void> {
-    // Запускаем GameScene
+    // Запускаем GameScene со скрытым UI
     this.scene.launch("GameScene", {
       fromIntro: true,
-      finalDialogue: DIALOGUE.final,
       startHidden: true,
     });
 
     await wait(this, 100);
 
-    // Fade out VS
+    // 1. Fade out VS полностью
     const vsElements = this.vsContainer?.getAll() || [];
     if (vsElements.length > 0) {
       await tweenPromise(this, {
@@ -327,7 +327,7 @@ export class IntroScene extends Phaser.Scene {
       });
     }
 
-    // Fade out Сафира (GameScene Сафира уже видна)
+    // 2. Fade out Сафира
     await tweenPromise(this, {
       targets: this.safira,
       alpha: 0,
@@ -335,6 +335,11 @@ export class IntroScene extends Phaser.Scene {
       ease: "Quad.easeInOut",
     });
 
+    // 3. Теперь показываем игровое поле с финальным диалогом
+    const gameScene = this.scene.get("GameScene") as GameScene;
+    await gameScene.triggerFadeIn(DIALOGUE.final);
+
+    // 4. Останавливаем IntroScene
     this.scene.stop("IntroScene");
   }
 }

@@ -107,14 +107,9 @@ export class GameScene extends Phaser.Scene {
     this.setupInputHandlers();
     this.updateHud();
 
-    // Если запущено из интро со скрытым UI - плавно показать
-    if (startHidden) {
-      this.fadeInUI().then(() => {
-        if (data?.finalDialogue) {
-          this.showFinalIntroBubble(data.finalDialogue);
-        }
-      });
-    } else if (data?.fromIntro && data?.finalDialogue) {
+    // Если не скрыто и есть финальный диалог - показываем сразу
+    // При startHidden диалог будет показан после triggerFadeIn()
+    if (!startHidden && data?.finalDialogue) {
       this.showFinalIntroBubble(data.finalDialogue);
     }
   }
@@ -129,10 +124,7 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Задержка для синхронизации с IntroScene фазой 1 (fade out фона и VS)
-    await wait(this, INTRO_ANIMATION.vsFadeOut);
-
-    // Fade in - cross dissolve с фейдом Сафиры в IntroScene
+    // Fade in игровых элементов
     return new Promise(resolve => {
       this.tweens.add({
         targets: elementsToFade,
@@ -142,6 +134,13 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => resolve(),
       });
     });
+  }
+
+  public async triggerFadeIn(finalDialogue?: string): Promise<void> {
+    await this.fadeInUI();
+    if (finalDialogue) {
+      this.showFinalIntroBubble(finalDialogue);
+    }
   }
 
   private async showFinalIntroBubble(text: string) {
