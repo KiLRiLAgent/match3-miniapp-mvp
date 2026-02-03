@@ -66,8 +66,23 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
-  // Сафира всегда в игровой позиции (верх экрана)
-  private getGameplayPosition(): { x: number; y: number; scale: number; originY: number } {
+  // Сафира ДАЛЕКО — маленькая, по центру
+  private getFarPosition(): { x: number; y: number; scale: number; originY: number } {
+    const imgHeight = this.textures.get(ASSET_KEYS.boss.normal).getSourceImage().height;
+    // Маленький размер — 40% высоты экрана
+    const targetHeight = GAME_HEIGHT * 0.4;
+    const scale = targetHeight / imgHeight;
+
+    return {
+      x: GAME_WIDTH / 2,
+      y: GAME_HEIGHT * 0.35,
+      scale,
+      originY: 0.5,
+    };
+  }
+
+  // Сафира БЛИЗКО — игровая позиция (верх экрана)
+  private getClosePosition(): { x: number; y: number; scale: number; originY: number } {
     const L = UI_LAYOUT;
     const imgWidth = this.textures.get(ASSET_KEYS.boss.battle).getSourceImage().width;
     const imgHeight = this.textures.get(ASSET_KEYS.boss.battle).getSourceImage().height;
@@ -83,18 +98,18 @@ export class IntroScene extends Phaser.Scene {
     };
   }
 
-  // Фиксированная позиция бабла
+  // Позиция бабла — под Сафирой
   private getBubbleY(): number {
-    return GAME_HEIGHT * 0.38;
+    return this.safira.y + this.safira.displayHeight * 0.55;
   }
 
   private async step2_safiraAppear(): Promise<void> {
-    // Сафира сразу в игровой позиции
-    const pos = this.getGameplayPosition();
+    // Сафира появляется ДАЛЕКО (маленькая)
+    const farPos = this.getFarPosition();
 
-    this.safira = this.add.image(pos.x, pos.y, ASSET_KEYS.boss.normal);
-    this.safira.setOrigin(0.5, pos.originY);
-    this.safira.setScale(pos.scale);
+    this.safira = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.normal);
+    this.safira.setOrigin(0.5, farPos.originY);
+    this.safira.setScale(farPos.scale);
     this.safira.setAlpha(0);
     this.safira.setDepth(1);
 
@@ -180,14 +195,37 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step5_zoomAndVS(): Promise<void> {
-    // Зум фона — приближаемся к противнику
-    const zoomedScale = this.getBackgroundScale() * 1.3;
+    const farPos = this.getFarPosition();
+    const closePos = this.getClosePosition();
 
-    const zoomPromise = tweenPromise(this, {
+    // Зум фона
+    const zoomedScale = this.getBackgroundScale() * 1.3;
+    const bgZoomPromise = tweenPromise(this, {
       targets: this.background,
       scale: zoomedScale,
       duration: 1200,
       ease: "Quad.easeInOut",
+    });
+
+    // Сафира приближается — из далёкой позиции в близкую
+    const safiraPromise = new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: this.safira,
+        x: closePos.x,
+        y: closePos.y,
+        scale: closePos.scale,
+        duration: 1200,
+        ease: "Quad.easeInOut",
+        onUpdate: (tween) => {
+          const progress = tween.progress;
+          const newOriginY = Phaser.Math.Linear(farPos.originY, closePos.originY, progress);
+          this.safira.setOrigin(0.5, newOriginY);
+        },
+        onComplete: () => {
+          this.safira.setOrigin(0.5, closePos.originY);
+          resolve();
+        },
+      });
     });
 
     await wait(this, 400);
@@ -202,7 +240,7 @@ export class IntroScene extends Phaser.Scene {
       ease: INTRO_EASING.fade,
     });
 
-    await Promise.all([zoomPromise, vsPromise]);
+    await Promise.all([bgZoomPromise, safiraPromise, vsPromise]);
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
