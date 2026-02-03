@@ -103,9 +103,9 @@ export class IntroScene extends Phaser.Scene {
     };
   }
 
-  // Позиция бабла — под Сафирой
+  // Позиция бабла — ниже Сафиры но выше, чтобы видеть верхнюю часть
   private getBubbleY(): number {
-    return this.safira.y + this.safira.displayHeight * 0.55;
+    return this.safira.y + this.safira.displayHeight * 0.3;
   }
 
   private async step2_safiraAppear(): Promise<void> {
