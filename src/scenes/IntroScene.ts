@@ -308,15 +308,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step6_transitionToGame(): Promise<void> {
-    // Запускаем GameScene со скрытым UI
-    this.scene.launch("GameScene", {
-      fromIntro: true,
-      startHidden: true,
-    });
-
-    await wait(this, 100);
-
-    // 1. Fade out VS (контейнер целиком)
+    // 1. Сначала fade out VS (пока GameScene не запущена)
     if (this.vsContainer) {
       await tweenPromise(this, {
         targets: this.vsContainer,
@@ -326,12 +318,19 @@ export class IntroScene extends Phaser.Scene {
       });
     }
 
-    // 2. Показываем игровое поле с финальным диалогом
-    // Сафира остаётся видимой - GameScene Сафира её заменит
+    // 2. Теперь запускаем GameScene (она рендерится поверх IntroScene)
+    this.scene.launch("GameScene", {
+      fromIntro: true,
+      startHidden: true,
+    });
+
+    await wait(this, 100);
+
+    // 3. Показываем игровое поле с финальным диалогом
     const gameScene = this.scene.get("GameScene") as GameScene;
     await gameScene.triggerFadeIn(DIALOGUE.final);
 
-    // 3. Останавливаем IntroScene
+    // 4. Останавливаем IntroScene
     this.scene.stop("IntroScene");
   }
 }
