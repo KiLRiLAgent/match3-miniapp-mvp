@@ -200,8 +200,8 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН (тот же что в интро, поднят на 5% + зум 1.3x) ===
-    const bgY = GAME_HEIGHT / 2 - GAME_HEIGHT * 0.05;
+    // === ФОН (тот же что в интро, поднят на 10% + зум 1.3x) ===
+    const bgY = GAME_HEIGHT / 2 - GAME_HEIGHT * 0.10;
     const bg = this.add.image(GAME_WIDTH / 2, bgY, ASSET_KEYS.intro.background);
     const bgScaleX = GAME_WIDTH / bg.width;
     const bgScaleY = GAME_HEIGHT / bg.height;
@@ -353,7 +353,8 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0xffffff, 0.08)
       .setAlpha(initialAlpha);
-    bg.setDepth(-1);
+    // Depth 0.5 чтобы закрывать Сафиру (0), но быть под тайлами (1)
+    bg.setDepth(0.5);
 
     for (let y = 0; y < BOARD_HEIGHT; y++) {
       for (let x = 0; x < BOARD_WIDTH; x++) {

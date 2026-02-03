@@ -51,8 +51,8 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step1_backgroundAppear(): Promise<void> {
-    // Фон поднят на 5%
-    const bgY = this.sceneCenter.y - GAME_HEIGHT * 0.05;
+    // Фон поднят на 10%
+    const bgY = this.sceneCenter.y - GAME_HEIGHT * 0.10;
     this.background = this.add.image(this.sceneCenter.x, bgY, ASSET_KEYS.intro.background);
 
     // Обычный размер фона
