@@ -348,12 +348,16 @@ export class IntroScene extends Phaser.Scene {
 
     // ФАЗА 1: Fade out VS (фон и Сафира ОСТАЮТСЯ)
     // Фон не фейдим — в GameScene такой же фон уже есть
-    await tweenPromise(this, {
-      targets: this.vsContainer,
-      alpha: 0,
-      duration: 800,
-      ease: "Quad.easeInOut",
-    });
+    // Fade out все элементы VS контейнера (container.alpha не каскадируется в tween)
+    const vsElements = this.vsContainer?.getAll() || [];
+    if (vsElements.length > 0) {
+      await tweenPromise(this, {
+        targets: vsElements,
+        alpha: 0,
+        duration: 800,
+        ease: "Quad.easeInOut",
+      });
+    }
 
     // ФАЗА 2: Cross dissolve — fade out IntroScene Safira
     // GameScene Safira уже видна под ней (с battle), UI появляется
