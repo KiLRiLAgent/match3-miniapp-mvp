@@ -82,6 +82,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   // Сафира БЛИЗКО — игровая позиция (верх экрана)
+  // Используем originY 0.5 как и в far позиции для плавной анимации
   private getClosePosition(): { x: number; y: number; scale: number; originY: number } {
     const L = UI_LAYOUT;
     const imgWidth = this.textures.get(ASSET_KEYS.boss.battle).getSourceImage().width;
@@ -90,11 +91,15 @@ export class IntroScene extends Phaser.Scene {
     const scaleY = L.bossImageHeight / imgHeight;
     const scale = Math.max(scaleX, scaleY);
 
+    // С originY 0.5, чтобы верх изображения был у y=0:
+    // y = displayHeight / 2 = imgHeight * scale / 2
+    const displayHeight = imgHeight * scale;
+
     return {
       x: GAME_WIDTH / 2,
-      y: 0,
+      y: displayHeight / 2,
       scale,
-      originY: 0,
+      originY: 0.5,
     };
   }
 
@@ -197,7 +202,7 @@ export class IntroScene extends Phaser.Scene {
   private async step5_zoomAndVS(): Promise<void> {
     const closePos = this.getClosePosition();
 
-    // Зум фона + fade out далёкой Сафиры параллельно
+    // Зум фона
     const zoomedScale = this.getBackgroundScale() * 1.3;
     const bgZoomPromise = tweenPromise(this, {
       targets: this.background,
@@ -206,28 +211,19 @@ export class IntroScene extends Phaser.Scene {
       ease: "Quad.easeInOut",
     });
 
-    const fadeOutPromise = tweenPromise(this, {
+    // Плавное увеличение Сафиры (origin остаётся 0.5)
+    const safiraZoomPromise = tweenPromise(this, {
       targets: this.safira,
-      alpha: 0,
-      duration: 600,
-      ease: "Quad.easeIn",
+      x: closePos.x,
+      y: closePos.y,
+      scale: closePos.scale,
+      duration: 1200,
+      ease: "Quad.easeInOut",
     });
 
-    await Promise.all([bgZoomPromise, fadeOutPromise]);
+    await wait(this, 400);
 
-    // Перемещаем Сафиру в близкую позицию
-    this.safira.setPosition(closePos.x, closePos.y);
-    this.safira.setOrigin(0.5, closePos.originY);
-    this.safira.setScale(closePos.scale);
-
-    // Fade in Сафиры + VS контейнер
-    const fadeInPromise = tweenPromise(this, {
-      targets: this.safira,
-      alpha: 1,
-      duration: 400,
-      ease: "Quad.easeOut",
-    });
-
+    // VS контейнер появляется во время зума
     this.vsContainer = this.createVSScreen();
     const vsPromise = tweenPromise(this, {
       targets: this.vsContainer,
@@ -236,7 +232,7 @@ export class IntroScene extends Phaser.Scene {
       ease: INTRO_EASING.fade,
     });
 
-    await Promise.all([fadeInPromise, vsPromise]);
+    await Promise.all([bgZoomPromise, safiraZoomPromise, vsPromise]);
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
