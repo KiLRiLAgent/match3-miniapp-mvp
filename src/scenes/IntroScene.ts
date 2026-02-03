@@ -316,36 +316,18 @@ export class IntroScene extends Phaser.Scene {
 
     await wait(this, 100);
 
-    // 1. Fade out VS и Сафира одновременно
-    const fadePromises: Promise<void>[] = [];
-
-    // Фейдим каждый элемент VS отдельно
+    // 1. Fade out VS (контейнер целиком)
     if (this.vsContainer) {
-      this.vsContainer.getAll().forEach((element) => {
-        fadePromises.push(
-          tweenPromise(this, {
-            targets: element,
-            alpha: 0,
-            duration: 800,
-            ease: "Quad.easeInOut",
-          })
-        );
-      });
-    }
-
-    // Фейдим Сафиру параллельно
-    fadePromises.push(
-      tweenPromise(this, {
-        targets: this.safira,
+      await tweenPromise(this, {
+        targets: this.vsContainer,
         alpha: 0,
         duration: 800,
         ease: "Quad.easeInOut",
-      })
-    );
+      });
+    }
 
-    await Promise.all(fadePromises);
-
-    // 2. Теперь показываем игровое поле с финальным диалогом
+    // 2. Показываем игровое поле с финальным диалогом
+    // Сафира остаётся видимой - GameScene Сафира её заменит
     const gameScene = this.scene.get("GameScene") as GameScene;
     await gameScene.triggerFadeIn(DIALOGUE.final);
 
