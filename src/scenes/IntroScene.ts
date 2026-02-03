@@ -76,7 +76,7 @@ export class IntroScene extends Phaser.Scene {
 
     return {
       x: GAME_WIDTH / 2,
-      y: GAME_HEIGHT * 0.35,
+      y: GAME_HEIGHT * 0.50,  // На 15% ниже для первых реплик
       scale,
       originY: 0.5,
     };
