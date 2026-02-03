@@ -250,7 +250,7 @@ export class IntroScene extends Phaser.Scene {
 
     // Позиции элементов по референсу
     const centerY = GAME_HEIGHT * 0.42;
-    const playerFrameY = GAME_HEIGHT * 0.65;
+    const playerFrameY = GAME_HEIGHT * 0.68;
 
     // Полупрозрачный фон под "Сафира: Пламя Бездны"
     const bossNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY - 60, 320, 44, 0x000000, 0.5);
