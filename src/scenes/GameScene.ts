@@ -200,8 +200,9 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН (тот же что в интро, с зумом 1.3x) ===
-    const bg = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, ASSET_KEYS.intro.background);
+    // === ФОН (тот же что в интро, поднят на 5% + зум 1.3x) ===
+    const bgY = GAME_HEIGHT / 2 - GAME_HEIGHT * 0.05;
+    const bg = this.add.image(GAME_WIDTH / 2, bgY, ASSET_KEYS.intro.background);
     const bgScaleX = GAME_WIDTH / bg.width;
     const bgScaleY = GAME_HEIGHT / bg.height;
     bg.setScale(Math.max(bgScaleX, bgScaleY) * 1.3);
