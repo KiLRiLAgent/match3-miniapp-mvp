@@ -252,6 +252,11 @@ export class IntroScene extends Phaser.Scene {
     const centerY = GAME_HEIGHT * 0.42;
     const playerFrameY = GAME_HEIGHT * 0.78;
 
+    // Полупрозрачный фон под "Сафира: Пламя Бездны"
+    const bossNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY - 60, 320, 44, 0x000000, 0.5);
+    bossNameBg.setOrigin(0.5);
+    container.add(bossNameBg);
+
     // Текст "Сафира: Пламя Бездны" - оранжевый
     const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 60, "Сафира: Пламя Бездны", {
       fontSize: "26px",
@@ -264,23 +269,24 @@ export class IntroScene extends Phaser.Scene {
     container.add(bossNameText);
 
     // Мечи позади VS
-    const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 20, ASSET_KEYS.intro.swords);
+    const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
     const swordsScale = 200 / swordsImg.width;
     swordsImg.setScale(swordsScale);
     container.add(swordsImg);
 
-    // VS текст - оранжево-красный как на референсе
-    const vsText = this.add.text(GAME_WIDTH / 2, centerY + 20, "VS", {
-      fontSize: "52px",
-      fontFamily: "Arial Black, sans-serif",
-      color: "#ff4422",
-      stroke: "#000000",
-      strokeThickness: 6,
-    }).setOrigin(0.5);
-    container.add(vsText);
+    // VS изображение вместо текста
+    const vsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.vsLogo);
+    const vsScale = 120 / vsImg.width;
+    vsImg.setScale(vsScale);
+    container.add(vsImg);
 
-    // Текст "Игрок" - белый, над рамкой игрока
-    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 100, "Игрок", {
+    // Полупрозрачный фон под "Игрок"
+    const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 110, 120, 40, 0x000000, 0.5);
+    playerNameBg.setOrigin(0.5);
+    container.add(playerNameBg);
+
+    // Текст "Игрок" - белый
+    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 110, "Игрок", {
       fontSize: "24px",
       fontFamily: "Arial, sans-serif",
       color: "#ffffff",
@@ -297,10 +303,10 @@ export class IntroScene extends Phaser.Scene {
     playerFrame.setScale(frameScale);
     container.add(playerFrame);
 
-    // Аватар игрока внутри рамки
-    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.player.avatar);
+    // Аватар игрока - больше и выше, выходит за рамку сверху
+    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 30, ASSET_KEYS.player.avatar);
     const frameHeight = playerFrame.displayHeight;
-    const avatarScale = (frameHeight * 0.85) / playerAvatar.height;
+    const avatarScale = (frameHeight * 1.4) / playerAvatar.height;
     playerAvatar.setScale(avatarScale);
     container.add(playerAvatar);
 
