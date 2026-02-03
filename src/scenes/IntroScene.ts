@@ -18,7 +18,6 @@ export class IntroScene extends Phaser.Scene {
   private speechBubble?: SpeechBubble;
   private vsContainer?: Phaser.GameObjects.Container;
   private sceneCenter!: { x: number; y: number };
-  private scaleFactor!: number;
 
   constructor() {
     super("IntroScene");
@@ -27,29 +26,36 @@ export class IntroScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor("#000000");
     this.sceneCenter = { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 };
-    this.scaleFactor = 1 / INTRO_ANIMATION.initialZoom;
 
-    this.cameras.main.setZoom(INTRO_ANIMATION.initialZoom);
-    this.cameras.main.centerOn(this.sceneCenter.x, this.sceneCenter.y);
+    // Без зума камеры — эффект приближения через scale фона
+    this.cameras.main.setZoom(1);
 
     this.runIntroSequence();
   }
 
   private async runIntroSequence() {
     await this.step1_backgroundAppear();
+    await this.step1b_zoomBackground();
     await this.step2_safiraAppear();
     await this.step3_firstDialogue();
     await this.step4_poseChangeDialogue();
-    await this.step5_zoomAndVS();
+    await this.step5_showVS();
     await this.step6_transitionToGame();
+  }
+
+  // Базовый scale фона чтобы покрыть экран
+  private getBackgroundScale(): number {
+    const scaleX = GAME_WIDTH / this.background.width;
+    const scaleY = GAME_HEIGHT / this.background.height;
+    return Math.max(scaleX, scaleY);
   }
 
   private async step1_backgroundAppear(): Promise<void> {
     this.background = this.add.image(this.sceneCenter.x, this.sceneCenter.y, ASSET_KEYS.intro.background);
 
-    const scaleX = (GAME_WIDTH * this.scaleFactor) / this.background.width;
-    const scaleY = (GAME_HEIGHT * this.scaleFactor) / this.background.height;
-    this.background.setScale(Math.max(scaleX, scaleY));
+    // Начинаем с уменьшенного фона (мы "далеко")
+    const baseScale = this.getBackgroundScale();
+    this.background.setScale(baseScale * 0.7);
     this.background.setAlpha(0);
     this.background.setDepth(0);
 
@@ -61,25 +67,21 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
-  // Сафира КРУПНАЯ для интро диалогов (60% видимой высоты)
-  private getIntroPosition(): { x: number; y: number; scale: number; originY: number } {
-    const imgHeight = this.textures.get(ASSET_KEYS.boss.normal).getSourceImage().height;
-    // Целевая высота: 60% видимой области (с учётом зума)
-    const targetHeight = GAME_HEIGHT * this.scaleFactor * 0.6;
-    const scale = targetHeight / imgHeight;
+  private async step1b_zoomBackground(): Promise<void> {
+    const finalScale = this.getBackgroundScale();
 
-    return {
-      x: this.sceneCenter.x,
-      y: this.sceneCenter.y * 0.8, // Выше центра
-      scale,
-      originY: 0.5, // Центр по вертикали
-    };
+    // Зум фона — эффект приближения
+    return tweenPromise(this, {
+      targets: this.background,
+      scale: finalScale,
+      duration: 1500,
+      ease: "Quad.easeInOut",
+    });
   }
 
-  // Сафира в игровой позиции (верх экрана, как в GameScene)
+  // Сафира всегда в игровой позиции (верх экрана)
   private getGameplayPosition(): { x: number; y: number; scale: number; originY: number } {
     const L = UI_LAYOUT;
-    // Используем battle текстуру — такую же как в GameScene
     const imgWidth = this.textures.get(ASSET_KEYS.boss.battle).getSourceImage().width;
     const imgHeight = this.textures.get(ASSET_KEYS.boss.battle).getSourceImage().height;
     const scaleX = GAME_WIDTH / imgWidth;
@@ -94,27 +96,26 @@ export class IntroScene extends Phaser.Scene {
     };
   }
 
-  // Позиция бабла на уровне груди (40% от верха изображения)
+  // Фиксированная позиция бабла
   private getBubbleY(): number {
-    return this.safira.y - this.safira.displayHeight * 0.1;
+    return GAME_HEIGHT * 0.38;
   }
 
   private async step2_safiraAppear(): Promise<void> {
-    // Используем КРУПНУЮ позицию для интро диалогов
-    const introPos = this.getIntroPosition();
+    // Сафира сразу в игровой позиции
+    const pos = this.getGameplayPosition();
 
-    this.safira = this.add.image(introPos.x, introPos.y, ASSET_KEYS.boss.normal);
-    this.safira.setOrigin(0.5, introPos.originY);
-    this.safira.setScale(introPos.scale * 0.95);
+    this.safira = this.add.image(pos.x, pos.y, ASSET_KEYS.boss.normal);
+    this.safira.setOrigin(0.5, pos.originY);
+    this.safira.setScale(pos.scale);
     this.safira.setAlpha(0);
     this.safira.setDepth(1);
 
     return tweenPromise(this, {
       targets: this.safira,
       alpha: 1,
-      scale: introPos.scale,
       duration: INTRO_ANIMATION.safiraFadeIn,
-      ease: INTRO_EASING.scale,
+      ease: INTRO_EASING.fade,
     });
   }
 
@@ -134,7 +135,7 @@ export class IntroScene extends Phaser.Scene {
   private async step4_poseChangeDialogue(): Promise<void> {
     const halfDuration = INTRO_ANIMATION.poseTransitionDuration / 2;
 
-    // Фейдим ТОЛЬКО Сафиру и бабл
+    // Фейдим Сафиру и бабл
     await Promise.all([
       tweenPromise(this, {
         targets: this.safira,
@@ -150,12 +151,10 @@ export class IntroScene extends Phaser.Scene {
       }) : Promise.resolve(),
     ]);
 
-    // Меняем позу, но остаёмся в intro позиции (КРУПНАЯ)
+    // Меняем только текстуру (позиция та же)
     this.safira.setTexture(ASSET_KEYS.boss.battle);
-    const introPos = this.getIntroPosition();
-    this.safira.setScale(introPos.scale);
 
-    // Новый бабл на уровне груди
+    // Новый бабл
     if (this.speechBubble) {
       this.speechBubble.destroy();
     }
@@ -193,53 +192,17 @@ export class IntroScene extends Phaser.Scene {
     }
   }
 
-  private async step5_zoomAndVS(): Promise<void> {
-    const introPos = this.getIntroPosition();
-    const gameplayPos = this.getGameplayPosition();
-
-    // Зум камеры
-    const zoomPromise = tweenPromise(this, {
-      targets: this.cameras.main,
-      zoom: INTRO_ANIMATION.finalZoom,
-      duration: INTRO_ANIMATION.cameraZoomDuration,
-      ease: INTRO_EASING.zoom,
-    });
-
-    // Анимируем Сафиру к игровой позиции параллельно с зумом
-    const safiraPromise = new Promise<void>((resolve) => {
-      this.tweens.add({
-        targets: this.safira,
-        x: gameplayPos.x,
-        y: gameplayPos.y,
-        scale: gameplayPos.scale,
-        duration: INTRO_ANIMATION.cameraZoomDuration,
-        ease: INTRO_EASING.zoom,
-        onUpdate: (tween) => {
-          // Плавно интерполируем origin используя прогресс твина
-          const progress = tween.progress;
-          const newOriginY = Phaser.Math.Linear(introPos.originY, gameplayPos.originY, progress);
-          this.safira.setOrigin(0.5, newOriginY);
-        },
-        onComplete: () => {
-          this.safira.setOrigin(0.5, gameplayPos.originY);
-          resolve();
-        },
-      });
-    });
-
-    await wait(this, 600);
-
-    // VS контейнер
+  private async step5_showVS(): Promise<void> {
+    // Только показываем VS (Сафира уже на месте)
     this.vsContainer = this.createVSScreen();
 
-    const vsPromise = tweenPromise(this, {
+    await tweenPromise(this, {
       targets: this.vsContainer,
       alpha: 1,
       duration: INTRO_ANIMATION.vsFadeIn,
       ease: INTRO_EASING.fade,
     });
 
-    await Promise.all([zoomPromise, safiraPromise, vsPromise]);
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
@@ -248,7 +211,7 @@ export class IntroScene extends Phaser.Scene {
     container.setDepth(20);
     container.setAlpha(0);
 
-    // Позиции элементов по референсу
+    // Позиции элементов
     const centerY = GAME_HEIGHT * 0.42;
     const playerFrameY = GAME_HEIGHT * 0.68;
 
@@ -257,7 +220,7 @@ export class IntroScene extends Phaser.Scene {
     bossNameBg.setOrigin(0.5);
     container.add(bossNameBg);
 
-    // Текст "Сафира: Пламя Бездны" - оранжевый
+    // Текст "Сафира: Пламя Бездны"
     const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 60, "Сафира: Пламя Бездны", {
       fontSize: "26px",
       fontFamily: "Arial, sans-serif",
@@ -274,7 +237,7 @@ export class IntroScene extends Phaser.Scene {
     swordsImg.setScale(swordsScale);
     container.add(swordsImg);
 
-    // VS изображение вместо текста
+    // VS изображение
     const vsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.vsLogo);
     const vsScale = 120 / vsImg.width;
     vsImg.setScale(vsScale);
@@ -285,7 +248,7 @@ export class IntroScene extends Phaser.Scene {
     playerNameBg.setOrigin(0.5);
     container.add(playerNameBg);
 
-    // Текст "Игрок" - белый
+    // Текст "Игрок"
     const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 110, "Игрок", {
       fontSize: "24px",
       fontFamily: "Arial, sans-serif",
@@ -296,14 +259,14 @@ export class IntroScene extends Phaser.Scene {
     }).setOrigin(0.5);
     container.add(playerNameText);
 
-    // Жёлтая рамка игрока (из изображения)
+    // Жёлтая рамка игрока
     const playerFrame = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerFrame);
     const frameTargetWidth = GAME_WIDTH * 0.85;
     const frameScale = frameTargetWidth / playerFrame.width;
     playerFrame.setScale(frameScale);
     container.add(playerFrame);
 
-    // Аватар игрока - больше и выше, выходит за рамку сверху
+    // Аватар игрока
     const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 30, ASSET_KEYS.player.avatar);
     const frameHeight = playerFrame.displayHeight;
     const avatarScale = (frameHeight * 1.4) / playerAvatar.height;
@@ -314,19 +277,16 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step6_transitionToGame(): Promise<void> {
-    // Запускаем GameScene со скрытым UI (босс виден с текстурой battle)
+    // Запускаем GameScene
     this.scene.launch("GameScene", {
       fromIntro: true,
       finalDialogue: DIALOGUE.final,
       startHidden: true,
     });
 
-    // Даём GameScene время на инициализацию
     await wait(this, 100);
 
-    // ФАЗА 1: Fade out VS (фон и Сафира ОСТАЮТСЯ)
-    // Фон не фейдим — в GameScene такой же фон уже есть
-    // Fade out все элементы VS контейнера (container.alpha не каскадируется в tween)
+    // Fade out VS
     const vsElements = this.vsContainer?.getAll() || [];
     if (vsElements.length > 0) {
       await tweenPromise(this, {
@@ -337,8 +297,7 @@ export class IntroScene extends Phaser.Scene {
       });
     }
 
-    // ФАЗА 2: Cross dissolve — fade out IntroScene Safira
-    // GameScene Safira уже видна под ней (с battle), UI появляется
+    // Fade out Сафира (GameScene Сафира уже видна)
     await tweenPromise(this, {
       targets: this.safira,
       alpha: 0,
