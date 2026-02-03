@@ -35,11 +35,10 @@ export class IntroScene extends Phaser.Scene {
 
   private async runIntroSequence() {
     await this.step1_backgroundAppear();
-    await this.step1b_zoomBackground();
     await this.step2_safiraAppear();
     await this.step3_firstDialogue();
     await this.step4_poseChangeDialogue();
-    await this.step5_showVS();
+    await this.step5_zoomAndVS();
     await this.step6_transitionToGame();
   }
 
@@ -53,9 +52,9 @@ export class IntroScene extends Phaser.Scene {
   private async step1_backgroundAppear(): Promise<void> {
     this.background = this.add.image(this.sceneCenter.x, this.sceneCenter.y, ASSET_KEYS.intro.background);
 
-    // Начинаем с уменьшенного фона (мы "далеко")
+    // Обычный размер фона
     const baseScale = this.getBackgroundScale();
-    this.background.setScale(baseScale * 0.7);
+    this.background.setScale(baseScale);
     this.background.setAlpha(0);
     this.background.setDepth(0);
 
@@ -64,18 +63,6 @@ export class IntroScene extends Phaser.Scene {
       alpha: 1,
       duration: INTRO_ANIMATION.backgroundFadeIn,
       ease: INTRO_EASING.fade,
-    });
-  }
-
-  private async step1b_zoomBackground(): Promise<void> {
-    const finalScale = this.getBackgroundScale();
-
-    // Зум фона — эффект приближения
-    return tweenPromise(this, {
-      targets: this.background,
-      scale: finalScale,
-      duration: 1500,
-      ease: "Quad.easeInOut",
     });
   }
 
@@ -192,17 +179,30 @@ export class IntroScene extends Phaser.Scene {
     }
   }
 
-  private async step5_showVS(): Promise<void> {
-    // Только показываем VS (Сафира уже на месте)
+  private async step5_zoomAndVS(): Promise<void> {
+    // Зум фона — приближаемся к противнику
+    const zoomedScale = this.getBackgroundScale() * 1.3;
+
+    const zoomPromise = tweenPromise(this, {
+      targets: this.background,
+      scale: zoomedScale,
+      duration: 1200,
+      ease: "Quad.easeInOut",
+    });
+
+    await wait(this, 400);
+
+    // VS контейнер появляется во время зума
     this.vsContainer = this.createVSScreen();
 
-    await tweenPromise(this, {
+    const vsPromise = tweenPromise(this, {
       targets: this.vsContainer,
       alpha: 1,
       duration: INTRO_ANIMATION.vsFadeIn,
       ease: INTRO_EASING.fade,
     });
 
+    await Promise.all([zoomPromise, vsPromise]);
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
