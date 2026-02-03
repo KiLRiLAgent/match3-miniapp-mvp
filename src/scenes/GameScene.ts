@@ -150,7 +150,7 @@ export class GameScene extends Phaser.Scene {
       text,
       tailDirection: "up",
       maxWidth: 360,
-      fontSize: "24px",
+      fontSize: "28px",
     });
     bubble.setDepth(100);
 
