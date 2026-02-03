@@ -89,6 +89,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(data?: { fromIntro?: boolean; finalDialogue?: string; startHidden?: boolean }) {
+    // Очистить старые ссылки (важно при restart - Phaser переиспользует экземпляр)
+    this.bossImage = undefined;
+    this.bossHpBar = undefined;
+    this.playerHpBar = undefined;
+    this.manaBar = undefined;
+    this.cooldownIcon = undefined;
+    this.shieldIcon = undefined;
+    this.playerAvatar = undefined;
+    this.turnText = undefined;
+    this.hammerOverlay = undefined;
+    this.hammerHint = undefined;
+    this.skillButtons = {};
+
     // Загрузить сохранённые параметры
     loadGameParams();
 
