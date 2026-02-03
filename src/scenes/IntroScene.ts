@@ -61,6 +61,21 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
+  // Сафира КРУПНАЯ для интро диалогов (60% видимой высоты)
+  private getIntroPosition(): { x: number; y: number; scale: number; originY: number } {
+    const imgHeight = this.textures.get(ASSET_KEYS.boss.normal).getSourceImage().height;
+    // Целевая высота: 60% видимой области (с учётом зума)
+    const targetHeight = GAME_HEIGHT * this.scaleFactor * 0.6;
+    const scale = targetHeight / imgHeight;
+
+    return {
+      x: this.sceneCenter.x,
+      y: this.sceneCenter.y * 0.8, // Выше центра
+      scale,
+      originY: 0.5, // Центр по вертикали
+    };
+  }
+
   // Сафира в игровой позиции (верх экрана, как в GameScene)
   private getGameplayPosition(): { x: number; y: number; scale: number; originY: number } {
     const L = UI_LAYOUT;
@@ -79,26 +94,27 @@ export class IntroScene extends Phaser.Scene {
     };
   }
 
-  // Позиция бабла — фиксированная, по центру экрана
+  // Позиция бабла на уровне груди (40% от верха изображения)
   private getBubbleY(): number {
-    return GAME_HEIGHT * 0.35;
+    return this.safira.y - this.safira.displayHeight * 0.1;
   }
 
   private async step2_safiraAppear(): Promise<void> {
-    // Сразу в игровой позиции (верх экрана)
-    const gameplayPos = this.getGameplayPosition();
+    // Используем КРУПНУЮ позицию для интро диалогов
+    const introPos = this.getIntroPosition();
 
-    this.safira = this.add.image(gameplayPos.x, gameplayPos.y, ASSET_KEYS.boss.normal);
-    this.safira.setOrigin(0.5, gameplayPos.originY);
-    this.safira.setScale(gameplayPos.scale);
+    this.safira = this.add.image(introPos.x, introPos.y, ASSET_KEYS.boss.normal);
+    this.safira.setOrigin(0.5, introPos.originY);
+    this.safira.setScale(introPos.scale * 0.95);
     this.safira.setAlpha(0);
     this.safira.setDepth(1);
 
     return tweenPromise(this, {
       targets: this.safira,
       alpha: 1,
+      scale: introPos.scale,
       duration: INTRO_ANIMATION.safiraFadeIn,
-      ease: INTRO_EASING.fade,
+      ease: INTRO_EASING.scale,
     });
   }
 
@@ -134,8 +150,10 @@ export class IntroScene extends Phaser.Scene {
       }) : Promise.resolve(),
     ]);
 
-    // Меняем только текстуру, позиция остаётся
+    // Меняем позу, но остаёмся в intro позиции (КРУПНАЯ)
     this.safira.setTexture(ASSET_KEYS.boss.battle);
+    const introPos = this.getIntroPosition();
+    this.safira.setScale(introPos.scale);
 
     // Новый бабл на уровне груди
     if (this.speechBubble) {
@@ -176,12 +194,37 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step5_zoomAndVS(): Promise<void> {
-    // Зум камеры (Сафира уже на месте)
+    const introPos = this.getIntroPosition();
+    const gameplayPos = this.getGameplayPosition();
+
+    // Зум камеры
     const zoomPromise = tweenPromise(this, {
       targets: this.cameras.main,
       zoom: INTRO_ANIMATION.finalZoom,
       duration: INTRO_ANIMATION.cameraZoomDuration,
       ease: INTRO_EASING.zoom,
+    });
+
+    // Анимируем Сафиру к игровой позиции параллельно с зумом
+    const safiraPromise = new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: this.safira,
+        x: gameplayPos.x,
+        y: gameplayPos.y,
+        scale: gameplayPos.scale,
+        duration: INTRO_ANIMATION.cameraZoomDuration,
+        ease: INTRO_EASING.zoom,
+        onUpdate: (tween) => {
+          // Плавно интерполируем origin используя прогресс твина
+          const progress = tween.progress;
+          const newOriginY = Phaser.Math.Linear(introPos.originY, gameplayPos.originY, progress);
+          this.safira.setOrigin(0.5, newOriginY);
+        },
+        onComplete: () => {
+          this.safira.setOrigin(0.5, gameplayPos.originY);
+          resolve();
+        },
+      });
     });
 
     await wait(this, 600);
@@ -196,7 +239,7 @@ export class IntroScene extends Phaser.Scene {
       ease: INTRO_EASING.fade,
     });
 
-    await Promise.all([zoomPromise, vsPromise]);
+    await Promise.all([zoomPromise, safiraPromise, vsPromise]);
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
