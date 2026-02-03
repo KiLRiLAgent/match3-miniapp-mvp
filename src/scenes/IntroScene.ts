@@ -72,13 +72,13 @@ export class IntroScene extends Phaser.Scene {
   // Сафира ДАЛЕКО — маленькая, по центру
   private getFarPosition(): { x: number; y: number; scale: number; originY: number } {
     const imgHeight = this.textures.get(ASSET_KEYS.boss.normal).getSourceImage().height;
-    // Маленький размер — 40% высоты экрана
-    const targetHeight = GAME_HEIGHT * 0.4;
+    // Размер — 46% высоты экрана (на 15% больше чем было 40%)
+    const targetHeight = GAME_HEIGHT * 0.46;
     const scale = targetHeight / imgHeight;
 
     return {
       x: GAME_WIDTH / 2,
-      y: GAME_HEIGHT * 0.50,  // На 15% ниже для первых реплик
+      y: GAME_HEIGHT * 0.50,
       scale,
       originY: 0.5,
     };
