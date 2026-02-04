@@ -13,6 +13,9 @@ export const ASSET_KEYS = {
     swords: "intro_swords",
     playerFrame: "player_frame",
   },
+  game: {
+    background: "game_background",
+  },
   player: {
     avatar: "player_avatar",
   },

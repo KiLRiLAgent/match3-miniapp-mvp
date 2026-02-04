@@ -200,12 +200,13 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН (тот же что в интро, поднят на 10% + зум 1.3x) ===
-    const bgY = GAME_HEIGHT / 2 - GAME_HEIGHT * 0.10;
-    const bg = this.add.image(GAME_WIDTH / 2, bgY, ASSET_KEYS.intro.background);
+    // === ФОН (новый тронный зал, настраиваемое смещение) ===
+    const BG_OFFSET_Y = 0; // Смещение вверх (отрицательное) или вниз (положительное)
+    const bgY = GAME_HEIGHT / 2 + BG_OFFSET_Y;
+    const bg = this.add.image(GAME_WIDTH / 2, bgY, ASSET_KEYS.game.background);
     const bgScaleX = GAME_WIDTH / bg.width;
     const bgScaleY = GAME_HEIGHT / bg.height;
-    bg.setScale(Math.max(bgScaleX, bgScaleY) * 1.3);
+    bg.setScale(Math.max(bgScaleX, bgScaleY));
     bg.setDepth(-2);
 
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
