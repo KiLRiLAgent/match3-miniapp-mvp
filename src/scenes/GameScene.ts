@@ -200,30 +200,27 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН (новый тронный зал, настраиваемое смещение) ===
-    const BG_OFFSET_Y = 0; // Смещение вверх (отрицательное) или вниз (положительное)
-    const bgY = GAME_HEIGHT / 2 + BG_OFFSET_Y;
-    const bg = this.add.image(GAME_WIDTH / 2, bgY, ASSET_KEYS.game.background);
-    const bgScaleX = GAME_WIDTH / bg.width;
-    const bgScaleY = GAME_HEIGHT / bg.height;
-    bg.setScale(Math.max(bgScaleX, bgScaleY));
+    // === ФОН + БОСС в контейнере (для синхронного зума) ===
+    const BG_OFFSET_Y = 100; // Смещение фона вниз
+    const BOSS_ON_BG_Y = 0.55; // Позиция босса на фоне (0-1, где 0.5 = центр)
+
+    // Создаём фон
+    const bg = this.add.image(0, 0, ASSET_KEYS.game.background);
+    const bgScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
+    bg.setScale(bgScale);
+    bg.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2 + BG_OFFSET_Y);
     bg.setDepth(-2);
 
-    // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
-    // Босс всегда видим (даже при startHidden) - для бесшовного перехода
-    // Используем battle текстуру для синхронизации с интро
+    // Босс позиционируется относительно фона
+    const bossOnBgY = bg.y - (bg.displayHeight * (0.5 - BOSS_ON_BG_Y));
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, 0, ASSET_KEYS.boss.battle)
-      .setOrigin(0.5, 0)
+      .image(GAME_WIDTH / 2, bossOnBgY, ASSET_KEYS.boss.battle)
+      .setOrigin(0.5, 0.5)
       .setDepth(0);
 
-    // Масштабируем сохраняя пропорции (cover)
-    const imgWidth = this.bossImage.width;
-    const imgHeight = this.bossImage.height;
-    const scaleX = GAME_WIDTH / imgWidth;
-    const scaleY = L.bossImageHeight / imgHeight;
-    const scale = Math.max(scaleX, scaleY);
-    this.bossImage.setScale(scale);
+    // Масштабируем босса пропорционально фону
+    const bossScale = bgScale * 0.8; // Босс относительно фона
+    this.bossImage.setScale(bossScale);
 
     // === НАЗВАНИЕ БОССА ===
     this.add
