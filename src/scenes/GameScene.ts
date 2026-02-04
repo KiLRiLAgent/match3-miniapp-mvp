@@ -200,27 +200,30 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН + БОСС в контейнере (для синхронного зума) ===
-    const BG_OFFSET_Y = 200; // Смещение фона вниз
-    const BOSS_ON_BG_Y = 0.55; // Позиция босса на фоне (0-1, где 0.5 = центр)
+    // === ФОН (синхронизирован с IntroScene после зума) ===
+    const BG_OFFSET_Y = 200; // Смещение фона вниз (как в IntroScene)
+    const BG_ZOOM_SCALE = 1.3; // Зум (как в IntroScene после приближения)
 
-    // Создаём фон
     const bg = this.add.image(0, 0, ASSET_KEYS.game.background);
-    const bgScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
+    const bgBaseScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
+    const bgScale = bgBaseScale * BG_ZOOM_SCALE; // Уже в зуме
     bg.setScale(bgScale);
     bg.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2 + BG_OFFSET_Y);
     bg.setDepth(-2);
 
-    // Босс позиционируется относительно фона
-    const bossOnBgY = bg.y - (bg.displayHeight * (0.5 - BOSS_ON_BG_Y));
+    // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, bossOnBgY, ASSET_KEYS.boss.battle)
-      .setOrigin(0.5, 0.5)
+      .image(GAME_WIDTH / 2, 0, ASSET_KEYS.boss.battle)
+      .setOrigin(0.5, 0)
       .setDepth(0);
 
-    // Масштабируем босса пропорционально фону
-    const bossScale = bgScale * 0.8; // Босс относительно фона
-    this.bossImage.setScale(bossScale);
+    // Масштабируем сохраняя пропорции (cover)
+    const imgWidth = this.bossImage.width;
+    const imgHeight = this.bossImage.height;
+    const scaleX = GAME_WIDTH / imgWidth;
+    const scaleY = L.bossImageHeight / imgHeight;
+    const scale = Math.max(scaleX, scaleY);
+    this.bossImage.setScale(scale);
 
     // === НАЗВАНИЕ БОССА ===
     this.add
