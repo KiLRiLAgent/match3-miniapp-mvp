@@ -319,7 +319,11 @@ export class IntroScene extends Phaser.Scene {
       });
     }
 
-    // 2. Теперь запускаем GameScene (она рендерится поверх IntroScene)
+    // 2. Скрываем фон и Сафиру интро (GameScene покажет свои)
+    this.background.setAlpha(0);
+    this.safira.setAlpha(0);
+
+    // 3. Теперь запускаем GameScene (она рендерится поверх IntroScene)
     this.scene.launch("GameScene", {
       fromIntro: true,
       startHidden: true,
