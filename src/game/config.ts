@@ -82,10 +82,10 @@ export const GAME_PARAMS = {
   bossPattern: [1, 2, 1, 3, 1, 4] as number[],
   // Настройки фона и позиции босса
   background: {
-    offsetY: -60, // Фон ниже
-    zoomScale: 1.3,
-    bossOnBgY: 0.50, // Босс ниже на фоне
-    bossScale: 0.55, // Босс меньше
+    offsetY: 0, // Фон ниже
+    zoomScale: 1.5, // Больше зум чтобы покрыть экран
+    bossOnBgY: 0.50, // Босс на фоне (сохранено)
+    bossScale: 0.55, // Босс меньше (сохранено)
   },
 };
 
