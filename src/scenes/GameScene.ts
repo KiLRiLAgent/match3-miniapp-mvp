@@ -17,6 +17,7 @@ import {
   RESOURCE_TILES,
   SAFE_AREA,
   loadGameParams,
+  saveGameParams,
   GAME_PARAMS,
 } from "../game/config";
 import {
@@ -56,6 +57,8 @@ export class GameScene extends Phaser.Scene {
   private mana = 0;
 
   private bossImage?: Phaser.GameObjects.Image;
+  private bgImage?: Phaser.GameObjects.Image;
+  private bgDebugMode = true; // Режим настройки фона (поставь false чтобы отключить)
   private bossHpBar?: Meter;
   private playerHpBar?: Meter;
   private manaBar?: Meter;
@@ -200,16 +203,13 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН (синхронизирован с IntroScene после зума) ===
-    const BG_OFFSET_Y = 200; // Смещение фона вниз (как в IntroScene)
-    const BG_ZOOM_SCALE = 1.3; // Зум (как в IntroScene после приближения)
-
-    const bg = this.add.image(0, 0, ASSET_KEYS.game.background);
-    const bgBaseScale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
-    const bgScale = bgBaseScale * BG_ZOOM_SCALE; // Уже в зуме
-    bg.setScale(bgScale);
-    bg.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2 + BG_OFFSET_Y);
-    bg.setDepth(-2);
+    // === ФОН (настройки из GAME_PARAMS, синхронизирован с IntroScene) ===
+    this.bgImage = this.add.image(0, 0, ASSET_KEYS.game.background);
+    const bgBaseScale = Math.max(GAME_WIDTH / this.bgImage.width, GAME_HEIGHT / this.bgImage.height);
+    const bgScale = bgBaseScale * GAME_PARAMS.background.zoomScale;
+    this.bgImage.setScale(bgScale);
+    this.bgImage.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2 + GAME_PARAMS.background.offsetY);
+    this.bgImage.setDepth(-2);
 
     // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
     this.bossImage = this.add
@@ -327,6 +327,77 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(initialAlpha)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.openSettings());
+
+    // Режим настройки фона
+    if (this.bgDebugMode) {
+      this.buildBgDebugUI();
+    }
+  }
+
+  private buildBgDebugUI() {
+    const container = this.add.container(0, 0);
+    container.setDepth(100);
+
+    // Панель с кнопками
+    const panelY = 120;
+    const panelBg = this.add.rectangle(GAME_WIDTH / 2, panelY, 280, 100, 0x000000, 0.8);
+    panelBg.setStrokeStyle(2, 0xffffff, 0.5);
+    container.add(panelBg);
+
+    // Текст с текущим значением
+    const offsetText = this.add.text(GAME_WIDTH / 2, panelY - 30, `Смещение: ${GAME_PARAMS.background.offsetY}`, {
+      fontSize: "18px",
+      color: "#ffffff",
+      fontFamily: "Arial, sans-serif",
+    }).setOrigin(0.5);
+    container.add(offsetText);
+
+    // Кнопка ВВЕРХ
+    const btnUp = this.add.text(GAME_WIDTH / 2 - 80, panelY + 5, "▲ Вверх", {
+      fontSize: "16px",
+      color: "#ffffff",
+      backgroundColor: "#333333",
+      padding: { x: 12, y: 8 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    btnUp.on("pointerdown", () => {
+      GAME_PARAMS.background.offsetY -= 20;
+      this.updateBgPosition();
+      offsetText.setText(`Смещение: ${GAME_PARAMS.background.offsetY}`);
+    });
+    container.add(btnUp);
+
+    // Кнопка ВНИЗ
+    const btnDown = this.add.text(GAME_WIDTH / 2 + 80, panelY + 5, "▼ Вниз", {
+      fontSize: "16px",
+      color: "#ffffff",
+      backgroundColor: "#333333",
+      padding: { x: 12, y: 8 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    btnDown.on("pointerdown", () => {
+      GAME_PARAMS.background.offsetY += 20;
+      this.updateBgPosition();
+      offsetText.setText(`Смещение: ${GAME_PARAMS.background.offsetY}`);
+    });
+    container.add(btnDown);
+
+    // Кнопка СОХРАНИТЬ
+    const btnSave = this.add.text(GAME_WIDTH / 2, panelY + 35, "💾 Сохранить", {
+      fontSize: "16px",
+      color: "#00ff00",
+      backgroundColor: "#004400",
+      padding: { x: 16, y: 8 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    btnSave.on("pointerdown", () => {
+      saveGameParams();
+      offsetText.setText(`Смещение: ${GAME_PARAMS.background.offsetY} ✓`);
+    });
+    container.add(btnSave);
+  }
+
+  private updateBgPosition() {
+    if (this.bgImage) {
+      this.bgImage.setY(GAME_HEIGHT / 2 + GAME_PARAMS.background.offsetY);
+    }
   }
 
   private openSettings() {

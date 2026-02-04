@@ -80,6 +80,11 @@ export const GAME_PARAMS = {
   },
   // Паттерн способностей босса (1=атака, 2=бомбы, 3=щит, 4=мощный удар)
   bossPattern: [1, 2, 1, 3, 1, 4] as number[],
+  // Настройки фона
+  background: {
+    offsetY: 200,
+    zoomScale: 1.3,
+  },
 };
 
 // Загрузить из localStorage
@@ -101,6 +106,10 @@ export function loadGameParams() {
         if (parsed.skillCosts.stun !== undefined) SKILL_CONFIG.stun.cost = parsed.skillCosts.stun;
         if (parsed.skillCosts.heal !== undefined) SKILL_CONFIG.heal.cost = parsed.skillCosts.heal;
         if (parsed.skillCosts.hammer !== undefined) SKILL_CONFIG.hammer.cost = parsed.skillCosts.hammer;
+      }
+      // Загружаем настройки фона
+      if (parsed.background) {
+        Object.assign(GAME_PARAMS.background, parsed.background);
       }
     }
   } catch {

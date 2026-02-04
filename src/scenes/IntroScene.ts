@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
-import { GAME_WIDTH, GAME_HEIGHT, UI_LAYOUT } from "../game/config";
+import { GAME_WIDTH, GAME_HEIGHT, UI_LAYOUT, GAME_PARAMS } from "../game/config";
 import { INTRO_ANIMATION, INTRO_EASING } from "../game/animations";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { wait, tweenPromise } from "../utils/helpers";
@@ -50,13 +50,9 @@ export class IntroScene extends Phaser.Scene {
     return Math.max(scaleX, scaleY);
   }
 
-  // Настройки фона (общие для интро и боя)
-  private readonly BG_OFFSET_Y = 200; // Смещение фона вниз
-  private readonly BG_ZOOM_SCALE = 1.3; // Зум при приближении
-
   private async step1_backgroundAppear(): Promise<void> {
-    // Новый фон тронного зала (тот же что в GameScene)
-    const bgY = this.sceneCenter.y + this.BG_OFFSET_Y;
+    // Новый фон тронного зала (настройки из GAME_PARAMS)
+    const bgY = this.sceneCenter.y + GAME_PARAMS.background.offsetY;
     this.background = this.add.image(this.sceneCenter.x, bgY, ASSET_KEYS.game.background);
 
     // Обычный размер фона
@@ -210,7 +206,7 @@ export class IntroScene extends Phaser.Scene {
     const closePos = this.getClosePosition();
 
     // Зум фона (scale + смещение для эффекта приближения)
-    const zoomedScale = this.getBackgroundScale() * this.BG_ZOOM_SCALE;
+    const zoomedScale = this.getBackgroundScale() * GAME_PARAMS.background.zoomScale;
     const bgZoomPromise = tweenPromise(this, {
       targets: this.background,
       scale: zoomedScale,
