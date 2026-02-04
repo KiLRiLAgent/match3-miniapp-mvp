@@ -201,7 +201,7 @@ export class GameScene extends Phaser.Scene {
     const initialAlpha = startHidden ? 0 : 1;
 
     // === ФОН + БОСС в контейнере (для синхронного зума) ===
-    const BG_OFFSET_Y = 100; // Смещение фона вниз
+    const BG_OFFSET_Y = 200; // Смещение фона вниз
     const BOSS_ON_BG_Y = 0.55; // Позиция босса на фоне (0-1, где 0.5 = центр)
 
     // Создаём фон
