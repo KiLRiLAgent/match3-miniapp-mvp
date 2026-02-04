@@ -91,7 +91,19 @@ export class GameScene extends Phaser.Scene {
     super("GameScene");
   }
 
-  create(data?: { fromIntro?: boolean; finalDialogue?: string; startHidden?: boolean }) {
+  // Данные о состоянии фона/босса из интро (для плавного перехода)
+  private introState?: {
+    bgState?: { x: number; y: number; scale: number };
+    bossState?: { x: number; y: number; scale: number };
+  };
+
+  create(data?: {
+    fromIntro?: boolean;
+    finalDialogue?: string;
+    startHidden?: boolean;
+    bgState?: { x: number; y: number; scale: number };
+    bossState?: { x: number; y: number; scale: number };
+  }) {
     // Очистить старые ссылки (важно при restart - Phaser переиспользует экземпляр)
     this.bossImage = undefined;
     this.bossHpBar = undefined;
@@ -104,6 +116,12 @@ export class GameScene extends Phaser.Scene {
     this.hammerOverlay = undefined;
     this.hammerHint = undefined;
     this.skillButtons = {};
+
+    // Сохраняем состояние из интро для плавного перехода
+    this.introState = data?.bgState || data?.bossState ? {
+      bgState: data?.bgState,
+      bossState: data?.bossState,
+    } : undefined;
 
     // Загрузить сохранённые параметры
     loadGameParams();
@@ -203,26 +221,41 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН (настройки из GAME_PARAMS, синхронизирован с IntroScene) ===
+    // === ФОН ===
     this.bgImage = this.add.image(0, 0, ASSET_KEYS.game.background);
-    const bgBaseScale = Math.max(GAME_WIDTH / this.bgImage.width, GAME_HEIGHT / this.bgImage.height);
-    const bgScale = bgBaseScale * GAME_PARAMS.background.zoomScale;
-    this.bgImage.setScale(bgScale);
-    const bgY = GAME_HEIGHT / 2 + GAME_PARAMS.background.offsetY;
-    this.bgImage.setPosition(GAME_WIDTH / 2, bgY);
     this.bgImage.setDepth(-2);
 
-    // === ИЗОБРАЖЕНИЕ БОССА (привязан к фону) ===
-    // Позиция босса относительно фона
-    const bossY = bgY - this.bgImage.displayHeight * (0.5 - GAME_PARAMS.background.bossOnBgY);
+    // Если пришли из интро — использовать точные позиции для плавного перехода
+    if (this.introState?.bgState) {
+      this.bgImage.setPosition(this.introState.bgState.x, this.introState.bgState.y);
+      this.bgImage.setScale(this.introState.bgState.scale);
+    } else {
+      // Fallback — рассчитываем сами
+      const bgBaseScale = Math.max(GAME_WIDTH / this.bgImage.width, GAME_HEIGHT / this.bgImage.height);
+      const bgScale = bgBaseScale * GAME_PARAMS.background.zoomScale;
+      this.bgImage.setScale(bgScale);
+      const bgY = GAME_HEIGHT / 2 + GAME_PARAMS.background.offsetY;
+      this.bgImage.setPosition(GAME_WIDTH / 2, bgY);
+    }
+
+    // === ИЗОБРАЖЕНИЕ БОССА ===
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, bossY, ASSET_KEYS.boss.battle)
+      .image(0, 0, ASSET_KEYS.boss.battle)
       .setOrigin(0.5, 0.5)
       .setDepth(0);
 
-    // Масштаб босса относительно фона
-    const bossScale = bgScale * GAME_PARAMS.background.bossScale;
-    this.bossImage.setScale(bossScale);
+    // Если пришли из интро — использовать точные позиции
+    if (this.introState?.bossState) {
+      this.bossImage.setPosition(this.introState.bossState.x, this.introState.bossState.y);
+      this.bossImage.setScale(this.introState.bossState.scale);
+    } else {
+      // Fallback — рассчитываем сами
+      const bgScale = this.bgImage.scale;
+      const bossY = this.bgImage.y - this.bgImage.displayHeight * (0.5 - GAME_PARAMS.background.bossOnBgY);
+      this.bossImage.setPosition(GAME_WIDTH / 2, bossY);
+      const bossScale = bgScale * GAME_PARAMS.background.bossScale;
+      this.bossImage.setScale(bossScale);
+    }
 
     // === НАЗВАНИЕ БОССА ===
     this.add

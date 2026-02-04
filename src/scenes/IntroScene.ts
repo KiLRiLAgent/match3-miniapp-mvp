@@ -323,10 +323,20 @@ export class IntroScene extends Phaser.Scene {
     this.background.setAlpha(0);
     this.safira.setAlpha(0);
 
-    // 3. Теперь запускаем GameScene (она рендерится поверх IntroScene)
+    // 3. Теперь запускаем GameScene с точными позициями фона и босса
     this.scene.launch("GameScene", {
       fromIntro: true,
       startHidden: true,
+      bgState: {
+        x: this.background.x,
+        y: this.background.y,
+        scale: this.background.scale,
+      },
+      bossState: {
+        x: this.safira.x,
+        y: this.safira.y,
+        scale: this.safira.scale,
+      },
     });
 
     await wait(this, 100);
