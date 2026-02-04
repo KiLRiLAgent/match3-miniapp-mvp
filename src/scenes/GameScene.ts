@@ -58,7 +58,7 @@ export class GameScene extends Phaser.Scene {
 
   private bossImage?: Phaser.GameObjects.Image;
   private bgImage?: Phaser.GameObjects.Image;
-  private bgDebugMode = true; // Режим настройки фона (поставь false чтобы отключить)
+  private bgDebugMode = false; // Режим настройки фона
   private bossHpBar?: Meter;
   private playerHpBar?: Meter;
   private manaBar?: Meter;
@@ -208,22 +208,21 @@ export class GameScene extends Phaser.Scene {
     const bgBaseScale = Math.max(GAME_WIDTH / this.bgImage.width, GAME_HEIGHT / this.bgImage.height);
     const bgScale = bgBaseScale * GAME_PARAMS.background.zoomScale;
     this.bgImage.setScale(bgScale);
-    this.bgImage.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2 + GAME_PARAMS.background.offsetY);
+    const bgY = GAME_HEIGHT / 2 + GAME_PARAMS.background.offsetY;
+    this.bgImage.setPosition(GAME_WIDTH / 2, bgY);
     this.bgImage.setDepth(-2);
 
-    // === ИЗОБРАЖЕНИЕ БОССА (сверху, показываем голову) ===
+    // === ИЗОБРАЖЕНИЕ БОССА (привязан к фону) ===
+    // Позиция босса относительно фона
+    const bossY = bgY - this.bgImage.displayHeight * (0.5 - GAME_PARAMS.background.bossOnBgY);
     this.bossImage = this.add
-      .image(GAME_WIDTH / 2, 0, ASSET_KEYS.boss.battle)
-      .setOrigin(0.5, 0)
+      .image(GAME_WIDTH / 2, bossY, ASSET_KEYS.boss.battle)
+      .setOrigin(0.5, 0.5)
       .setDepth(0);
 
-    // Масштабируем сохраняя пропорции (cover)
-    const imgWidth = this.bossImage.width;
-    const imgHeight = this.bossImage.height;
-    const scaleX = GAME_WIDTH / imgWidth;
-    const scaleY = L.bossImageHeight / imgHeight;
-    const scale = Math.max(scaleX, scaleY);
-    this.bossImage.setScale(scale);
+    // Масштаб босса относительно фона
+    const bossScale = bgScale * GAME_PARAMS.background.bossScale;
+    this.bossImage.setScale(bossScale);
 
     // === НАЗВАНИЕ БОССА ===
     this.add
