@@ -43,19 +43,16 @@ export class IntroScene extends Phaser.Scene {
     await this.step6_transitionToGame();
   }
 
-  // Базовый scale фона чтобы покрыть экран
+  // Базовый scale фона — привязка к ширине экрана
   private getBackgroundScale(): number {
-    const scaleX = GAME_WIDTH / this.background.width;
-    const scaleY = GAME_HEIGHT / this.background.height;
-    return Math.max(scaleX, scaleY);
+    return GAME_WIDTH / this.background.width;
   }
 
   private async step1_backgroundAppear(): Promise<void> {
-    // Новый фон тронного зала (настройки из GAME_PARAMS)
-    const bgY = this.sceneCenter.y + GAME_PARAMS.background.offsetY;
-    this.background = this.add.image(this.sceneCenter.x, bgY, ASSET_KEYS.game.background);
+    // Фон привязан к верхней грани и ширине экрана
+    this.background = this.add.image(GAME_WIDTH / 2, 0, ASSET_KEYS.game.background);
+    this.background.setOrigin(0.5, 0);
 
-    // Обычный размер фона
     const baseScale = this.getBackgroundScale();
     this.background.setScale(baseScale);
     this.background.setAlpha(0);
@@ -72,11 +69,10 @@ export class IntroScene extends Phaser.Scene {
   // Сафира ДАЛЕКО — привязана к фону (до зума)
   private getFarPosition(): { x: number; y: number; scale: number; originY: number } {
     const bgScale = this.getBackgroundScale();
-    const bgY = this.sceneCenter.y + GAME_PARAMS.background.offsetY;
     const bgDisplayHeight = this.background.height * bgScale;
 
-    // Позиция босса относительно фона
-    const bossY = bgY - bgDisplayHeight * (0.5 - GAME_PARAMS.background.bossOnBgY);
+    // Позиция босса относительно верха фона
+    const bossY = GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
     const bossScale = bgScale * GAME_PARAMS.background.bossScale;
 
     return {
@@ -90,11 +86,10 @@ export class IntroScene extends Phaser.Scene {
   // Сафира БЛИЗКО — привязана к фону (после зума)
   private getClosePosition(): { x: number; y: number; scale: number; originY: number } {
     const bgScale = this.getBackgroundScale() * GAME_PARAMS.background.zoomScale;
-    const bgY = this.sceneCenter.y + GAME_PARAMS.background.offsetY;
     const bgDisplayHeight = this.background.height * bgScale;
 
-    // Позиция босса относительно фона (та же пропорция, но с зумом)
-    const bossY = bgY - bgDisplayHeight * (0.5 - GAME_PARAMS.background.bossOnBgY);
+    // Позиция босса относительно верха фона (та же пропорция, но с зумом)
+    const bossY = GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
     const bossScale = bgScale * GAME_PARAMS.background.bossScale;
 
     return {

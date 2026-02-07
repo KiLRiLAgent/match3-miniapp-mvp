@@ -221,8 +221,9 @@ export class GameScene extends Phaser.Scene {
     const L = UI_LAYOUT;
     const initialAlpha = startHidden ? 0 : 1;
 
-    // === ФОН ===
+    // === ФОН (привязка к ширине экрана и верхней грани) ===
     this.bgImage = this.add.image(0, 0, ASSET_KEYS.game.background);
+    this.bgImage.setOrigin(0.5, 0);
     this.bgImage.setDepth(-2);
 
     // Если пришли из интро — использовать точные позиции для плавного перехода
@@ -230,12 +231,11 @@ export class GameScene extends Phaser.Scene {
       this.bgImage.setPosition(this.introState.bgState.x, this.introState.bgState.y);
       this.bgImage.setScale(this.introState.bgState.scale);
     } else {
-      // Fallback — рассчитываем сами
-      const bgBaseScale = Math.max(GAME_WIDTH / this.bgImage.width, GAME_HEIGHT / this.bgImage.height);
+      // Fallback — масштаб по ширине, привязка к верху
+      const bgBaseScale = GAME_WIDTH / this.bgImage.width;
       const bgScale = bgBaseScale * GAME_PARAMS.background.zoomScale;
       this.bgImage.setScale(bgScale);
-      const bgY = GAME_HEIGHT / 2 + GAME_PARAMS.background.offsetY;
-      this.bgImage.setPosition(GAME_WIDTH / 2, bgY);
+      this.bgImage.setPosition(GAME_WIDTH / 2, 0);
     }
 
     // === ИЗОБРАЖЕНИЕ БОССА ===
@@ -249,9 +249,9 @@ export class GameScene extends Phaser.Scene {
       this.bossImage.setPosition(this.introState.bossState.x, this.introState.bossState.y);
       this.bossImage.setScale(this.introState.bossState.scale);
     } else {
-      // Fallback — рассчитываем сами
+      // Fallback — позиция относительно верха фона
       const bgScale = this.bgImage.scale;
-      const bossY = this.bgImage.y - this.bgImage.displayHeight * (0.5 - GAME_PARAMS.background.bossOnBgY);
+      const bossY = GAME_PARAMS.background.bossOnBgY * this.bgImage.displayHeight;
       this.bossImage.setPosition(GAME_WIDTH / 2, bossY);
       const bossScale = bgScale * GAME_PARAMS.background.bossScale;
       this.bossImage.setScale(bossScale);
@@ -428,7 +428,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateBgPosition() {
     if (this.bgImage) {
-      this.bgImage.setY(GAME_HEIGHT / 2 + GAME_PARAMS.background.offsetY);
+      this.bgImage.setY(GAME_PARAMS.background.offsetY);
     }
   }
 
@@ -1511,7 +1511,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(500);
 
     const fullscreenBoss = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, ASSET_KEYS.boss.ulta)
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 35, ASSET_KEYS.boss.ulta)
       .setDisplaySize(588, 588)
       .setOrigin(0.5)
       .setAlpha(0)
