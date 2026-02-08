@@ -235,7 +235,7 @@ export class GameScene extends Phaser.Scene {
       const bgBaseScale = GAME_WIDTH / this.bgImage.width;
       const bgScale = bgBaseScale * GAME_PARAMS.background.zoomScale;
       this.bgImage.setScale(bgScale);
-      this.bgImage.setPosition(GAME_WIDTH / 2, 0);
+      this.bgImage.setPosition(GAME_WIDTH / 2, GAME_PARAMS.background.offsetY);
     }
 
     // === ИЗОБРАЖЕНИЕ БОССА ===
@@ -249,9 +249,9 @@ export class GameScene extends Phaser.Scene {
       this.bossImage.setPosition(this.introState.bossState.x, this.introState.bossState.y);
       this.bossImage.setScale(this.introState.bossState.scale);
     } else {
-      // Fallback — позиция относительно верха фона
+      // Fallback — позиция относительно верха фона (+ offsetY)
       const bgScale = this.bgImage.scale;
-      const bossY = GAME_PARAMS.background.bossOnBgY * this.bgImage.displayHeight;
+      const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * this.bgImage.displayHeight;
       this.bossImage.setPosition(GAME_WIDTH / 2, bossY);
       const bossScale = bgScale * GAME_PARAMS.background.bossScale;
       this.bossImage.setScale(bossScale);

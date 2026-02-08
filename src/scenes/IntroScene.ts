@@ -50,7 +50,7 @@ export class IntroScene extends Phaser.Scene {
 
   private async step1_backgroundAppear(): Promise<void> {
     // Фон привязан к верхней грани и ширине экрана
-    this.background = this.add.image(GAME_WIDTH / 2, 0, ASSET_KEYS.game.background);
+    this.background = this.add.image(GAME_WIDTH / 2, GAME_PARAMS.background.offsetY, ASSET_KEYS.game.background);
     this.background.setOrigin(0.5, 0);
 
     const baseScale = this.getBackgroundScale();
@@ -71,8 +71,8 @@ export class IntroScene extends Phaser.Scene {
     const bgScale = this.getBackgroundScale();
     const bgDisplayHeight = this.background.height * bgScale;
 
-    // Позиция босса относительно верха фона
-    const bossY = GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
+    // Позиция босса относительно верха фона (+ offsetY)
+    const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
     const bossScale = bgScale * GAME_PARAMS.background.bossScale;
 
     return {
@@ -89,7 +89,7 @@ export class IntroScene extends Phaser.Scene {
     const bgDisplayHeight = this.background.height * bgScale;
 
     // Позиция босса относительно верха фона (та же пропорция, но с зумом)
-    const bossY = GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
+    const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
     const bossScale = bgScale * GAME_PARAMS.background.bossScale;
 
     return {
