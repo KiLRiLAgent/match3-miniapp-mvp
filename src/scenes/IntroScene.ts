@@ -112,12 +112,20 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
+  private getBubbleFontSize(): string {
+    return Math.round(22 * GAME_WIDTH / 480) + "px";
+  }
+
+  private getBubbleMaxWidth(): number {
+    return Math.round(GAME_WIDTH * 0.79);
+  }
+
   private async step3_firstDialogue(): Promise<void> {
     this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, this.getBubbleY(), {
       text: DIALOGUE.first,
       tailDirection: "up",
-      maxWidth: 320,
-      fontSize: "22px",
+      maxWidth: this.getBubbleMaxWidth(),
+      fontSize: this.getBubbleFontSize(),
     });
     this.speechBubble.setDepth(10);
 
@@ -154,8 +162,8 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble = new SpeechBubble(this, this.sceneCenter.x, this.getBubbleY(), {
       text: DIALOGUE.second,
       tailDirection: "up",
-      maxWidth: 380,
-      fontSize: "22px",
+      maxWidth: this.getBubbleMaxWidth(),
+      fontSize: this.getBubbleFontSize(),
     });
     this.speechBubble.setDepth(10);
     this.speechBubble.setAlpha(0);
