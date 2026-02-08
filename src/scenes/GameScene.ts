@@ -1111,10 +1111,10 @@ export class GameScene extends Phaser.Scene {
 
   private get bossTarget(): FlyTarget {
     if (!this.bossImage) return { x: GAME_WIDTH / 2, y: 150 };
-    // Босс origin (0.5, 0.5) — .y уже центр, сдвигаем цель выше на 20%
+    // Босс origin (0.5, 0.5) — .y уже центр, сдвигаем цель выше на 40%
     return {
       x: this.bossImage.x,
-      y: this.bossImage.y - this.bossImage.displayHeight * 0.2,
+      y: this.bossImage.y - this.bossImage.displayHeight * 0.4,
     };
   }
 
