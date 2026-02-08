@@ -87,7 +87,7 @@ export const GAME_PARAMS = {
     bossOnBgY: 0.47, // Босс ниже на 3% (было 0.44)
     bossScale: 0.5325, // Босс +5% (было 0.507)
     introBossMultiplier: 1.071, // Начальная Сафира +7% (было 1.05, +2%)
-    introBossYOffset: 0.01, // Начальная Сафира на 1% ниже
+    introBossYOffset: 0, // Сафира не сдвигается относительно фона при зуме
   },
 };
 
