@@ -86,7 +86,7 @@ export const GAME_PARAMS = {
     zoomScale: 1.75, // Зум поверх width-fit масштаба (+2%)
     bossOnBgY: 0.47, // Босс ниже на 3% (было 0.44)
     bossScale: 0.5325, // Босс +5% (было 0.507)
-    introBossMultiplier: 1.071, // Начальная Сафира +7% (было 1.05, +2%)
+    introBossMultiplier: 1.0, // Сафира одинакового размера в интро и бою
     introBossYOffset: 0, // Сафира не сдвигается относительно фона при зуме
   },
 };
