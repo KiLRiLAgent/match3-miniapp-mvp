@@ -1111,11 +1111,10 @@ export class GameScene extends Phaser.Scene {
 
   private get bossTarget(): FlyTarget {
     if (!this.bossImage) return { x: GAME_WIDTH / 2, y: 150 };
-    // Центр видимой части босса (учитывая что origin (0.5, 0) и Y=0)
-    const visibleHeight = Math.min(this.bossImage.displayHeight, UI_LAYOUT.bossImageHeight);
+    // Босс origin (0.5, 0.5) — .y уже центр изображения
     return {
       x: this.bossImage.x,
-      y: this.bossImage.y + visibleHeight / 2,
+      y: this.bossImage.y,
     };
   }
 
