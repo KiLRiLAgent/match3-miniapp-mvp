@@ -78,7 +78,7 @@ export class IntroScene extends Phaser.Scene {
 
     // Позиция босса относительно верха фона (без offsetY — он применяется при зуме)
     const bossY = GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
-    const bossScale = bgScale * GAME_PARAMS.background.bossScale;
+    const bossScale = bgScale * GAME_PARAMS.background.bossScale * (GAME_PARAMS.background.introBossMultiplier ?? 1);
 
     return {
       x: GAME_WIDTH / 2,
@@ -185,7 +185,9 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step5_zoomAndVS(): Promise<void> {
+    const startScale = this.background.scale;
     const zoomedScale = this.getWidthScale() * GAME_PARAMS.background.zoomScale;
+    const introMult = GAME_PARAMS.background.introBossMultiplier ?? 1;
 
     // Зум фона — Сафира привязана через onUpdate (без дрейфа)
     const bgZoomPromise = tweenPromise(this, {
@@ -198,8 +200,11 @@ export class IntroScene extends Phaser.Scene {
         const s = this.background.scale;
         const bgY = this.background.y;
         const h = this.background.height * s;
+        // Плавно уменьшаем introMult до 1.0 по мере зума
+        const t = (s - startScale) / (zoomedScale - startScale);
+        const mult = introMult + t * (1.0 - introMult);
         this.safira.setPosition(GAME_WIDTH / 2, bgY + GAME_PARAMS.background.bossOnBgY * h);
-        this.safira.setScale(s * GAME_PARAMS.background.bossScale);
+        this.safira.setScale(s * GAME_PARAMS.background.bossScale * mult);
       },
     });
 
