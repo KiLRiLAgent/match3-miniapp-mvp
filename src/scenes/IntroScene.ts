@@ -49,8 +49,8 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step1_backgroundAppear(): Promise<void> {
-    // Фон привязан к верхней грани и ширине экрана
-    this.background = this.add.image(GAME_WIDTH / 2, GAME_PARAMS.background.offsetY, ASSET_KEYS.game.background);
+    // Фон начинает от верхней грани (offsetY применяется при зуме)
+    this.background = this.add.image(GAME_WIDTH / 2, 0, ASSET_KEYS.game.background);
     this.background.setOrigin(0.5, 0);
 
     const baseScale = this.getBackgroundScale();
@@ -71,8 +71,8 @@ export class IntroScene extends Phaser.Scene {
     const bgScale = this.getBackgroundScale();
     const bgDisplayHeight = this.background.height * bgScale;
 
-    // Позиция босса относительно верха фона (+ offsetY)
-    const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
+    // Позиция босса относительно верха фона (без offsetY — он применяется при зуме)
+    const bossY = GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
     const bossScale = bgScale * GAME_PARAMS.background.bossScale;
 
     return {
@@ -155,8 +155,9 @@ export class IntroScene extends Phaser.Scene {
       }) : Promise.resolve(),
     ]);
 
-    // Меняем только текстуру (позиция та же)
+    // Меняем текстуру и поднимаем на 20px
     this.safira.setTexture(ASSET_KEYS.boss.battle);
+    this.safira.y -= 20;
 
     // Новый бабл
     if (this.speechBubble) {
@@ -199,11 +200,12 @@ export class IntroScene extends Phaser.Scene {
   private async step5_zoomAndVS(): Promise<void> {
     const closePos = this.getClosePosition();
 
-    // Зум фона (scale + смещение для эффекта приближения)
+    // Зум фона (scale + смещение Y к финальной позиции)
     const zoomedScale = this.getBackgroundScale() * GAME_PARAMS.background.zoomScale;
     const bgZoomPromise = tweenPromise(this, {
       targets: this.background,
       scale: zoomedScale,
+      y: GAME_PARAMS.background.offsetY,
       duration: 1200,
       ease: "Quad.easeInOut",
     });
