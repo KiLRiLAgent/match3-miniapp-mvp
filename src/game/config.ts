@@ -84,7 +84,7 @@ export const GAME_PARAMS = {
   background: {
     offsetY: -190, // Фон выше на 30px (было -160)
     zoomScale: 1.75, // Зум поверх width-fit масштаба (+2%)
-    bossOnBgY: 0.49, // Босс чуть ниже (было 0.47, +0.02)
+    bossOnBgY: 0.44, // Босс выше на 5% (было 0.49)
     bossScale: 0.507, // Босс -10% (было 0.5635)
   },
 };
