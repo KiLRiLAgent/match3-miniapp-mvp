@@ -43,8 +43,13 @@ export class IntroScene extends Phaser.Scene {
     await this.step6_transitionToGame();
   }
 
-  // Базовый scale фона — привязка к ширине экрана
-  private getBackgroundScale(): number {
+  // Scale фона для покрытия всего экрана (начало интро)
+  private getInitialScale(): number {
+    return Math.max(GAME_WIDTH / this.background.width, GAME_HEIGHT / this.background.height);
+  }
+
+  // Scale фона по ширине (для расчёта зумнутого состояния)
+  private getWidthScale(): number {
     return GAME_WIDTH / this.background.width;
   }
 
@@ -53,7 +58,7 @@ export class IntroScene extends Phaser.Scene {
     this.background = this.add.image(GAME_WIDTH / 2, 0, ASSET_KEYS.game.background);
     this.background.setOrigin(0.5, 0);
 
-    const baseScale = this.getBackgroundScale();
+    const baseScale = this.getInitialScale();
     this.background.setScale(baseScale);
     this.background.setAlpha(0);
     this.background.setDepth(0);
@@ -68,28 +73,11 @@ export class IntroScene extends Phaser.Scene {
 
   // Сафира ДАЛЕКО — привязана к фону (до зума)
   private getFarPosition(): { x: number; y: number; scale: number; originY: number } {
-    const bgScale = this.getBackgroundScale();
+    const bgScale = this.getInitialScale();
     const bgDisplayHeight = this.background.height * bgScale;
 
     // Позиция босса относительно верха фона (без offsetY — он применяется при зуме)
     const bossY = GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
-    const bossScale = bgScale * GAME_PARAMS.background.bossScale;
-
-    return {
-      x: GAME_WIDTH / 2,
-      y: bossY,
-      scale: bossScale,
-      originY: 0.5,
-    };
-  }
-
-  // Сафира БЛИЗКО — привязана к фону (после зума)
-  private getClosePosition(): { x: number; y: number; scale: number; originY: number } {
-    const bgScale = this.getBackgroundScale() * GAME_PARAMS.background.zoomScale;
-    const bgDisplayHeight = this.background.height * bgScale;
-
-    // Позиция босса относительно верха фона (та же пропорция, но с зумом)
-    const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * bgDisplayHeight;
     const bossScale = bgScale * GAME_PARAMS.background.bossScale;
 
     return {
@@ -198,26 +186,22 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step5_zoomAndVS(): Promise<void> {
-    const closePos = this.getClosePosition();
+    const zoomedScale = this.getWidthScale() * GAME_PARAMS.background.zoomScale;
 
-    // Зум фона (scale + смещение Y к финальной позиции)
-    const zoomedScale = this.getBackgroundScale() * GAME_PARAMS.background.zoomScale;
+    // Зум фона — Сафира привязана через onUpdate (без дрейфа)
     const bgZoomPromise = tweenPromise(this, {
       targets: this.background,
       scale: zoomedScale,
       y: GAME_PARAMS.background.offsetY,
       duration: 1200,
       ease: "Quad.easeInOut",
-    });
-
-    // Плавное увеличение Сафиры (origin остаётся 0.5)
-    const safiraZoomPromise = tweenPromise(this, {
-      targets: this.safira,
-      x: closePos.x,
-      y: closePos.y,
-      scale: closePos.scale,
-      duration: 1200,
-      ease: "Quad.easeInOut",
+      onUpdate: () => {
+        const s = this.background.scale;
+        const bgY = this.background.y;
+        const h = this.background.height * s;
+        this.safira.setPosition(GAME_WIDTH / 2, bgY + GAME_PARAMS.background.bossOnBgY * h);
+        this.safira.setScale(s * GAME_PARAMS.background.bossScale);
+      },
     });
 
     await wait(this, 400);
@@ -231,7 +215,7 @@ export class IntroScene extends Phaser.Scene {
       ease: INTRO_EASING.fade,
     });
 
-    await Promise.all([bgZoomPromise, safiraZoomPromise, vsPromise]);
+    await Promise.all([bgZoomPromise, vsPromise]);
     await wait(this, INTRO_ANIMATION.vsHold);
   }
 
