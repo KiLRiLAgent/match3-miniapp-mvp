@@ -1587,7 +1587,10 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(999)
       .setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.scene.restart());
+      .on("pointerdown", () => {
+        this.scene.stop("GameScene");
+        this.scene.start("IntroScene");
+      });
 
     this.add.container(0, 0, [overlay, text, btn]).setDepth(999);
   }
