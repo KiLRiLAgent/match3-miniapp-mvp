@@ -83,7 +83,7 @@ export const GAME_PARAMS = {
   // Настройки фона и позиции босса
   background: {
     offsetY: 40, // Фон ниже
-    zoomScale: 1.3, // Зум поверх width-fit масштаба
+    zoomScale: 1.56, // Зум поверх width-fit масштаба (+20%)
     bossOnBgY: 0.50, // Босс на фоне (сохранено)
     bossScale: 0.5225, // Босс -5% (было 0.55)
   },
