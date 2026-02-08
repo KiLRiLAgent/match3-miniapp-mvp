@@ -16,7 +16,6 @@ import {
   DAMAGE_TILES,
   RESOURCE_TILES,
   SAFE_AREA,
-  loadGameParams,
   saveGameParams,
   GAME_PARAMS,
 } from "../game/config";
@@ -112,9 +111,6 @@ export class GameScene extends Phaser.Scene {
     this.hammerOverlay = undefined;
     this.hammerHint = undefined;
     this.skillButtons = {};
-
-    // Загрузить сохранённые параметры
-    loadGameParams();
 
     this.cameras.main.setBackgroundColor("#0d0f1a");
     this.boardOrigin = {

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
-import { CELL_SIZE, BASE_TYPES, setScreenSize, updateScaledValues } from "../game/config";
+import { CELL_SIZE, BASE_TYPES, setScreenSize, updateScaledValues, loadGameParams } from "../game/config";
 import { TileKind } from "../match3/types";
 import { getSafeAreaInsets } from "../telegram/telegram";
 
@@ -46,6 +46,9 @@ export class BootScene extends Phaser.Scene {
     const safeArea = getSafeAreaInsets();
     setScreenSize(window.innerWidth, window.innerHeight, safeArea);
     updateScaledValues();
+
+    // Загружаем параметры до старта любых сцен
+    loadGameParams();
 
     // Сразу переходим в интро
     this.scene.start("IntroScene");
