@@ -143,9 +143,8 @@ export class IntroScene extends Phaser.Scene {
       }) : Promise.resolve(),
     ]);
 
-    // Меняем текстуру и поднимаем на 20px
+    // Меняем текстуру (позиция остаётся — привязана к фону через onUpdate)
     this.safira.setTexture(ASSET_KEYS.boss.battle);
-    this.safira.y -= 20;
 
     // Новый бабл
     if (this.speechBubble) {
@@ -300,11 +299,7 @@ export class IntroScene extends Phaser.Scene {
       });
     }
 
-    // 2. Скрываем фон и Сафиру интро (GameScene покажет свои)
-    this.background.setAlpha(0);
-    this.safira.setAlpha(0);
-
-    // 3. Запускаем GameScene (позиции вычисляются из GAME_PARAMS)
+    // 2. Запускаем GameScene (bg/boss рендерятся поверх IntroScene на тех же координатах)
     this.scene.launch("GameScene", {
       fromIntro: true,
       startHidden: true,
