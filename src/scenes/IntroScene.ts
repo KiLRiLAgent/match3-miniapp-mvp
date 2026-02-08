@@ -304,20 +304,10 @@ export class IntroScene extends Phaser.Scene {
     this.background.setAlpha(0);
     this.safira.setAlpha(0);
 
-    // 3. Теперь запускаем GameScene с точными позициями фона и босса
+    // 3. Запускаем GameScene (позиции вычисляются из GAME_PARAMS)
     this.scene.launch("GameScene", {
       fromIntro: true,
       startHidden: true,
-      bgState: {
-        x: this.background.x,
-        y: this.background.y,
-        scale: this.background.scale,
-      },
-      bossState: {
-        x: this.safira.x,
-        y: this.safira.y,
-        scale: this.safira.scale,
-      },
     });
 
     await wait(this, 100);
