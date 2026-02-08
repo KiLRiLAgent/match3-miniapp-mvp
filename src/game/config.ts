@@ -109,10 +109,7 @@ export function loadGameParams() {
         if (parsed.skillCosts.heal !== undefined) SKILL_CONFIG.heal.cost = parsed.skillCosts.heal;
         if (parsed.skillCosts.hammer !== undefined) SKILL_CONFIG.hammer.cost = parsed.skillCosts.hammer;
       }
-      // Загружаем настройки фона
-      if (parsed.background) {
-        Object.assign(GAME_PARAMS.background, parsed.background);
-      }
+      // background параметры не загружаем из localStorage — они контролируются кодом
     }
   } catch {
     // Игнорируем ошибки
