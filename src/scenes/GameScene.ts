@@ -511,10 +511,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTap(pos: Position) {
-    this.stopHintTimer();
     const tile = this.board.getTile(pos);
     if (!tile || !this.board.isSpecial(tile.kind)) return;
 
+    this.stopHintTimer();
     this.busy = true;
     this.resolveBoard([], [pos], [], true, "player").finally(() => {
       if (!this.gameOver && this.currentTurn === "player") {
@@ -560,6 +560,7 @@ export class GameScene extends Phaser.Scene {
       .finally(() => {
         if (!this.gameOver && this.currentTurn === "player") {
           this.busy = false;
+          this.startHintTimer();
         }
       });
   }
@@ -1032,6 +1033,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     // Скилл НЕ заканчивает ход - игрок может ещё сделать match
+    this.startHintTimer();
   }
 
   private enterHammerMode() {
@@ -1101,6 +1103,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.updateHud();
+    this.startHintTimer();
   }
 
   private tickSkillCooldowns() {

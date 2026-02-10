@@ -497,7 +497,13 @@ export class Match3Board {
           if (matches.length > 0) {
             const allPositions = new Set<string>();
             for (const m of matches) {
-              for (const p of m.positions) allPositions.add(this.key(p));
+              for (const p of m.positions) {
+                // Map post-swap positions back to pre-swap
+                let mapped = p;
+                if (p.x === to.x && p.y === to.y) mapped = from;
+                else if (p.x === from.x && p.y === from.y) mapped = to;
+                allPositions.add(this.key(mapped));
+              }
             }
             moves.push({
               from,
