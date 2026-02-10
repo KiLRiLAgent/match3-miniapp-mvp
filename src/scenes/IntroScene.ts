@@ -9,7 +9,7 @@ import { GameScene } from "./GameScene";
 // Диалоги с намеренными переносами строк для акцента
 const DIALOGUE = {
   first: "Как ты посмел\nбросить вызов Сафире?",
-  second: "Ты лишь искра,\nкоторую я сейчас растопчу",
+  second: "Ты лишь искра, которую я сейчас\nрастопчу",
   final: "Ты сгоришь в пламени Бездны!",
 };
 
@@ -117,7 +117,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private getBubbleMaxWidth(): number {
-    return Math.round(GAME_WIDTH * 0.79);
+    return Math.round(GAME_WIDTH * 0.92);
   }
 
   private async step3_firstDialogue(): Promise<void> {
