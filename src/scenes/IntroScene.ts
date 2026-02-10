@@ -249,7 +249,7 @@ export class IntroScene extends Phaser.Scene {
     const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 60, "Сафира: Пламя Бездны", {
       fontSize: "26px",
       fontFamily: "Calibri, Carlito, Arial, sans-serif",
-      stroke: "#4a2800",
+      stroke: "#6b4c00",
       strokeThickness: 5,
       fontStyle: "bold",
       shadow: { offsetX: 0, offsetY: 3, color: "#000000", blur: 6, fill: true, stroke: true },
@@ -278,7 +278,7 @@ export class IntroScene extends Phaser.Scene {
     const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 110, "Игрок", {
       fontSize: "24px",
       fontFamily: "Calibri, Carlito, Arial, sans-serif",
-      stroke: "#4a2800",
+      stroke: "#6b4c00",
       strokeThickness: 4,
       fontStyle: "bold",
       shadow: { offsetX: 0, offsetY: 3, color: "#000000", blur: 6, fill: true, stroke: true },
@@ -307,10 +307,10 @@ export class IntroScene extends Phaser.Scene {
     const canvas = text.canvas;
     const ctx = text.context;
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "#ffd700");   // Яркое золото сверху
-    gradient.addColorStop(0.4, "#ffb347"); // Тёплый оранжевый
-    gradient.addColorStop(0.6, "#e8a020"); // Насыщенное золото
-    gradient.addColorStop(1, "#c87820");   // Тёмное золото снизу
+    gradient.addColorStop(0, "#fff4c1");   // Светлое золото сверху
+    gradient.addColorStop(0.3, "#ffd700"); // Яркое золото
+    gradient.addColorStop(0.6, "#d4a520"); // Классическое золото
+    gradient.addColorStop(1, "#b8860b");   // Тёмное золото снизу
     text.setFill(gradient);
   }
 
