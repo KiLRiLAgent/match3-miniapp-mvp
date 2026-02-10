@@ -248,7 +248,7 @@ export class IntroScene extends Phaser.Scene {
     // Текст "Сафира: Пламя Бездны" — золотистый градиент с тенью
     const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 60, "Сафира: Пламя Бездны", {
       fontSize: "26px",
-      fontFamily: "Arial, sans-serif",
+      fontFamily: "Calibri, Carlito, Arial, sans-serif",
       stroke: "#4a2800",
       strokeThickness: 5,
       fontStyle: "bold",
@@ -277,7 +277,7 @@ export class IntroScene extends Phaser.Scene {
     // Текст "Игрок" — золотистый градиент с тенью
     const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 110, "Игрок", {
       fontSize: "24px",
-      fontFamily: "Arial, sans-serif",
+      fontFamily: "Calibri, Carlito, Arial, sans-serif",
       stroke: "#4a2800",
       strokeThickness: 4,
       fontStyle: "bold",
