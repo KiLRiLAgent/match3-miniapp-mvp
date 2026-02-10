@@ -309,11 +309,16 @@ export const getUILayout = () => {
     playerBarWidth,
     playerBarHeight,
 
-    // Кнопки скиллов (центрированы)
+    // Кнопки скиллов (центрированы после аватара)
     skillButtonsY,
     skillButtonSize,
     skillButtonSpacing,
-    skillButtonsStartX: (GAME_WIDTH - (skillButtonSize * 4 + skillButtonSpacing * 3)) / 2 + skillButtonSize / 2,
+    skillButtonsStartX: (() => {
+      const avatarRightEdge = avatarX + avatarWidth / 2 + 8;
+      const availableWidth = GAME_WIDTH - avatarRightEdge - screenPadding;
+      const totalButtonsWidth = skillButtonSize * 4 + skillButtonSpacing * 3;
+      return avatarRightEdge + (availableWidth - totalButtonsWidth) / 2 + skillButtonSize / 2;
+    })(),
   };
 };
 

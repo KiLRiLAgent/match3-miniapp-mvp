@@ -39,9 +39,18 @@ import { BOSS_ABILITIES } from "../game/config";
 import { ShieldIcon } from "../ui/ShieldIcon";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
-import { clamp, wait } from "../utils/helpers";
+import { clamp, wait, tweenPromise } from "../utils/helpers";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { INTRO_ANIMATION } from "../game/animations";
+
+const SKILL_TUTORIAL = [
+  { id: "powerStrike" as SkillId, text: "💪 Мощный удар\nНаноси урон, когда\nу босса нет щита!" },
+  { id: "stun" as SkillId,        text: "🎯 Стан\nЗадержи атаку босса\nперед его мощным ударом!" },
+  { id: "heal" as SkillId,        text: "💚 Хил\nВосстанавливай HP,\nкогда здоровье на исходе!" },
+  { id: "hammer" as SkillId,      text: "🔨 Молоток\nУдали любую фишку с поля\n— полезно в трудный момент" },
+];
+
+const TUTORIAL_STORAGE_KEY = "match3_tutorial_shown";
 
 export class GameScene extends Phaser.Scene {
   private board!: Match3Board;
@@ -94,6 +103,12 @@ export class GameScene extends Phaser.Scene {
   private potentialMoves: PotentialMove[] = [];
   private hintIndex = 0;
 
+  // Tutorial & tips
+  private bombTipShown = false;
+  private shieldTipShown = false;
+  private manaTipShown = false;
+  private activeTip?: SpeechBubble;
+
   constructor() {
     super("GameScene");
   }
@@ -137,12 +152,14 @@ export class GameScene extends Phaser.Scene {
 
     // Если не скрыто и есть финальный диалог - показываем сразу
     // При startHidden диалог будет показан после triggerFadeIn()
-    if (!startHidden && data?.finalDialogue) {
-      this.showFinalIntroBubble(data.finalDialogue);
-    }
-
     if (!startHidden) {
-      this.startHintTimer();
+      if (data?.finalDialogue) {
+        this.showFinalIntroBubble(data.finalDialogue).then(() => {
+          this.maybeShowSkillTutorial().then(() => this.startHintTimer());
+        });
+      } else {
+        this.maybeShowSkillTutorial().then(() => this.startHintTimer());
+      }
     }
   }
 
@@ -171,8 +188,9 @@ export class GameScene extends Phaser.Scene {
   public async triggerFadeIn(finalDialogue?: string): Promise<void> {
     await this.fadeInUI();
     if (finalDialogue) {
-      this.showFinalIntroBubble(finalDialogue);
+      await this.showFinalIntroBubble(finalDialogue);
     }
+    await this.maybeShowSkillTutorial();
     this.startHintTimer();
   }
 
@@ -203,6 +221,10 @@ export class GameScene extends Phaser.Scene {
     this.hammerMode = false;
     this.bossShieldDuration = 0;
     this.skillCooldowns = { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
+    this.bombTipShown = false;
+    this.shieldTipShown = false;
+    this.manaTipShown = false;
+    this.activeTip = undefined;
     this.board = new Match3Board(BOARD_WIDTH, BOARD_HEIGHT);
     this.bossAbilityManager = new BossAbilityManager();
     this.tileSprites.clear();
@@ -670,6 +692,16 @@ export class GameScene extends Phaser.Scene {
 
     if (actualGain > 0 && this.playerAvatar) {
       showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 20, actualGain, "mana");
+    }
+
+    // Tip: first time mana is enough for cheapest skill
+    if (!this.manaTipShown) {
+      const minCost = Math.min(...Object.values(SKILL_CONFIG).map(s => s.cost));
+      if (this.mana >= minCost) {
+        this.manaTipShown = true;
+        // Show asynchronously, don't block game flow
+        this.time.delayedCall(500, () => this.showTip("Достаточно маны!\nИспользуй скил внизу"));
+      }
     }
   }
 
@@ -1225,6 +1257,131 @@ export class GameScene extends Phaser.Scene {
     this.hintTweens.push(tween);
   }
 
+  // ===== Tutorial & Tips =====
+
+  private async maybeShowSkillTutorial(): Promise<void> {
+    try {
+      if (localStorage.getItem(TUTORIAL_STORAGE_KEY)) return;
+    } catch { /* ignore */ }
+
+    this.busy = true;
+
+    // Create overlay
+    const overlay = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+      .setOrigin(0, 0)
+      .setDepth(200)
+      .setInteractive();
+
+    await tweenPromise(this, {
+      targets: overlay,
+      alpha: 0.6,
+      duration: 200,
+    });
+
+    for (let i = 0; i < SKILL_TUTORIAL.length; i++) {
+      const step = SKILL_TUTORIAL[i];
+      const btn = this.skillButtons[step.id];
+      if (!btn) continue;
+
+      // Raise button above overlay
+      btn.setDepth(201);
+
+      // Pulse button
+      const pulseTween = this.tweens.add({
+        targets: btn,
+        scaleX: 1.15,
+        scaleY: 1.15,
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+
+      // Show speech bubble above skill buttons
+      const bubbleY = UI_LAYOUT.skillButtonsY - UI_LAYOUT.skillButtonSize / 2 - 70;
+      const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
+        text: step.text,
+        tailDirection: "down",
+        maxWidth: 280,
+        fontSize: "16px",
+      });
+      bubble.setDepth(202);
+      await bubble.fadeIn(200);
+
+      // Wait for tap
+      await this.waitForTap(overlay);
+
+      // Clean up step
+      await bubble.fadeOut(150);
+      pulseTween.stop();
+      btn.setScale(1);
+      btn.setDepth(2);
+    }
+
+    // Hide overlay
+    await tweenPromise(this, {
+      targets: overlay,
+      alpha: 0,
+      duration: 200,
+    });
+    overlay.destroy();
+
+    this.busy = false;
+
+    try {
+      localStorage.setItem(TUTORIAL_STORAGE_KEY, "1");
+    } catch { /* ignore */ }
+  }
+
+  private waitForTap(target: Phaser.GameObjects.GameObject): Promise<void> {
+    return new Promise(resolve => {
+      target.once("pointerdown", resolve);
+    });
+  }
+
+  private async showTip(text: string, duration = 2000): Promise<void> {
+    // Don't show tips during busy animations or if a tip is already active
+    if (this.activeTip) return;
+
+    const bubbleY = UI_LAYOUT.boardOriginY + UI_LAYOUT.boardHeight + 5;
+    const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
+      text,
+      tailDirection: "up",
+      maxWidth: 280,
+      fontSize: "15px",
+    });
+    bubble.setDepth(100);
+    this.activeTip = bubble;
+
+    await bubble.fadeIn(200);
+
+    // Auto-dismiss after duration, or tap to dismiss early
+    await new Promise<void>(resolve => {
+      const tapZone = this.add
+        .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+        .setOrigin(0, 0)
+        .setDepth(101)
+        .setInteractive();
+
+      const cleanup = () => {
+        tapZone.destroy();
+        resolve();
+      };
+
+      const timer = this.time.delayedCall(duration, cleanup);
+      tapZone.once("pointerdown", () => {
+        timer.destroy();
+        cleanup();
+      });
+    });
+
+    if (bubble.scene) {
+      await bubble.fadeOut(150);
+    }
+    this.activeTip = undefined;
+  }
+
   private async finishPlayerTurn() {
     if (this.gameOver) return;
 
@@ -1426,6 +1583,11 @@ export class GameScene extends Phaser.Scene {
       this.rebuildPositionMap();
       await this.animateBombsAppear(placed);
     });
+
+    if (!this.bombTipShown) {
+      this.bombTipShown = true;
+      await this.showTip("Собирай тайлы рядом\nс бомбами, чтобы обезвредить!");
+    }
   }
 
   private async executeShield() {
@@ -1437,6 +1599,11 @@ export class GameScene extends Phaser.Scene {
         showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, 0, "shield");
       }
     });
+
+    if (!this.shieldTipShown) {
+      this.shieldTipShown = true;
+      await this.showTip("Босс под щитом!\nУрон заблокирован");
+    }
   }
 
   private async executePowerStrike() {
