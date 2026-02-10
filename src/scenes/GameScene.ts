@@ -50,7 +50,6 @@ const SKILL_TUTORIAL = [
   { id: "hammer" as SkillId,      text: "🔨 Молоток\nУдали любую фишку с поля\n— полезно в трудный момент" },
 ];
 
-const TUTORIAL_STORAGE_KEY = "match3_tutorial_v3";
 
 export class GameScene extends Phaser.Scene {
   private board!: Match3Board;
@@ -1183,6 +1182,9 @@ export class GameScene extends Phaser.Scene {
     if (this.potentialMoves.length === 0) return;
     this.hintIndex = 0;
 
+    // Показать первый хинт сразу
+    this.showNextHint();
+
     this.hintTimer = this.time.addEvent({
       delay: HINT_ANIMATION.idleDelay,
       loop: true,
@@ -1264,10 +1266,6 @@ export class GameScene extends Phaser.Scene {
   // ===== Tutorial & Tips =====
 
   private async maybeShowSkillTutorial(): Promise<void> {
-    try {
-      if (localStorage.getItem(TUTORIAL_STORAGE_KEY)) return;
-    } catch { /* ignore */ }
-
     this.busy = true;
 
     // Create overlay (fillAlpha=1, gameObject alpha tweened 0→0.6)
@@ -1333,10 +1331,6 @@ export class GameScene extends Phaser.Scene {
     overlay.destroy();
 
     this.busy = false;
-
-    try {
-      localStorage.setItem(TUTORIAL_STORAGE_KEY, "1");
-    } catch { /* ignore */ }
   }
 
   private waitForTap(target: Phaser.GameObjects.GameObject): Promise<void> {
