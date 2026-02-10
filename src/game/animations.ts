@@ -75,7 +75,7 @@ export const INTRO_ANIMATION = {
 } as const;
 
 export const HINT_ANIMATION = {
-  idleDelay: 4000,
+  idleDelay: 10000,
   tintColor: 0xddddff,
   shakeDuration: 400,
   shakeDistance: 6,

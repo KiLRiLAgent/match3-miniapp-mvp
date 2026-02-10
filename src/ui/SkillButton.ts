@@ -17,6 +17,7 @@ const COLORS = {
 export class SkillButton extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Arc;
   private iconText: Phaser.GameObjects.Text;
+  private iconImage?: Phaser.GameObjects.Image;
   private costText: Phaser.GameObjects.Text;
   private clickCallback: () => void;
   private isEnabled = true;
@@ -29,7 +30,8 @@ export class SkillButton extends Phaser.GameObjects.Container {
     size: number,
     icon: string,
     cost: number,
-    onClick: () => void
+    onClick: () => void,
+    iconTexture?: string
   ) {
     super(scene, x, y);
     this.clickCallback = onClick;
@@ -42,7 +44,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.isEnabled && this.clickCallback());
 
-    // Эмодзи иконка по центру
+    // Эмодзи иконка по центру (скрыта если есть текстура)
     this.iconText = scene.add
       .text(0, -2, icon, {
         fontSize: "24px",
@@ -50,6 +52,15 @@ export class SkillButton extends Phaser.GameObjects.Container {
         fontFamily: "Arial, sans-serif",
       })
       .setOrigin(0.5);
+
+    // Спрайт-иконка (если передана текстура)
+    if (iconTexture) {
+      this.iconImage = scene.add
+        .image(0, 0, iconTexture)
+        .setDisplaySize(size * 0.6, size * 0.6)
+        .setOrigin(0.5);
+      this.iconText.setVisible(false);
+    }
 
     // Стоимость под кнопкой
     this.costText = scene.add
@@ -61,7 +72,10 @@ export class SkillButton extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5);
 
-    this.add([this.bg, this.iconText, this.costText]);
+    const children: Phaser.GameObjects.GameObject[] = [this.bg, this.iconText];
+    if (this.iconImage) children.push(this.iconImage);
+    children.push(this.costText);
+    this.add(children);
     this.setSize(size, size);
     scene.add.existing(this);
   }
@@ -73,8 +87,10 @@ export class SkillButton extends Phaser.GameObjects.Container {
     if (cooldown && cooldown > 0) {
       this.isEnabled = false;
       this.iconText.setText(cooldown.toString());
+      this.iconText.setVisible(true);
       this.iconText.setFontSize(28);
       this.iconText.setY(0);
+      if (this.iconImage) this.iconImage.setVisible(false);
       this.bg.setFillStyle(COLORS.bgCooldown, 0.9);
       this.bg.setStrokeStyle(2, 0xff4444, 0.5);
       this.bg.setAlpha(0.7);
@@ -86,7 +102,13 @@ export class SkillButton extends Phaser.GameObjects.Container {
 
     // Обычный режим
     this.isEnabled = enabled;
-    this.iconText.setText(this.originalIcon);
+    if (this.iconImage) {
+      this.iconImage.setVisible(true);
+      this.iconText.setVisible(false);
+    } else {
+      this.iconText.setText(this.originalIcon);
+      this.iconText.setVisible(true);
+    }
     this.iconText.setFontSize(24);
     this.iconText.setY(-2);
 
@@ -98,6 +120,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
     this.bg.setStrokeStyle(2, 0xffffff, strokeAlpha);
     this.bg.setAlpha(alpha);
     this.iconText.setAlpha(alpha);
+    if (this.iconImage) this.iconImage.setAlpha(alpha);
     this.costText.setAlpha(alpha);
 
     if (info) this.costText.setText(info);

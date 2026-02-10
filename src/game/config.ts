@@ -369,6 +369,7 @@ export interface SkillDef {
   cooldown: number;
   stunTurns?: number;
   isInteractive?: boolean;
+  iconTexture?: string;
   description: string;
 }
 
@@ -399,6 +400,7 @@ export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
     damage: 0,
     heal: 50,
     cooldown: 2,
+    iconTexture: "tile_heal",
     description: "+50 HP",
   },
   hammer: {

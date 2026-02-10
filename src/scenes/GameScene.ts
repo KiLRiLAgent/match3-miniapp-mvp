@@ -493,7 +493,8 @@ export class GameScene extends Phaser.Scene {
         btnSize,
         cfg.icon,
         cfg.cost,
-        () => this.activateSkill(id)
+        () => this.activateSkill(id),
+        cfg.iconTexture
       );
       btn.setDepth(2).setAlpha(initialAlpha);
       this.skillButtons[id] = btn;
@@ -1181,9 +1182,6 @@ export class GameScene extends Phaser.Scene {
     this.potentialMoves = this.board.findPotentialMoves();
     if (this.potentialMoves.length === 0) return;
     this.hintIndex = 0;
-
-    // Показать первый хинт сразу
-    this.showNextHint();
 
     this.hintTimer = this.time.addEvent({
       delay: HINT_ANIMATION.idleDelay,
