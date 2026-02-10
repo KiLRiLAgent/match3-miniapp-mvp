@@ -245,21 +245,22 @@ export class IntroScene extends Phaser.Scene {
     bossNameBg.setOrigin(0.5);
     container.add(bossNameBg);
 
-    // Текст "Сафира: Пламя Бездны"
+    // Текст "Сафира: Пламя Бездны" — золотистый градиент с тенью
     const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 60, "Сафира: Пламя Бездны", {
       fontSize: "26px",
       fontFamily: "Arial, sans-serif",
-      color: "#ff6b35",
-      stroke: "#000000",
-      strokeThickness: 4,
+      stroke: "#4a2800",
+      strokeThickness: 5,
       fontStyle: "bold",
+      shadow: { offsetX: 0, offsetY: 3, color: "#000000", blur: 6, fill: true, stroke: true },
     }).setOrigin(0.5);
+    this.applyGoldGradient(bossNameText);
     container.add(bossNameText);
 
     // Мечи позади VS
     const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
-    const swordsScale = 200 / swordsImg.width;
-    swordsImg.setScale(swordsScale);
+    const swordsTargetWidth = GAME_WIDTH * 0.7;
+    swordsImg.setScale(swordsTargetWidth / swordsImg.width);
     container.add(swordsImg);
 
     // VS изображение
@@ -273,15 +274,16 @@ export class IntroScene extends Phaser.Scene {
     playerNameBg.setOrigin(0.5);
     container.add(playerNameBg);
 
-    // Текст "Игрок"
+    // Текст "Игрок" — золотистый градиент с тенью
     const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 110, "Игрок", {
       fontSize: "24px",
       fontFamily: "Arial, sans-serif",
-      color: "#ffffff",
-      stroke: "#000000",
+      stroke: "#4a2800",
       strokeThickness: 4,
       fontStyle: "bold",
+      shadow: { offsetX: 0, offsetY: 3, color: "#000000", blur: 6, fill: true, stroke: true },
     }).setOrigin(0.5);
+    this.applyGoldGradient(playerNameText);
     container.add(playerNameText);
 
     // Жёлтая рамка игрока
@@ -299,6 +301,17 @@ export class IntroScene extends Phaser.Scene {
     container.add(playerAvatar);
 
     return container;
+  }
+
+  private applyGoldGradient(text: Phaser.GameObjects.Text): void {
+    const canvas = text.canvas;
+    const ctx = text.context;
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#ffd700");   // Яркое золото сверху
+    gradient.addColorStop(0.4, "#ffb347"); // Тёплый оранжевый
+    gradient.addColorStop(0.6, "#e8a020"); // Насыщенное золото
+    gradient.addColorStop(1, "#c87820");   // Тёмное золото снизу
+    text.setFill(gradient);
   }
 
   private async step6_transitionToGame(): Promise<void> {
