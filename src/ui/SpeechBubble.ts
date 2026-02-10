@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   backgroundColor: 0xffffff,
   textColor: "#222222",
   fontSize: "24px",
-  fontFamily: "'Russo One', Arial, sans-serif",
+  fontFamily: "'Exo 2', Arial, sans-serif",
   fontStyle: "500",
   padding: 18,
 };

@@ -248,10 +248,10 @@ export class IntroScene extends Phaser.Scene {
     // Текст "Сафира: Пламя Бездны" — золотистый градиент с тенью
     const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 60, "Сафира: Пламя Бездны", {
       fontSize: "26px",
-      fontFamily: "'Russo One', Arial, sans-serif",
+      fontFamily: "'Exo 2', Arial, sans-serif",
       stroke: "#6b4c00",
       strokeThickness: 5,
-      fontStyle: "bold",
+      fontStyle: "600",
       shadow: { offsetX: 0, offsetY: 3, color: "#000000", blur: 6, fill: true, stroke: true },
     }).setOrigin(0.5);
     this.applyGoldGradient(bossNameText);
@@ -277,10 +277,10 @@ export class IntroScene extends Phaser.Scene {
     // Текст "Игрок" — золотистый градиент с тенью
     const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 110, "Игрок", {
       fontSize: "24px",
-      fontFamily: "'Russo One', Arial, sans-serif",
+      fontFamily: "'Exo 2', Arial, sans-serif",
       stroke: "#6b4c00",
       strokeThickness: 4,
-      fontStyle: "bold",
+      fontStyle: "600",
       shadow: { offsetX: 0, offsetY: 3, color: "#000000", blur: 6, fill: true, stroke: true },
     }).setOrigin(0.5);
     this.applyGoldGradient(playerNameText);
