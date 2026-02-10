@@ -50,7 +50,7 @@ const SKILL_TUTORIAL = [
   { id: "hammer" as SkillId,      text: "🔨 Молоток\nУдали любую фишку с поля\n— полезно в трудный момент" },
 ];
 
-const TUTORIAL_STORAGE_KEY = "match3_tutorial_v2";
+const TUTORIAL_STORAGE_KEY = "match3_tutorial_v3";
 
 export class GameScene extends Phaser.Scene {
   private board!: Match3Board;
@@ -1270,11 +1270,12 @@ export class GameScene extends Phaser.Scene {
 
     this.busy = true;
 
-    // Create overlay
+    // Create overlay (fillAlpha=1, gameObject alpha tweened 0→0.6)
     const overlay = this.add
-      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 1)
       .setOrigin(0, 0)
       .setDepth(200)
+      .setAlpha(0)
       .setInteractive();
 
     await tweenPromise(this, {
