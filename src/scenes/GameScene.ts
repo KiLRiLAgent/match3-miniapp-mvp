@@ -50,7 +50,7 @@ const SKILL_TUTORIAL = [
   { id: "hammer" as SkillId,      text: "🔨 Молоток\nУдали любую фишку с поля\n— полезно в трудный момент" },
 ];
 
-const TUTORIAL_STORAGE_KEY = "match3_tutorial_shown";
+const TUTORIAL_STORAGE_KEY = "match3_tutorial_v2";
 
 export class GameScene extends Phaser.Scene {
   private board!: Match3Board;
