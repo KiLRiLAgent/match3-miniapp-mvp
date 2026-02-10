@@ -44,9 +44,9 @@ import { SpeechBubble } from "../ui/SpeechBubble";
 import { INTRO_ANIMATION } from "../game/animations";
 
 const SKILL_TUTORIAL = [
-  { id: "powerStrike" as SkillId, text: "💪 Мощный удар\nНаноси урон, когда\nу босса нет щита!" },
-  { id: "stun" as SkillId,        text: "🎯 Стан\nЗадержи атаку босса\nперед его мощным ударом!" },
-  { id: "heal" as SkillId,        text: "💚 Хил\nВосстанавливай HP,\nкогда здоровье на исходе!" },
+  { id: "powerStrike" as SkillId, text: "⚡ Мощный удар\nНаноси урон, когда\nу босса нет щита!" },
+  { id: "stun" as SkillId,        text: "⏳ Стан\nЗадержи атаку босса\nперед его мощным ударом!" },
+  { id: "heal" as SkillId,        text: "➕ Хил\nВосстанавливай HP,\nкогда здоровье на исходе!" },
   { id: "hammer" as SkillId,      text: "🔨 Молоток\nУдали любую фишку с поля\n— полезно в трудный момент" },
 ];
 

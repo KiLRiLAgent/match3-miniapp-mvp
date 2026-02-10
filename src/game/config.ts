@@ -375,7 +375,7 @@ export interface SkillDef {
 export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   powerStrike: {
     name: "Мощный удар",
-    icon: "💪",
+    icon: "⚡",
     cost: 40,
     damage: 100,
     heal: 0,
@@ -384,7 +384,7 @@ export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   },
   stun: {
     name: "Стан",
-    icon: "🎯",
+    icon: "⏳",
     cost: 50,
     damage: 0,
     heal: 0,
@@ -394,7 +394,7 @@ export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   },
   heal: {
     name: "Хил",
-    icon: "💚",
+    icon: "➕",
     cost: 30,
     damage: 0,
     heal: 50,

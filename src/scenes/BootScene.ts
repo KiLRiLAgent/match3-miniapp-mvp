@@ -50,8 +50,10 @@ export class BootScene extends Phaser.Scene {
     // Загружаем параметры до старта любых сцен
     loadGameParams();
 
-    // Сразу переходим в интро
-    this.scene.start("IntroScene");
+    // Ждём загрузки веб-шрифта, затем переходим в интро
+    document.fonts.ready.then(() => {
+      this.scene.start("IntroScene");
+    });
   }
 
   private buildSpecialTileTextures() {
