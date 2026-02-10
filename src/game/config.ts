@@ -394,7 +394,7 @@ export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
   },
   heal: {
     name: "Хил",
-    icon: "➕",
+    icon: "💚",
     cost: 30,
     damage: 0,
     heal: 50,
