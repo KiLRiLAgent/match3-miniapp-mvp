@@ -134,26 +134,14 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step4_poseChangeDialogue(): Promise<void> {
-    const halfDuration = INTRO_ANIMATION.poseTransitionDuration / 2;
+    const duration = INTRO_ANIMATION.poseTransitionDuration;
 
-    // Фейдим Сафиру и бабл
-    await Promise.all([
-      tweenPromise(this, {
-        targets: this.safira,
-        alpha: 0,
-        duration: halfDuration,
-        ease: "Quad.easeIn",
-      }),
-      this.speechBubble ? tweenPromise(this, {
-        targets: this.speechBubble,
-        alpha: 0,
-        duration: halfDuration,
-        ease: "Quad.easeIn",
-      }) : Promise.resolve(),
-    ]);
-
-    // Меняем текстуру (позиция остаётся — привязана к фону через onUpdate)
-    this.safira.setTexture(ASSET_KEYS.boss.battle);
+    // Создаём новую Сафиру поверх старой
+    const newSafira = this.add.image(this.safira.x, this.safira.y, ASSET_KEYS.boss.battle);
+    newSafira.setOrigin(this.safira.originX, this.safira.originY);
+    newSafira.setScale(this.safira.scale);
+    newSafira.setDepth(this.safira.depth);
+    newSafira.setAlpha(0);
 
     // Новый бабл
     if (this.speechBubble) {
@@ -168,22 +156,31 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble.setDepth(10);
     this.speechBubble.setAlpha(0);
 
-    // Фейдим обратно
+    // Кроссфейд: старая уходит, новая проявляется + бабл появляется
     await Promise.all([
       tweenPromise(this, {
         targets: this.safira,
+        alpha: 0,
+        duration,
+        ease: "Quad.easeInOut",
+      }),
+      tweenPromise(this, {
+        targets: newSafira,
         alpha: 1,
-        duration: halfDuration,
-        ease: "Quad.easeOut",
+        duration,
+        ease: "Quad.easeInOut",
       }),
       tweenPromise(this, {
         targets: this.speechBubble,
         alpha: 1,
         scale: 1,
-        duration: halfDuration,
+        duration,
         ease: "Quad.easeOut",
       }),
     ]);
+
+    this.safira.destroy();
+    this.safira = newSafira;
 
     await wait(this, INTRO_ANIMATION.speechBubbleHold);
 

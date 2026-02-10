@@ -74,6 +74,14 @@ export const INTRO_ANIMATION = {
   finalZoom: 1.0,
 } as const;
 
+export const HINT_ANIMATION = {
+  idleDelay: 2000,
+  tintColor: 0xddddff,
+  shakeDuration: 400,
+  shakeDistance: 6,
+  shakeRepeat: 2,
+} as const;
+
 export const INTRO_EASING = {
   fade: "Quad.easeOut",
   zoom: "Sine.easeInOut",

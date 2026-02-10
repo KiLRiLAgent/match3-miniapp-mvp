@@ -36,3 +36,9 @@ export type Match = {
 };
 
 export type CountTotals = Record<BaseTileKind, number>;
+
+export type PotentialMove = {
+  from: Position;
+  to: Position;
+  matchPositions: Position[];
+};

@@ -23,11 +23,12 @@ import {
   ANIMATION_DURATIONS,
   ANIMATION_EASING,
   VISUAL_EFFECTS,
+  HINT_ANIMATION,
 } from "../game/animations";
 import type { SkillId } from "../game/config";
 import { Match3Board } from "../match3/Board";
 import { TileKind } from "../match3/types";
-import type { Match, Position, Tile, CountTotals } from "../match3/types";
+import type { Match, Position, PotentialMove, Tile, CountTotals } from "../match3/types";
 import { Meter } from "../ui/Meter";
 import { SkillButton } from "../ui/SkillButton";
 import { SettingsPanel } from "../ui/SettingsPanel";
@@ -86,6 +87,13 @@ export class GameScene extends Phaser.Scene {
   private gameOver = false;
   private turnText?: Phaser.GameObjects.Text;
 
+  // Hint system
+  private hintTimer?: Phaser.Time.TimerEvent;
+  private hintTweens: Phaser.Tweens.Tween[] = [];
+  private hintedSpriteIds: number[] = [];
+  private potentialMoves: PotentialMove[] = [];
+  private hintIndex = 0;
+
   constructor() {
     super("GameScene");
   }
@@ -132,6 +140,10 @@ export class GameScene extends Phaser.Scene {
     if (!startHidden && data?.finalDialogue) {
       this.showFinalIntroBubble(data.finalDialogue);
     }
+
+    if (!startHidden) {
+      this.startHintTimer();
+    }
   }
 
   private async fadeInUI(): Promise<void> {
@@ -161,6 +173,7 @@ export class GameScene extends Phaser.Scene {
     if (finalDialogue) {
       this.showFinalIntroBubble(finalDialogue);
     }
+    this.startHintTimer();
   }
 
   private async showFinalIntroBubble(text: string) {
@@ -179,6 +192,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private resetState() {
+    this.stopHintTimer();
     this.bossHp = GAME_PARAMS.boss.hpMax;
     this.playerHp = GAME_PARAMS.player.hpMax;
     this.mana = 0;
@@ -497,6 +511,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTap(pos: Position) {
+    this.stopHintTimer();
     const tile = this.board.getTile(pos);
     if (!tile || !this.board.isSpecial(tile.kind)) return;
 
@@ -517,6 +532,7 @@ export class GameScene extends Phaser.Scene {
     // Бомбы нельзя перемещать
     if (tileA.kind === TileKind.Bomb || tileB.kind === TileKind.Bomb) return;
 
+    this.stopHintTimer();
     this.busy = true;
 
     this.board.swap(a, b);
@@ -979,6 +995,7 @@ export class GameScene extends Phaser.Scene {
 
   private activateSkill(id: SkillId) {
     if (!this.canPlayerAct()) return;
+    this.stopHintTimer();
 
     const cfg = SKILL_CONFIG[id];
 
@@ -1097,6 +1114,7 @@ export class GameScene extends Phaser.Scene {
 
   private showVictory() {
     if (this.gameOver) return;
+    this.stopHintTimer();
     this.gameOver = true;
     this.busy = true;
     this.showGameEndModal("Victory!", "#44ff66", "Restart");
@@ -1122,6 +1140,86 @@ export class GameScene extends Phaser.Scene {
     return this.playerAvatar
       ? { x: this.playerAvatar.x, y: this.playerAvatar.y }
       : { x: GAME_WIDTH - 60, y: GAME_HEIGHT - 175 };
+  }
+
+  private startHintTimer() {
+    this.stopHintTimer();
+    this.potentialMoves = this.board.findPotentialMoves();
+    if (this.potentialMoves.length === 0) return;
+    this.hintIndex = 0;
+
+    this.hintTimer = this.time.addEvent({
+      delay: HINT_ANIMATION.idleDelay,
+      loop: true,
+      callback: () => this.showNextHint(),
+    });
+  }
+
+  private stopHintTimer() {
+    if (this.hintTimer) {
+      this.hintTimer.destroy();
+      this.hintTimer = undefined;
+    }
+    this.clearHintVisuals();
+  }
+
+  private clearHintVisuals() {
+    for (const tween of this.hintTweens) {
+      if (tween.isPlaying()) tween.stop();
+    }
+    this.hintTweens = [];
+
+    for (const id of this.hintedSpriteIds) {
+      const sprite = this.tileSprites.get(id);
+      if (sprite) {
+        sprite.clearTint();
+        const pos = this.tilePositions.get(id);
+        if (pos) {
+          const world = this.toWorld(pos);
+          sprite.setPosition(world.x, world.y);
+        }
+      }
+    }
+    this.hintedSpriteIds = [];
+  }
+
+  private showNextHint() {
+    this.clearHintVisuals();
+    if (this.potentialMoves.length === 0) return;
+
+    const move = this.potentialMoves[this.hintIndex % this.potentialMoves.length];
+    this.hintIndex++;
+
+    // Tint all match tiles
+    for (const pos of move.matchPositions) {
+      const tile = this.board.getTile(pos);
+      if (!tile) continue;
+      const sprite = this.tileSprites.get(tile.id);
+      if (!sprite) continue;
+      sprite.setTint(HINT_ANIMATION.tintColor);
+      this.hintedSpriteIds.push(tile.id);
+    }
+
+    // Shake the "from" tile in the swipe direction
+    const fromTile = this.board.getTile(move.from);
+    if (!fromTile) return;
+    const fromSprite = this.tileSprites.get(fromTile.id);
+    if (!fromSprite) return;
+
+    const dx = move.to.x - move.from.x;
+    const dy = move.to.y - move.from.y;
+    const dist = HINT_ANIMATION.shakeDistance;
+
+    const tween = this.tweens.add({
+      targets: fromSprite,
+      x: fromSprite.x + dx * dist,
+      y: fromSprite.y + dy * dist,
+      duration: HINT_ANIMATION.shakeDuration,
+      yoyo: true,
+      repeat: HINT_ANIMATION.shakeRepeat,
+      ease: "Sine.easeInOut",
+    });
+    this.hintTweens.push(tween);
   }
 
   private async finishPlayerTurn() {
@@ -1168,6 +1266,7 @@ export class GameScene extends Phaser.Scene {
     this.currentTurn = "player";
     this.busy = false;
     this.updateHud();
+    this.startHintTimer();
   }
 
   private async processBombTick() {
@@ -1556,6 +1655,7 @@ export class GameScene extends Phaser.Scene {
 
   private showDefeat() {
     if (this.gameOver) return;
+    this.stopHintTimer();
     this.gameOver = true;
     this.busy = true;
     this.showGameEndModal("Defeat", "#ff6666", "Retry");

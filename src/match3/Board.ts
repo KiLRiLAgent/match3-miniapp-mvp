@@ -1,6 +1,6 @@
 import { BASE_TYPES } from "../game/config";
 import { TileKind } from "./types";
-import type { BaseTileKind, Match, Position, Tile } from "./types";
+import type { BaseTileKind, Match, Position, PotentialMove, Tile } from "./types";
 
 export type SpecialTransform = {
   pos: Position;
@@ -472,6 +472,44 @@ export class Match3Board {
         if (tile) fn({ x, y }, tile);
       }
     }
+  }
+
+  findPotentialMoves(): PotentialMove[] {
+    const moves: PotentialMove[] = [];
+    const dirs: Position[] = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const from = { x, y };
+        const tile = this.getTile(from);
+        if (!tile || this.isBomb(tile.kind) || this.isSpecial(tile.kind)) continue;
+
+        for (const dir of dirs) {
+          const to = { x: x + dir.x, y: y + dir.y };
+          if (!this.inBounds(to)) continue;
+          const other = this.getTile(to);
+          if (!other || this.isBomb(other.kind) || this.isSpecial(other.kind)) continue;
+
+          this.swap(from, to);
+          const matches = this.findMatches();
+          this.swap(from, to);
+
+          if (matches.length > 0) {
+            const allPositions = new Set<string>();
+            for (const m of matches) {
+              for (const p of m.positions) allPositions.add(this.key(p));
+            }
+            moves.push({
+              from,
+              to,
+              matchPositions: Array.from(allPositions).map(k => this.fromKey(k)),
+            });
+          }
+        }
+      }
+    }
+
+    return moves;
   }
 
   // === Bomb methods ===
