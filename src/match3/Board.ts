@@ -85,8 +85,17 @@ export class Match3Board {
 
     return (
       this.hasMatchInDirection(x, y, tile.base, [-1, 0], [-2, 0]) ||
-      this.hasMatchInDirection(x, y, tile.base, [0, -1], [0, -2])
+      this.hasMatchInDirection(x, y, tile.base, [0, -1], [0, -2]) ||
+      this.createsSquareMatch(x, y, tile.base)
     );
+  }
+
+  private createsSquareMatch(x: number, y: number, base: BaseTileKind): boolean {
+    if (x < 1 || y < 1) return false;
+    const tl = this.grid[y - 1]?.[x - 1];
+    const tr = this.grid[y - 1]?.[x];
+    const bl = this.grid[y]?.[x - 1];
+    return tl?.base === base && tr?.base === base && bl?.base === base;
   }
 
   private hasMatchInDirection(
@@ -491,24 +500,28 @@ export class Match3Board {
           if (!other || this.isBomb(other.kind) || this.isSpecial(other.kind)) continue;
 
           this.swap(from, to);
-          const matches = this.findMatches();
+          const allMatches = this.findMatches();
           this.swap(from, to);
 
+          const isSwapped = (p: Position) =>
+            this.positionsEqual(p, from) || this.positionsEqual(p, to);
+
+          // Only keep matches that involve at least one of the swapped positions
+          const matches = allMatches.filter(m => m.positions.some(isSwapped));
+
           if (matches.length > 0) {
-            const allPositions = new Set<string>();
+            // Collect only stationary match partners (exclude swapped tiles —
+            // they're already shown via from/to and the shake animation)
+            const partnerKeys = new Set<string>();
             for (const m of matches) {
               for (const p of m.positions) {
-                // Map post-swap positions back to pre-swap
-                let mapped = p;
-                if (p.x === to.x && p.y === to.y) mapped = from;
-                else if (p.x === from.x && p.y === from.y) mapped = to;
-                allPositions.add(this.key(mapped));
+                if (!isSwapped(p)) partnerKeys.add(this.key(p));
               }
             }
             moves.push({
               from,
               to,
-              matchPositions: Array.from(allPositions).map(k => this.fromKey(k)),
+              matchPositions: Array.from(partnerKeys).map(k => this.fromKey(k)),
             });
           }
         }
