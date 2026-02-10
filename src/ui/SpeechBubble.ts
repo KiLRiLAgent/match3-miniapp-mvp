@@ -9,6 +9,7 @@ export interface SpeechBubbleConfig {
   backgroundColor?: number;
   textColor?: string;
   fontSize?: string;
+  fontFamily?: string;
   fontStyle?: string;
   padding?: number;
 }
@@ -19,6 +20,7 @@ const DEFAULT_CONFIG = {
   backgroundColor: 0xffffff,
   textColor: "#222222",
   fontSize: "24px",
+  fontFamily: "'Russo One', Arial, sans-serif",
   fontStyle: "500",
   padding: 18,
 };
@@ -38,7 +40,7 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
     this.bubble = scene.add.graphics();
     this.textObj = scene.add.text(0, 0, this.config.text, {
       fontSize: this.config.fontSize,
-      fontFamily: "Arial, sans-serif",
+      fontFamily: this.config.fontFamily,
       fontStyle: this.config.fontStyle,
       color: this.config.textColor,
       wordWrap: { width: this.config.maxWidth - this.config.padding * 2 },
