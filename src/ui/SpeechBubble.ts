@@ -5,7 +5,7 @@ import { tweenPromise } from "../utils/helpers";
 export interface SpeechBubbleConfig {
   text: string;
   maxWidth?: number;
-  tailDirection?: "down" | "up";
+  tailDirection?: "down" | "up" | "none";
   backgroundColor?: number;
   textColor?: string;
   fontSize?: string;
@@ -68,17 +68,19 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
     this.bubble.fillRoundedRect(-halfWidth, -halfHeight, bubbleWidth, bubbleHeight, CORNER_RADIUS);
     this.bubble.strokeRoundedRect(-halfWidth, -halfHeight, bubbleWidth, bubbleHeight, CORNER_RADIUS);
 
-    // Draw tail pointing up or down
-    this.bubble.fillStyle(backgroundColor, 1);
-    const tailY = tailDirection === "down" ? halfHeight : -halfHeight;
-    const tailOffset = tailDirection === "down" ? -2 : 2;
-    const tailTip = tailDirection === "down" ? TAIL_SIZE : -TAIL_SIZE;
+    // Draw tail pointing up or down (skip if "none")
+    if (tailDirection !== "none") {
+      this.bubble.fillStyle(backgroundColor, 1);
+      const tailY = tailDirection === "down" ? halfHeight : -halfHeight;
+      const tailOffset = tailDirection === "down" ? -2 : 2;
+      const tailTip = tailDirection === "down" ? TAIL_SIZE : -TAIL_SIZE;
 
-    this.bubble.fillTriangle(
-      -TAIL_SIZE / 2, tailY + tailOffset,
-      TAIL_SIZE / 2, tailY + tailOffset,
-      0, tailY + tailTip
-    );
+      this.bubble.fillTriangle(
+        -TAIL_SIZE / 2, tailY + tailOffset,
+        TAIL_SIZE / 2, tailY + tailOffset,
+        0, tailY + tailTip
+      );
+    }
   }
 
   fadeIn(duration: number = INTRO_ANIMATION.speechBubbleFadeIn): Promise<void> {
