@@ -1245,10 +1245,14 @@ export class GameScene extends Phaser.Scene {
     const dy = move.to.y - move.from.y;
     const dist = HINT_ANIMATION.shakeDistance;
 
+    // Use grid position as base (not sprite.x/y) to prevent drift
+    const world = this.toWorld(move.from);
+    fromSprite.setPosition(world.x, world.y);
+
     const tween = this.tweens.add({
       targets: fromSprite,
-      x: fromSprite.x + dx * dist,
-      y: fromSprite.y + dy * dist,
+      x: world.x + dx * dist,
+      y: world.y + dy * dist,
       duration: HINT_ANIMATION.shakeDuration,
       yoyo: true,
       repeat: HINT_ANIMATION.shakeRepeat,
@@ -1344,6 +1348,9 @@ export class GameScene extends Phaser.Scene {
     // Don't show tips during busy animations or if a tip is already active
     if (this.activeTip) return;
 
+    // Stop hint animations while tip is visible
+    this.stopHintTimer();
+
     const bubbleY = UI_LAYOUT.boardOriginY + UI_LAYOUT.boardHeight + 5;
     const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text,
@@ -1358,6 +1365,7 @@ export class GameScene extends Phaser.Scene {
 
     // Auto-dismiss after duration, or tap to dismiss early
     await new Promise<void>(resolve => {
+      let resolved = false;
       const tapZone = this.add
         .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
         .setOrigin(0, 0)
@@ -1365,6 +1373,8 @@ export class GameScene extends Phaser.Scene {
         .setInteractive();
 
       const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
         tapZone.destroy();
         resolve();
       };
@@ -1380,6 +1390,11 @@ export class GameScene extends Phaser.Scene {
       await bubble.fadeOut(150);
     }
     this.activeTip = undefined;
+
+    // Restart hints if it's player's turn
+    if (!this.gameOver && this.currentTurn === "player" && !this.busy) {
+      this.startHintTimer();
+    }
   }
 
   private async finishPlayerTurn() {
