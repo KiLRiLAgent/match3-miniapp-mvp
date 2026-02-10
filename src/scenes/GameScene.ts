@@ -1302,13 +1302,14 @@ export class GameScene extends Phaser.Scene {
         ease: "Sine.easeInOut",
       });
 
-      // Show speech bubble above skill buttons
-      const bubbleY = UI_LAYOUT.skillButtonsY - UI_LAYOUT.skillButtonSize / 2 - 70;
-      const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
+      // Speech bubble above THIS specific button, clamped to screen
+      const bubbleY = btn.y - UI_LAYOUT.skillButtonSize / 2 - 65;
+      const bubbleX = clamp(btn.x, 80, GAME_WIDTH - 80);
+      const bubble = new SpeechBubble(this, bubbleX, bubbleY, {
         text: step.text,
         tailDirection: "down",
-        maxWidth: 280,
-        fontSize: "16px",
+        maxWidth: 240,
+        fontSize: "15px",
       });
       bubble.setDepth(202);
       await bubble.fadeIn(200);
