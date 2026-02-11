@@ -97,7 +97,7 @@ export class GameScene extends Phaser.Scene {
 
   // Hint system
   private hintTimer?: Phaser.Time.TimerEvent;
-  private hintTweens: Phaser.Tweens.Tween[] = [];
+  private hintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
   private hintedSpriteIds: number[] = [];
   private potentialMoves: PotentialMove[] = [];
   private hintIndex = 0;
@@ -1256,16 +1256,28 @@ export class GameScene extends Phaser.Scene {
     const world = this.toWorld(move.from);
     fromSprite.setPosition(world.x, world.y);
 
-    const tween = this.tweens.add({
+    // Asymmetric shake: accelerate forward, decelerate backward
+    const half = HINT_ANIMATION.shakeDuration / 2;
+    const fwd = {
       targets: fromSprite,
       x: world.x + dx * dist,
       y: world.y + dy * dist,
-      duration: HINT_ANIMATION.shakeDuration,
-      yoyo: true,
-      repeat: HINT_ANIMATION.shakeRepeat,
-      ease: "Sine.easeInOut",
-    });
-    this.hintTweens.push(tween);
+      duration: half,
+      ease: "Cubic.easeIn",
+    };
+    const bwd = {
+      targets: fromSprite,
+      x: world.x,
+      y: world.y,
+      duration: half,
+      ease: "Cubic.easeOut",
+    };
+    const tweens = [];
+    for (let i = 0; i <= HINT_ANIMATION.shakeRepeat; i++) {
+      tweens.push({ ...fwd }, { ...bwd });
+    }
+    const chain = this.tweens.chain({ tweens });
+    this.hintTweens.push(chain);
   }
 
   // ===== Tutorial & Tips =====
