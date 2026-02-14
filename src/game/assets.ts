@@ -12,6 +12,7 @@ export const ASSET_KEYS = {
     vsLogo: "intro_vs",
     swords: "intro_swords",
     playerFrame: "player_frame",
+    playerNameplate: "player_nameplate",
   },
   game: {
     background: "game_background",

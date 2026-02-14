@@ -269,10 +269,11 @@ export class IntroScene extends Phaser.Scene {
     vsImg.setScale(vsScale);
     container.add(vsImg);
 
-    // Полупрозрачный фон под "Игрок"
-    const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 110, 120, 40, 0x000000, 0.5);
-    playerNameBg.setOrigin(0.5);
-    container.add(playerNameBg);
+    // Декоративная табличка под "Игрок"
+    const playerNameplate = this.add.image(GAME_WIDTH / 2, centerY + 110, ASSET_KEYS.intro.playerNameplate);
+    const nameplateTargetWidth = GAME_WIDTH * 0.42;
+    playerNameplate.setScale(nameplateTargetWidth / playerNameplate.width);
+    container.add(playerNameplate);
 
     // Текст "Игрок" — золотистый градиент с тенью
     const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 110, "Игрок", {
