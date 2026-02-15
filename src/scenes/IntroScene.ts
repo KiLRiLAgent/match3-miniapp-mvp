@@ -288,7 +288,7 @@ export class IntroScene extends Phaser.Scene {
 
     // Жёлтая рамка игрока
     const playerFrame = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerFrame);
-    const frameTargetWidth = GAME_WIDTH * 0.85;
+    const frameTargetWidth = GAME_WIDTH * 0.92;
     const frameScale = frameTargetWidth / playerFrame.width;
     playerFrame.setScale(frameScale);
     container.add(playerFrame);
