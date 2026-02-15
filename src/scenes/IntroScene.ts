@@ -258,7 +258,7 @@ export class IntroScene extends Phaser.Scene {
     container.add(bossNameText);
 
     // Мечи — базовый размер
-    const swordsTargetWidth = GAME_WIDTH * 0.9;
+    const swordsTargetWidth = GAME_WIDTH * 0.7;
     const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
     const swordsScale = swordsTargetWidth / swordsImg.width;
     swordsImg.setScale(swordsScale);
@@ -276,8 +276,8 @@ export class IntroScene extends Phaser.Scene {
     // Пульсация масштаба — дыхание огня
     this.tweens.add({
       targets: gloomImg,
-      scaleX: gloomImg.scaleX * 1.08,
-      scaleY: gloomImg.scaleY * 1.08,
+      scaleX: gloomImg.scaleX * 1.04,
+      scaleY: gloomImg.scaleY * 1.04,
       duration: 800,
       ease: "Sine.easeInOut",
       yoyo: true,
@@ -287,7 +287,7 @@ export class IntroScene extends Phaser.Scene {
     // Мерцание альфы — мерцание пламени
     this.tweens.add({
       targets: gloomImg,
-      alpha: 0.75,
+      alpha: 0.65,
       duration: 500,
       ease: "Sine.easeInOut",
       yoyo: true,
