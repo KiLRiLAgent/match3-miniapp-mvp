@@ -297,9 +297,6 @@ export const getUILayout = () => {
     cooldownIconSize,
     cooldownIconX,
     cooldownIconY: bossHpBarY + hpBarHeight / 2,
-    shieldIconX: cooldownIconX,
-    shieldIconY: bossHpBarY + hpBarHeight / 2 + cooldownIconSize + 6,
-    shieldTextY: bossHpBarY + hpBarHeight / 2 + cooldownIconSize + 6 + cooldownIconSize / 2 + 14,
 
     // Игрок (снизу)
     avatarX,
