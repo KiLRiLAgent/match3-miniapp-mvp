@@ -273,12 +273,13 @@ export class IntroScene extends Phaser.Scene {
     container.add(gloomImg);
     container.add(swordsImg);
 
-    // Пульсация масштаба — дыхание огня
+    // Пульсация: +2% scale и яркость синхронно (как playerGloom)
     this.tweens.add({
       targets: gloomImg,
-      scaleX: gloomImg.scaleX * 1.04,
-      scaleY: gloomImg.scaleY * 1.04,
-      duration: 800,
+      scaleX: gloomImg.scaleX * 1.02,
+      scaleY: gloomImg.scaleY * 1.02,
+      alpha: 0.7,
+      duration: 1000,
       ease: "Sine.easeInOut",
       yoyo: true,
       repeat: -1,
