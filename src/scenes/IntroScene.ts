@@ -284,12 +284,12 @@ export class IntroScene extends Phaser.Scene {
     container.add(bossNameText);
 
     // Полупрозрачный фон под "Игрок" — поверх мечей
-    const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 90, 120, 40, 0x000000, 0.5);
+    const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 100, 120, 40, 0x000000, 0.5);
     playerNameBg.setOrigin(0.5);
     container.add(playerNameBg);
 
     // Текст "Игрок" — золотистый градиент
-    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 90, "Игрок", {
+    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 100, "Игрок", {
       fontSize: "24px",
       fontFamily: "'Exo 2', Arial, sans-serif",
       stroke: "#6b4c00",
