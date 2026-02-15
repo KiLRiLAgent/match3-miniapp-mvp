@@ -661,7 +661,7 @@ export class GameScene extends Phaser.Scene {
     if (this.bossShieldDuration > 0) {
       if (this.shieldIcon) {
         const L = UI_LAYOUT;
-        showDamageNumber(this, L.shieldIconX, L.shieldIconY + L.cooldownIconSize / 2 + 14, 0, "shield");
+        showDamageNumber(this, L.shieldIconX, L.shieldTextY, 0, "shield");
       }
       if (this.bossImage) {
         this.shakeTarget(this.bossImage, VISUAL_EFFECTS.damageShakeOffset * 0.3);
@@ -1627,7 +1627,7 @@ export class GameScene extends Phaser.Scene {
       this.bossShieldDuration = config.shieldDuration;
       this.shieldIcon?.show(this.bossShieldDuration);
       const L = UI_LAYOUT;
-      showDamageNumber(this, L.shieldIconX, L.shieldIconY + L.cooldownIconSize / 2 + 14, 0, "shield");
+      showDamageNumber(this, L.shieldIconX, L.shieldTextY, 0, "shield");
     });
 
     if (!this.shieldTipShown) {
