@@ -283,7 +283,7 @@ export class GameScene extends Phaser.Scene {
     this.cooldownIcon.setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА ЩИТА ===
-    this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
+    this.shieldIcon = new ShieldIcon(this, L.shieldIconX, L.shieldIconY, L.cooldownIconSize);
     this.shieldIcon.setDepth(4).setAlpha(initialAlpha);
 
     // === АВАТАР ИГРОКА (изображение с золотой рамкой и маской) ===
@@ -659,8 +659,11 @@ export class GameScene extends Phaser.Scene {
 
     // Проверка щита
     if (this.bossShieldDuration > 0) {
+      if (this.shieldIcon) {
+        const L = UI_LAYOUT;
+        showDamageNumber(this, L.shieldIconX, L.shieldIconY + L.cooldownIconSize / 2 + 14, 0, "shield");
+      }
       if (this.bossImage) {
-        showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, 0, "shield");
         this.shakeTarget(this.bossImage, VISUAL_EFFECTS.damageShakeOffset * 0.3);
       }
       return;
@@ -1623,9 +1626,8 @@ export class GameScene extends Phaser.Scene {
     await this.withCutscene(config.name, async () => {
       this.bossShieldDuration = config.shieldDuration;
       this.shieldIcon?.show(this.bossShieldDuration);
-      if (this.bossImage) {
-        showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, 0, "shield");
-      }
+      const L = UI_LAYOUT;
+      showDamageNumber(this, L.shieldIconX, L.shieldIconY + L.cooldownIconSize / 2 + 14, 0, "shield");
     });
 
     if (!this.shieldTipShown) {
