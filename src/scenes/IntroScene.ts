@@ -241,12 +241,12 @@ export class IntroScene extends Phaser.Scene {
     const playerFrameY = GAME_HEIGHT * 0.68 + 60;
 
     // Полупрозрачный фон под "Сафира: Пламя Бездны"
-    const bossNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY - 60, 320, 44, 0x000000, 0.5);
+    const bossNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY - 80, 320, 44, 0x000000, 0.5);
     bossNameBg.setOrigin(0.5);
     container.add(bossNameBg);
 
     // Текст "Сафира: Пламя Бездны" — золотистый градиент с тенью
-    const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 60, "Сафира: Пламя Бездны", {
+    const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 80, "Сафира: Пламя Бездны", {
       fontSize: "26px",
       fontFamily: "'Exo 2', Arial, sans-serif",
       stroke: "#6b4c00",
@@ -285,12 +285,12 @@ export class IntroScene extends Phaser.Scene {
     });
 
     // Полупрозрачный фон под "Игрок"
-    const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 110, 120, 40, 0x000000, 0.5);
+    const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 140, 120, 40, 0x000000, 0.5);
     playerNameBg.setOrigin(0.5);
     container.add(playerNameBg);
 
     // Текст "Игрок" — золотистый градиент с тенью
-    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 110, "Игрок", {
+    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 140, "Игрок", {
       fontSize: "24px",
       fontFamily: "'Exo 2', Arial, sans-serif",
       stroke: "#6b4c00",
@@ -301,11 +301,12 @@ export class IntroScene extends Phaser.Scene {
     this.applyGoldGradient(playerNameText);
     container.add(playerNameText);
 
-    // Жёлтая рамка игрока
+    // Жёлтая рамка игрока — тонирована в тёплое золото
     const playerFrame = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerFrame);
     const frameTargetWidth = GAME_WIDTH * 0.92;
     const frameScale = frameTargetWidth / playerFrame.width;
     playerFrame.setScale(frameScale);
+    playerFrame.setTint(0xf5c842);
 
     // Свечение под рамкой игрока — золотистое, без ADD чтобы сохранить цвет
     const playerGloom = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerGloom);
@@ -325,7 +326,7 @@ export class IntroScene extends Phaser.Scene {
     });
 
     // Аватар игрока
-    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 65, ASSET_KEYS.player.avatar);
+    const playerAvatar = this.add.image(GAME_WIDTH / 2 + 15, playerFrameY - 70, ASSET_KEYS.player.avatar);
     const frameHeight = playerFrame.displayHeight;
     const avatarScale = (frameHeight * 1.26) / playerAvatar.height;
     playerAvatar.setScale(avatarScale);
