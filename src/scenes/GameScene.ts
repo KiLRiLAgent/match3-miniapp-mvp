@@ -1585,7 +1585,7 @@ export class GameScene extends Phaser.Scene {
 
   private async executeAttack() {
     const config = BOSS_ABILITIES.attack;
-    this.cameras.main.shake(200, 0.015);
+    this.cameras.main.shake(200, 0.015 / DPR);
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
     this.updateHud();
@@ -1642,7 +1642,7 @@ export class GameScene extends Phaser.Scene {
   private async executePowerStrike() {
     const config = BOSS_ABILITIES.powerStrike;
     await this.withCutscene(config.name, async () => {
-      this.cameras.main.shake(300, 0.02);
+      this.cameras.main.shake(300, 0.02 / DPR);
       this.applyDamageToPlayer(config.damage);
       this.flashPlayerAvatar();
 
@@ -1724,7 +1724,7 @@ export class GameScene extends Phaser.Scene {
         duration: 350,
         ease: "Quad.easeIn",
         onComplete: () => {
-          this.cameras.main.shake(120, 0.012);
+          this.cameras.main.shake(120, 0.012 / DPR);
           this.flashPlayerAvatar();
           resolve();
         },
