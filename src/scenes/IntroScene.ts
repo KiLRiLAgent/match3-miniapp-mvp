@@ -257,26 +257,29 @@ export class IntroScene extends Phaser.Scene {
     this.applyGoldGradient(bossNameText);
     container.add(bossNameText);
 
-    // Мечи — базовый размер
-    const swordsTargetWidth = GAME_WIDTH * 0.5;
+    // Мечи — базовый размер (+20%)
+    const swordsTargetWidth = GAME_WIDTH * 0.6;
     const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
     const swordsScale = swordsTargetWidth / swordsImg.width;
     swordsImg.setScale(swordsScale);
 
-    // Огненное свечение под мечами — без ADD, оригинальный цвет
+    // Огненное свечение под мечами — оригинальный цвет
     const gloomImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swordsGloom);
-    gloomImg.setScale(swordsScale * 0.7);
+    const gloomBaseScale = swordsScale * 0.7;
+    gloomImg.setScale(gloomBaseScale);
+    gloomImg.setAlpha(0.85);
 
     // Gloom снизу, swords сверху
     container.add(gloomImg);
     container.add(swordsImg);
 
-    // Пульсация: +2% scale синхронно (как playerGloom)
+    // Пульсация: +5% scale + яркость 0.85→1.0
     this.tweens.add({
       targets: gloomImg,
-      scaleX: gloomImg.scaleX * 1.02,
-      scaleY: gloomImg.scaleY * 1.02,
-      duration: 1000,
+      scaleX: gloomBaseScale * 1.05,
+      scaleY: gloomBaseScale * 1.05,
+      alpha: 1,
+      duration: 1200,
       ease: "Sine.easeInOut",
       yoyo: true,
       repeat: -1,
@@ -323,7 +326,7 @@ export class IntroScene extends Phaser.Scene {
     });
 
     // Аватар игрока
-    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 80, ASSET_KEYS.player.avatar);
+    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 75, ASSET_KEYS.player.avatar);
     const frameHeight = playerFrame.displayHeight;
     const avatarScale = (frameHeight * 1.26) / playerAvatar.height;
     playerAvatar.setScale(avatarScale);
