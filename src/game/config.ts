@@ -5,6 +5,13 @@ import type { BaseTileKind } from "../match3/types";
 export let GAME_WIDTH = 480;
 export let GAME_HEIGHT = 800;
 
+// Device Pixel Ratio — для camera zoom (canvas в нативном разрешении)
+export let DPR = 1;
+
+export function setDPR(dpr: number) {
+  DPR = dpr;
+}
+
 // Safe area insets (from Telegram)
 export let SAFE_AREA = { top: 0, bottom: 0, left: 0, right: 0 };
 
