@@ -510,6 +510,21 @@ export class Match3Board {
           const matches = allMatches.filter(m => m.positions.some(isSwapped));
 
           if (matches.length > 0) {
+            // Determine which tile actually forms the match:
+            // After swap, tile from 'from' sits at 'to' and vice versa.
+            // fromInMatch = tile originally at 'from' (now at 'to') is in a match
+            const fromInMatch = matches.some(m => m.positions.some(p => this.positionsEqual(p, to)));
+            // toInMatch = tile originally at 'to' (now at 'from') is in a match
+            const toInMatch = matches.some(m => m.positions.some(p => this.positionsEqual(p, from)));
+
+            // If only the 'to' tile forms a match (at 'from' position), flip direction
+            let moveFrom = from;
+            let moveTo = to;
+            if (toInMatch && !fromInMatch) {
+              moveFrom = to;
+              moveTo = from;
+            }
+
             // Collect only stationary match partners (exclude swapped tiles —
             // they're already shown via from/to and the shake animation)
             const partnerKeys = new Set<string>();
@@ -519,8 +534,8 @@ export class Match3Board {
               }
             }
             moves.push({
-              from,
-              to,
+              from: moveFrom,
+              to: moveTo,
               matchPositions: Array.from(partnerKeys).map(k => this.fromKey(k)),
             });
           }
