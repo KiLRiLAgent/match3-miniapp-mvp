@@ -325,11 +325,16 @@ export class IntroScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // Аватар игрока
+    // Аватар игрока — origin снизу, чтобы уменьшение не сдвигало нижнюю границу
     const playerAvatar = this.add.image(GAME_WIDTH / 2 + 15, playerFrameY - 70, ASSET_KEYS.player.avatar);
+    playerAvatar.setOrigin(0.5, 1);
     const frameHeight = playerFrame.displayHeight;
-    const avatarScale = (frameHeight * 1.26) / playerAvatar.height;
+    const baseAvatarScale = (frameHeight * 1.26) / playerAvatar.height;
+    const avatarScale = baseAvatarScale * 0.95;
     playerAvatar.setScale(avatarScale);
+    // Сдвиг Y: origin теперь внизу, компенсируем чтобы низ остался на месте
+    const halfOldHeight = (baseAvatarScale * playerAvatar.height) / 2;
+    playerAvatar.setY(playerFrameY - 70 + halfOldHeight);
     container.add(playerAvatar);
 
     return container;
