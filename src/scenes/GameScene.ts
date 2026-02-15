@@ -660,8 +660,7 @@ export class GameScene extends Phaser.Scene {
     // Проверка щита
     if (this.bossShieldDuration > 0) {
       if (this.shieldIcon) {
-        const L = UI_LAYOUT;
-        showDamageNumber(this, GAME_WIDTH / 2, L.bossHpBarY - 4, 0, "shield");
+        showDamageNumber(this, this.shieldIcon.x, this.shieldIcon.y, 0, "shield");
       }
       if (this.bossImage) {
         this.shakeTarget(this.bossImage, VISUAL_EFFECTS.damageShakeOffset * 0.3);
@@ -1626,8 +1625,9 @@ export class GameScene extends Phaser.Scene {
     await this.withCutscene(config.name, async () => {
       this.bossShieldDuration = config.shieldDuration;
       this.shieldIcon?.show(this.bossShieldDuration);
-      const L = UI_LAYOUT;
-      showDamageNumber(this, GAME_WIDTH / 2, L.bossHpBarY - 4, 0, "shield");
+      if (this.shieldIcon) {
+        showDamageNumber(this, this.shieldIcon.x, this.shieldIcon.y, 0, "shield");
+      }
     });
 
     if (!this.shieldTipShown) {
