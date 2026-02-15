@@ -240,23 +240,6 @@ export class IntroScene extends Phaser.Scene {
     const centerY = GAME_HEIGHT * 0.42;
     const playerFrameY = GAME_HEIGHT * 0.68 + 60;
 
-    // Полупрозрачный фон под "Сафира: Пламя Бездны"
-    const bossNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY - 80, 320, 44, 0x000000, 0.5);
-    bossNameBg.setOrigin(0.5);
-    container.add(bossNameBg);
-
-    // Текст "Сафира: Пламя Бездны" — золотистый градиент с тенью
-    const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 80, "Сафира: Пламя Бездны", {
-      fontSize: "26px",
-      fontFamily: "'Exo 2', Arial, sans-serif",
-      stroke: "#6b4c00",
-      strokeThickness: 5,
-      fontStyle: "600",
-      shadow: { offsetX: 0, offsetY: 3, color: "#000000", blur: 6, fill: true, stroke: true },
-    }).setOrigin(0.5);
-    this.applyGoldGradient(bossNameText);
-    container.add(bossNameText);
-
     // Мечи — базовый размер (+20%)
     const swordsTargetWidth = GAME_WIDTH * 0.6;
     const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
@@ -284,13 +267,30 @@ export class IntroScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // Полупрозрачный фон под "Игрок"
-    const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 140, 120, 40, 0x000000, 0.5);
+    // Полупрозрачный фон под "Сафира: Пламя Бездны" — поверх мечей
+    const bossNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY - 30, 320, 44, 0x000000, 0.5);
+    bossNameBg.setOrigin(0.5);
+    container.add(bossNameBg);
+
+    // Текст "Сафира: Пламя Бездны" — золотистый градиент с тенью
+    const bossNameText = this.add.text(GAME_WIDTH / 2, centerY - 30, "Сафира: Пламя Бездны", {
+      fontSize: "26px",
+      fontFamily: "'Exo 2', Arial, sans-serif",
+      stroke: "#6b4c00",
+      strokeThickness: 5,
+      fontStyle: "600",
+      shadow: { offsetX: 0, offsetY: 3, color: "#000000", blur: 6, fill: true, stroke: true },
+    }).setOrigin(0.5);
+    this.applyGoldGradient(bossNameText);
+    container.add(bossNameText);
+
+    // Полупрозрачный фон под "Игрок" — поверх мечей
+    const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 90, 120, 40, 0x000000, 0.5);
     playerNameBg.setOrigin(0.5);
     container.add(playerNameBg);
 
     // Текст "Игрок" — золотистый градиент с тенью
-    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 140, "Игрок", {
+    const playerNameText = this.add.text(GAME_WIDTH / 2, centerY + 90, "Игрок", {
       fontSize: "24px",
       fontFamily: "'Exo 2', Arial, sans-serif",
       stroke: "#6b4c00",
