@@ -318,20 +318,17 @@ export class IntroScene extends Phaser.Scene {
     const frameScale = frameTargetWidth / playerFrame.width;
     playerFrame.setScale(frameScale);
 
-    // Свечение под рамкой игрока
+    // Свечение под рамкой игрока — золотистое, без ADD чтобы сохранить цвет
     const playerGloom = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerGloom);
     playerGloom.setScale(frameScale);
-    playerGloom.setAlpha(0.5);
-    playerGloom.setBlendMode(Phaser.BlendModes.ADD);
     container.add(playerGloom);
     container.add(playerFrame);
 
-    // Плавная пульсация: +2% scale и яркость синхронно
+    // Плавная пульсация: только +2% scale
     this.tweens.add({
       targets: playerGloom,
       scaleX: playerGloom.scaleX * 1.02,
       scaleY: playerGloom.scaleY * 1.02,
-      alpha: 0.7,
       duration: 1000,
       ease: "Sine.easeInOut",
       yoyo: true,
@@ -339,7 +336,7 @@ export class IntroScene extends Phaser.Scene {
     });
 
     // Аватар игрока
-    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 30, ASSET_KEYS.player.avatar);
+    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 60, ASSET_KEYS.player.avatar);
     const frameHeight = playerFrame.displayHeight;
     const avatarScale = (frameHeight * 1.4) / playerAvatar.height;
     playerAvatar.setScale(avatarScale);
