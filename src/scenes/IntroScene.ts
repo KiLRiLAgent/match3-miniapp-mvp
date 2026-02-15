@@ -325,20 +325,13 @@ export class IntroScene extends Phaser.Scene {
     container.add(playerGloom);
     container.add(playerFrame);
 
-    // Пульсация свечения рамки игрока
+    // Плавная пульсация: +2% scale и яркость синхронно
     this.tweens.add({
       targets: playerGloom,
-      scaleX: playerGloom.scaleX * 1.08,
-      scaleY: playerGloom.scaleY * 1.08,
-      duration: 800,
-      ease: "Sine.easeInOut",
-      yoyo: true,
-      repeat: -1,
-    });
-    this.tweens.add({
-      targets: playerGloom,
-      alpha: 0.75,
-      duration: 500,
+      scaleX: playerGloom.scaleX * 1.02,
+      scaleY: playerGloom.scaleY * 1.02,
+      alpha: 0.7,
+      duration: 1000,
       ease: "Sine.easeInOut",
       yoyo: true,
       repeat: -1,
