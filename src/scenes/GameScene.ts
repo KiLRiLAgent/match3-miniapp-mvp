@@ -136,6 +136,7 @@ export class GameScene extends Phaser.Scene {
     this.skillButtons = {};
 
     this.cameras.main.setZoom(DPR);
+    this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
     this.cameras.main.setBackgroundColor("#0d0f1a");
     this.boardOrigin = {
       x: UI_LAYOUT.boardOriginX,

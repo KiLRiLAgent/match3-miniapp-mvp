@@ -29,6 +29,7 @@ export class IntroScene extends Phaser.Scene {
     this.sceneCenter = { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 };
 
     this.cameras.main.setZoom(DPR);
+    this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
 
     this.runIntroSequence();
   }

@@ -28,7 +28,8 @@ setTimeout(() => {
     backgroundColor: "#0d0f1a",
     scene: [BootScene, IntroScene, GameScene],
     scale: {
-      mode: Phaser.Scale.NONE,
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     physics: {
       default: "arcade",
