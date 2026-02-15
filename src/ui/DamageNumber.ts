@@ -7,7 +7,7 @@ const TYPE_CONFIG: Record<DamageNumberType, { color: string; prefix: string; fon
   heal: { color: "#44ff66", prefix: "+", fontSize: "28px" },
   mana: { color: "#4488ff", prefix: "+", fontSize: "28px" },
   mana_loss: { color: "#8844ff", prefix: "-", fontSize: "28px" },
-  shield: { color: "#aaaaaa", prefix: "", fontSize: "22px" },
+  shield: { color: "#66bbff", prefix: "", fontSize: "26px" },
 };
 
 const ANIMATION = {
