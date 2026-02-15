@@ -263,22 +263,21 @@ export class IntroScene extends Phaser.Scene {
     const swordsScale = swordsTargetWidth / swordsImg.width;
     swordsImg.setScale(swordsScale);
 
-    // Огненное свечение под мечами — оригинальный цвет
+    // Огненное свечение поверх мечей — оригинальный цвет
     const gloomImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swordsGloom);
-    const gloomBaseScale = swordsScale * 0.7;
-    gloomImg.setScale(gloomBaseScale);
-    gloomImg.setAlpha(0.85);
+    gloomImg.setScale(swordsScale);
+    gloomImg.setAlpha(0.6);
 
-    // Gloom снизу, swords сверху
-    container.add(gloomImg);
+    // Мечи снизу, огонь сверху
     container.add(swordsImg);
+    container.add(gloomImg);
 
-    // Пульсация: +5% scale + яркость 0.85→1.0
+    // Пульсация: +5% scale + alpha 0.6→0.8
     this.tweens.add({
       targets: gloomImg,
-      scaleX: gloomBaseScale * 1.05,
-      scaleY: gloomBaseScale * 1.05,
-      alpha: 1,
+      scaleX: swordsScale * 1.05,
+      scaleY: swordsScale * 1.05,
+      alpha: 0.8,
       duration: 1200,
       ease: "Sine.easeInOut",
       yoyo: true,
