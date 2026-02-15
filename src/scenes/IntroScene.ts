@@ -265,7 +265,7 @@ export class IntroScene extends Phaser.Scene {
 
     // Огненное свечение под мечами — тот же scale (одинаковые размеры)
     const gloomImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swordsGloom);
-    gloomImg.setScale(swordsScale);
+    gloomImg.setScale(swordsScale * 0.7);
     gloomImg.setAlpha(0.5);
     gloomImg.setBlendMode(Phaser.BlendModes.ADD);
 
