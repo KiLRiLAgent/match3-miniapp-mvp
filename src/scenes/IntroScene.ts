@@ -336,9 +336,9 @@ export class IntroScene extends Phaser.Scene {
     });
 
     // Аватар игрока
-    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 60, ASSET_KEYS.player.avatar);
+    const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 80, ASSET_KEYS.player.avatar);
     const frameHeight = playerFrame.displayHeight;
-    const avatarScale = (frameHeight * 1.4) / playerAvatar.height;
+    const avatarScale = (frameHeight * 1.26) / playerAvatar.height;
     playerAvatar.setScale(avatarScale);
     container.add(playerAvatar);
 
