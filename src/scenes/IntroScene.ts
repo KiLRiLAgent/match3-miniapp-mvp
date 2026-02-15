@@ -258,7 +258,7 @@ export class IntroScene extends Phaser.Scene {
     container.add(bossNameText);
 
     // Мечи — базовый размер
-    const swordsTargetWidth = GAME_WIDTH * 0.7;
+    const swordsTargetWidth = GAME_WIDTH * 0.5;
     const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
     const swordsScale = swordsTargetWidth / swordsImg.width;
     swordsImg.setScale(swordsScale);
