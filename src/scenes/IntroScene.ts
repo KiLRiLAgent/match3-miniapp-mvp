@@ -259,7 +259,7 @@ export class IntroScene extends Phaser.Scene {
 
     // Огненное свечение под мечами
     const gloomImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swordsGloom);
-    const swordsTargetWidth = GAME_WIDTH * 0.7;
+    const swordsTargetWidth = GAME_WIDTH * 0.9;
     gloomImg.setScale(swordsTargetWidth / gloomImg.width);
     gloomImg.setAlpha(0.5);
     gloomImg.setBlendMode(Phaser.BlendModes.ADD);
