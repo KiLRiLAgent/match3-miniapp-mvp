@@ -53,8 +53,8 @@ export class BootScene extends Phaser.Scene {
     // Загружаем параметры до старта любых сцен
     loadGameParams();
 
-    // Ждём загрузки веб-шрифта, затем переходим в интро
-    document.fonts.ready.then(() => {
+    // Явно ждём загрузки Exo 2 перед стартом интро
+    document.fonts.load("500 24px 'Exo 2'").then(() => {
       this.scene.start("IntroScene");
     });
   }

@@ -238,7 +238,7 @@ export class IntroScene extends Phaser.Scene {
 
     // Позиции элементов
     const centerY = GAME_HEIGHT * 0.42;
-    const playerFrameY = GAME_HEIGHT * 0.68 + 60;
+    const playerFrameY = GAME_HEIGHT - 196;
 
     // Мечи — базовый размер (+20%)
     const swordsTargetWidth = GAME_WIDTH * 0.6;
