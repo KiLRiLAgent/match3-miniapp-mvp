@@ -18,7 +18,6 @@ import {
   SAFE_AREA,
   saveGameParams,
   GAME_PARAMS,
-  DPR,
 } from "../game/config";
 import {
   ANIMATION_DURATIONS,
@@ -122,8 +121,6 @@ export class GameScene extends Phaser.Scene {
     bgState?: { x: number; y: number; scale: number };
     bossState?: { x: number; y: number; scale: number };
   }) {
-    this.cameras.main.setZoom(DPR);
-
     // Очистить старые ссылки (важно при restart - Phaser переиспользует экземпляр)
     this.bossImage = undefined;
     this.bossHpBar = undefined;

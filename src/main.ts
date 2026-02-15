@@ -3,7 +3,7 @@ import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { IntroScene } from "./scenes/IntroScene";
 import { GameScene } from "./scenes/GameScene";
-import { setScreenSize, updateScaledValues, setDPR } from "./game/config";
+import { setScreenSize, updateScaledValues } from "./game/config";
 import { initTelegram, getSafeAreaInsets } from "./telegram/telegram";
 
 // Инициализация Telegram WebApp до создания игры (fullscreen mode)
@@ -14,17 +14,14 @@ setTimeout(() => {
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
   const safeArea = getSafeAreaInsets();
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
 
-  // Game coordinates = CSS pixels, canvas renders at native resolution
-  setDPR(dpr);
   setScreenSize(screenWidth, screenHeight, safeArea);
   updateScaledValues();
 
   const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: screenWidth * dpr,
-    height: screenHeight * dpr,
+    width: screenWidth,
+    height: screenHeight,
     parent: "app",
     backgroundColor: "#0d0f1a",
     scene: [BootScene, IntroScene, GameScene],
@@ -36,11 +33,5 @@ setTimeout(() => {
     },
   };
 
-  const game = new Phaser.Game(config);
-
-  // CSS масштабирует canvas обратно в CSS-пиксели — рендер чёткий
-  game.events.on("ready", () => {
-    game.canvas.style.width = screenWidth + "px";
-    game.canvas.style.height = screenHeight + "px";
-  });
+  new Phaser.Game(config);
 }, 100);
