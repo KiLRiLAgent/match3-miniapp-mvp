@@ -1256,21 +1256,22 @@ export class GameScene extends Phaser.Scene {
     const world = this.toWorld(move.from);
     fromSprite.setPosition(world.x, world.y);
 
-    // Asymmetric shake: accelerate forward, decelerate backward
-    const half = HINT_ANIMATION.shakeDuration / 2;
+    // Asymmetric shake: fast snap forward, slow ease back
+    const fwdDuration = HINT_ANIMATION.shakeDuration * 0.35;
+    const bwdDuration = HINT_ANIMATION.shakeDuration * 0.65;
     const fwd = {
       targets: fromSprite,
       x: world.x + dx * dist,
       y: world.y + dy * dist,
-      duration: half,
-      ease: "Cubic.easeIn",
+      duration: fwdDuration,
+      ease: "Quart.easeIn",
     };
     const bwd = {
       targets: fromSprite,
       x: world.x,
       y: world.y,
-      duration: half,
-      ease: "Cubic.easeOut",
+      duration: bwdDuration,
+      ease: "Sine.easeOut",
     };
     const tweens = [];
     for (let i = 0; i <= HINT_ANIMATION.shakeRepeat; i++) {

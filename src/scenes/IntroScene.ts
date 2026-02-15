@@ -257,9 +257,37 @@ export class IntroScene extends Phaser.Scene {
     this.applyGoldGradient(bossNameText);
     container.add(bossNameText);
 
+    // Огненное свечение под мечами
+    const gloomImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swordsGloom);
+    const swordsTargetWidth = GAME_WIDTH * 0.7;
+    gloomImg.setScale(swordsTargetWidth / gloomImg.width);
+    gloomImg.setAlpha(0.5);
+    gloomImg.setBlendMode(Phaser.BlendModes.ADD);
+    container.add(gloomImg);
+
+    // Пульсация масштаба — дыхание огня
+    this.tweens.add({
+      targets: gloomImg,
+      scaleX: gloomImg.scaleX * 1.08,
+      scaleY: gloomImg.scaleY * 1.08,
+      duration: 800,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Мерцание альфы — мерцание пламени
+    this.tweens.add({
+      targets: gloomImg,
+      alpha: 0.75,
+      duration: 500,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+
     // Мечи позади VS
     const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
-    const swordsTargetWidth = GAME_WIDTH * 0.7;
     swordsImg.setScale(swordsTargetWidth / swordsImg.width);
     container.add(swordsImg);
 
