@@ -257,13 +257,21 @@ export class IntroScene extends Phaser.Scene {
     this.applyGoldGradient(bossNameText);
     container.add(bossNameText);
 
-    // Огненное свечение под мечами
-    const gloomImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swordsGloom);
+    // Мечи — базовый размер
     const swordsTargetWidth = GAME_WIDTH * 0.9;
-    gloomImg.setScale(swordsTargetWidth / gloomImg.width);
+    const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
+    const swordsScale = swordsTargetWidth / swordsImg.width;
+    swordsImg.setScale(swordsScale);
+
+    // Огненное свечение под мечами — тот же displaySize
+    const gloomImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swordsGloom);
+    gloomImg.setDisplaySize(swordsImg.displayWidth, swordsImg.displayHeight);
     gloomImg.setAlpha(0.5);
     gloomImg.setBlendMode(Phaser.BlendModes.ADD);
+
+    // Gloom снизу, swords сверху
     container.add(gloomImg);
+    container.add(swordsImg);
 
     // Пульсация масштаба — дыхание огня
     this.tweens.add({
@@ -285,11 +293,6 @@ export class IntroScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
     });
-
-    // Мечи позади VS
-    const swordsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swords);
-    swordsImg.setScale(swordsTargetWidth / swordsImg.width);
-    container.add(swordsImg);
 
     // VS изображение
     const vsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.vsLogo);
