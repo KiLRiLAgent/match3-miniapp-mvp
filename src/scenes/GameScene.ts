@@ -18,6 +18,7 @@ import {
   SAFE_AREA,
   saveGameParams,
   GAME_PARAMS,
+  DPR,
 } from "../game/config";
 import {
   ANIMATION_DURATIONS,
@@ -134,6 +135,7 @@ export class GameScene extends Phaser.Scene {
     this.hammerHint = undefined;
     this.skillButtons = {};
 
+    this.cameras.main.setZoom(DPR);
     this.cameras.main.setBackgroundColor("#0d0f1a");
     this.boardOrigin = {
       x: UI_LAYOUT.boardOriginX,

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
-import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS } from "../game/config";
+import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, DPR } from "../game/config";
 import { INTRO_ANIMATION, INTRO_EASING } from "../game/animations";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { wait, tweenPromise } from "../utils/helpers";
@@ -28,8 +28,7 @@ export class IntroScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#000000");
     this.sceneCenter = { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 };
 
-    // Без зума камеры — эффект приближения через scale фона
-    this.cameras.main.setZoom(1);
+    this.cameras.main.setZoom(DPR);
 
     this.runIntroSequence();
   }

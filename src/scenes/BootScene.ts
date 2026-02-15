@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
-import { CELL_SIZE, BASE_TYPES, setScreenSize, updateScaledValues, loadGameParams } from "../game/config";
+import { CELL_SIZE, BASE_TYPES, setScreenSize, updateScaledValues, loadGameParams, DPR } from "../game/config";
 import { TileKind } from "../match3/types";
 import { getSafeAreaInsets } from "../telegram/telegram";
 
@@ -60,7 +60,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   private buildSpecialTileTextures() {
-    const size = CELL_SIZE - 4;
+    const d = DPR;
+    const size = (CELL_SIZE - 4) * d;
     const specialTiles = [
       { color: 0xf7c948, accent: 0xffffff, key: ASSET_KEYS.tiles[TileKind.BoosterRow] },
       { color: 0xf17c67, accent: 0xffffff, key: ASSET_KEYS.tiles[TileKind.BoosterCol] },
@@ -70,10 +71,10 @@ export class BootScene extends Phaser.Scene {
     for (const tile of specialTiles) {
       const g = this.add.graphics();
       g.fillStyle(tile.color, 1);
-      g.fillRoundedRect(2, 2, size, size, 10);
-      g.lineStyle(4, tile.accent, 0.8);
-      g.strokeRoundedRect(2, 2, size, size, 10);
-      g.generateTexture(tile.key, CELL_SIZE, CELL_SIZE);
+      g.fillRoundedRect(2 * d, 2 * d, size, size, 10 * d);
+      g.lineStyle(4 * d, tile.accent, 0.8);
+      g.strokeRoundedRect(2 * d, 2 * d, size, size, 10 * d);
+      g.generateTexture(tile.key, CELL_SIZE * d, CELL_SIZE * d);
       g.destroy();
     }
 
@@ -81,40 +82,41 @@ export class BootScene extends Phaser.Scene {
   }
 
   private buildBombTexture() {
+    const d = DPR;
     const g = this.add.graphics();
-    const center = CELL_SIZE / 2;
-    const radius = (CELL_SIZE - 8) / 2;
+    const center = CELL_SIZE * d / 2;
+    const radius = (CELL_SIZE - 8) * d / 2;
 
     // Ярко-красный фон
     g.fillStyle(0xdd3333, 1);
     g.fillCircle(center, center, radius);
 
     // Тёмно-красная обводка
-    g.lineStyle(3, 0x991111, 1);
+    g.lineStyle(3 * d, 0x991111, 1);
     g.strokeCircle(center, center, radius);
 
     // Тёмный круг бомбы внутри
     g.fillStyle(0x333333, 1);
-    g.fillCircle(center, center + 3, radius * 0.55);
+    g.fillCircle(center, center + 3 * d, radius * 0.55);
 
     // Блик на бомбе
     g.fillStyle(0x555555, 1);
-    g.fillCircle(center - 5, center - 2, 4);
+    g.fillCircle(center - 5 * d, center - 2 * d, 4 * d);
 
     // Фитиль
-    g.lineStyle(3, 0xffaa00, 1);
+    g.lineStyle(3 * d, 0xffaa00, 1);
     g.beginPath();
     g.moveTo(center, center - radius * 0.35);
-    g.lineTo(center + 6, center - radius * 0.65);
+    g.lineTo(center + 6 * d, center - radius * 0.65);
     g.strokePath();
 
     // Искра на фитиле
     g.fillStyle(0xffff00, 1);
-    g.fillCircle(center + 7, center - radius * 0.7, 5);
+    g.fillCircle(center + 7 * d, center - radius * 0.7, 5 * d);
     g.fillStyle(0xffffff, 1);
-    g.fillCircle(center + 7, center - radius * 0.7, 2);
+    g.fillCircle(center + 7 * d, center - radius * 0.7, 2 * d);
 
-    g.generateTexture(ASSET_KEYS.tiles[TileKind.Bomb], CELL_SIZE, CELL_SIZE);
+    g.generateTexture(ASSET_KEYS.tiles[TileKind.Bomb], CELL_SIZE * d, CELL_SIZE * d);
     g.destroy();
   }
 }
