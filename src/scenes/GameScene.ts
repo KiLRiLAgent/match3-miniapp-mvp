@@ -1185,9 +1185,9 @@ export class GameScene extends Phaser.Scene {
     if (this.potentialMoves.length === 0) return;
     this.hintIndex = 0;
 
-    // First hint after 2s, then every 10s
+    // First hint after 3s, then every 5s
     this.hintTimer = this.time.addEvent({
-      delay: 2000,
+      delay: 3000,
       callback: () => {
         this.showNextHint();
         this.hintTimer = this.time.addEvent({
