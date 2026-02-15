@@ -238,7 +238,7 @@ export class IntroScene extends Phaser.Scene {
 
     // Позиции элементов
     const centerY = GAME_HEIGHT * 0.42;
-    const playerFrameY = GAME_HEIGHT * 0.68;
+    const playerFrameY = GAME_HEIGHT * 0.68 + 20;
 
     // Полупрозрачный фон под "Сафира: Пламя Бездны"
     const bossNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY - 60, 320, 44, 0x000000, 0.5);
@@ -263,9 +263,10 @@ export class IntroScene extends Phaser.Scene {
     const swordsScale = swordsTargetWidth / swordsImg.width;
     swordsImg.setScale(swordsScale);
 
-    // Огненное свечение под мечами — тот же scale (сохраняет пропорции)
+    // Огненное свечение под мечами — масштаб по собственной ширине
     const gloomImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.swordsGloom);
-    gloomImg.setScale(swordsScale);
+    const gloomScale = swordsTargetWidth / gloomImg.width;
+    gloomImg.setScale(gloomScale);
     gloomImg.setAlpha(0.5);
     gloomImg.setBlendMode(Phaser.BlendModes.ADD);
 
@@ -293,12 +294,6 @@ export class IntroScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
     });
-
-    // VS изображение
-    const vsImg = this.add.image(GAME_WIDTH / 2, centerY + 30, ASSET_KEYS.intro.vsLogo);
-    const vsScale = 120 / vsImg.width;
-    vsImg.setScale(vsScale);
-    container.add(vsImg);
 
     // Полупрозрачный фон под "Игрок"
     const playerNameBg = this.add.rectangle(GAME_WIDTH / 2, centerY + 110, 120, 40, 0x000000, 0.5);
