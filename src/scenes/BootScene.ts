@@ -24,6 +24,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image(ASSET_KEYS.intro.vsLogo, "assets/intro/vs_logo.png");
     this.load.image(ASSET_KEYS.intro.swords, "assets/intro/swords.png");
     this.load.image(ASSET_KEYS.intro.swordsGloom, "assets/intro/swords_gloom.png");
+    this.load.image(ASSET_KEYS.intro.playerGloom, "assets/intro/player_gloom.png");
     this.load.image(ASSET_KEYS.intro.playerFrame, "assets/intro/player_frame.png");
     this.load.image(ASSET_KEYS.intro.playerNameplate, "assets/intro/player_nameplate.png");
 

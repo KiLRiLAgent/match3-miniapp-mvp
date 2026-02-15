@@ -322,7 +322,33 @@ export class IntroScene extends Phaser.Scene {
     const frameTargetWidth = GAME_WIDTH * 0.92;
     const frameScale = frameTargetWidth / playerFrame.width;
     playerFrame.setScale(frameScale);
+
+    // Свечение под рамкой игрока
+    const playerGloom = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerGloom);
+    playerGloom.setDisplaySize(playerFrame.displayWidth, playerFrame.displayHeight);
+    playerGloom.setAlpha(0.5);
+    playerGloom.setBlendMode(Phaser.BlendModes.ADD);
+    container.add(playerGloom);
     container.add(playerFrame);
+
+    // Пульсация свечения рамки игрока
+    this.tweens.add({
+      targets: playerGloom,
+      scaleX: playerGloom.scaleX * 1.08,
+      scaleY: playerGloom.scaleY * 1.08,
+      duration: 800,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+    this.tweens.add({
+      targets: playerGloom,
+      alpha: 0.75,
+      duration: 500,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
 
     // Аватар игрока
     const playerAvatar = this.add.image(GAME_WIDTH / 2, playerFrameY - 30, ASSET_KEYS.player.avatar);
