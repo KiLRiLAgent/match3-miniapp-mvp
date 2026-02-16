@@ -39,5 +39,33 @@ setTimeout(() => {
     },
   };
 
-  new Phaser.Game(config);
+  const game = new Phaser.Game(config);
+
+  // Aggressive audio unlock for Telegram WebApp / mobile WebViews.
+  // Some WebViews require playing a real AudioBuffer during a user gesture,
+  // not just calling AudioContext.resume().
+  let audioUnlocked = false;
+  const unlockAudio = () => {
+    const snd = game.sound as Phaser.Sound.WebAudioSoundManager;
+    const ctx = snd?.context;
+    if (!ctx) return; // Game not ready yet — keep listener for next gesture
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    console.log(`[AudioUnlock] gesture detected, ctx.state=${ctx.state}`);
+    if (ctx.state === "suspended") ctx.resume();
+    // Play a silent buffer — required by some WebKit WebViews
+    try {
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch (_) { /* ignore */ }
+    document.removeEventListener("touchstart", unlockAudio, true);
+    document.removeEventListener("touchend", unlockAudio, true);
+    document.removeEventListener("click", unlockAudio, true);
+  };
+  document.addEventListener("touchstart", unlockAudio, { capture: true });
+  document.addEventListener("touchend", unlockAudio, { capture: true });
+  document.addEventListener("click", unlockAudio, { capture: true });
 }, 100);
