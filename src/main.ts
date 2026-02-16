@@ -27,6 +27,9 @@ setTimeout(() => {
     parent: "app",
     backgroundColor: "#0d0f1a",
     scene: [BootScene, IntroScene, GameScene],
+    audio: {
+      disableWebAudio: false,
+    },
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,

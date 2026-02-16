@@ -220,7 +220,12 @@ export class IntroScene extends Phaser.Scene {
 
     // VS контейнер появляется во время зума
     this.vsContainer = this.createVSScreen();
-    this.sound.play(ASSET_KEYS.sfx.vs, { volume: 0.6 });
+    const mgr = this.sound as Phaser.Sound.WebAudioSoundManager;
+    if (mgr.context?.state === "suspended") {
+      mgr.context.resume().then(() => this.sound.play(ASSET_KEYS.sfx.vs, { volume: 0.6 }));
+    } else {
+      this.sound.play(ASSET_KEYS.sfx.vs, { volume: 0.6 });
+    }
     const vsPromise = tweenPromise(this, {
       targets: this.vsContainer,
       alpha: 1,

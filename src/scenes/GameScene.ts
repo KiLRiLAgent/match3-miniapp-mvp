@@ -116,6 +116,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private sfx(key: string, volume = 0.5) {
+    const mgr = this.sound as Phaser.Sound.WebAudioSoundManager;
+    if (mgr.context?.state === "suspended") {
+      mgr.context.resume().then(() => this.sound.play(key, { volume }));
+      return;
+    }
     this.sound.play(key, { volume });
   }
 
