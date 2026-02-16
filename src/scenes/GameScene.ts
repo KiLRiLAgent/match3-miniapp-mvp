@@ -109,8 +109,14 @@ export class GameScene extends Phaser.Scene {
   private manaTipShown = false;
   private activeTip?: SpeechBubble;
 
+  private cascadeCount = 0;
+
   constructor() {
     super("GameScene");
+  }
+
+  private sfx(key: string, volume = 0.5) {
+    this.sound.play(key, { volume });
   }
 
   // Данные о состоянии фона/босса из интро (для плавного перехода)
@@ -539,6 +545,7 @@ export class GameScene extends Phaser.Scene {
     const tile = this.board.getTile(pos);
     if (!tile || !this.board.isSpecial(tile.kind)) return;
 
+    this.sfx(ASSET_KEYS.sfx.specialActivate);
     this.stopHintTimer();
     this.busy = true;
     this.resolveBoard([], [pos], [], true, "player").finally(() => {
@@ -576,6 +583,7 @@ export class GameScene extends Phaser.Scene {
         const matches = this.board.findMatches();
         if (!matches.length && !specials.length) {
           // invalid swap, revert
+          this.sfx(ASSET_KEYS.sfx.swapFail);
           this.board.swap(a, b);
           this.rebuildPositionMap();
           return this.animateSwap(tileA.id, tileB.id);
@@ -599,6 +607,7 @@ export class GameScene extends Phaser.Scene {
   ) {
     let loopMatches = matches;
     let loopSpecials = manualSpecials;
+    this.cascadeCount = 0;
 
     while (loopMatches.length || loopSpecials.length) {
       const outcome = this.board.computeClearOutcome(
@@ -607,6 +616,9 @@ export class GameScene extends Phaser.Scene {
         swapTargets
       );
       if (!outcome.cleared.length && !outcome.transforms.length) break;
+
+      this.sfx(this.cascadeCount === 0 ? ASSET_KEYS.sfx.match : ASSET_KEYS.sfx.cascade);
+      this.cascadeCount++;
 
       await this.animateClear(outcome, actor);
 
@@ -662,6 +674,7 @@ export class GameScene extends Phaser.Scene {
 
     // Проверка щита
     if (this.bossShieldDuration > 0) {
+      this.sfx(ASSET_KEYS.sfx.shieldBlock);
       if (this.shieldIcon) {
         showDamageNumber(this, this.shieldIcon.x, this.shieldIcon.y, 0, "shield");
       }
@@ -672,6 +685,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.bossHp = Math.max(0, this.bossHp - damage);
+    this.sfx(ASSET_KEYS.sfx.bossHit);
     if (this.bossImage) {
       this.flashBoss();
       showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, damage, "damage");
@@ -682,6 +696,7 @@ export class GameScene extends Phaser.Scene {
   private applyDamageToPlayer(damage: number) {
     if (damage <= 0) return;
 
+    this.sfx(ASSET_KEYS.sfx.playerHit);
     this.playerHp = clamp(this.playerHp - damage, 0, GAME_PARAMS.player.hpMax);
     if (this.playerAvatar) {
       showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 30, damage, "damage");
@@ -695,8 +710,11 @@ export class GameScene extends Phaser.Scene {
     this.mana = clamp(this.mana + manaGain, 0, GAME_PARAMS.player.manaMax);
     const actualGain = this.mana - oldMana;
 
-    if (actualGain > 0 && this.playerAvatar) {
-      showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 20, actualGain, "mana");
+    if (actualGain > 0) {
+      this.sfx(ASSET_KEYS.sfx.mana, 0.3);
+      if (this.playerAvatar) {
+        showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 20, actualGain, "mana");
+      }
     }
 
     // Tip: first time mana is enough for cheapest skill
@@ -717,8 +735,11 @@ export class GameScene extends Phaser.Scene {
     this.playerHp = clamp(this.playerHp + healGain, 0, GAME_PARAMS.player.hpMax);
     const actualHeal = this.playerHp - oldHp;
 
-    if (actualHeal > 0 && this.playerAvatar) {
-      showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 40, actualHeal, "heal");
+    if (actualHeal > 0) {
+      this.sfx(ASSET_KEYS.sfx.heal);
+      if (this.playerAvatar) {
+        showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 40, actualHeal, "heal");
+      }
     }
   }
 
@@ -814,6 +835,7 @@ export class GameScene extends Phaser.Scene {
       return Promise.resolve();
     }
 
+    this.sfx(ASSET_KEYS.sfx.swap);
     return Promise.all([
       this.createTween(spriteA, this.toWorld(posA), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
       this.createTween(spriteB, this.toWorld(posB), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
@@ -844,6 +866,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private animateTransforms(transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position }>) {
+    if (transforms.length > 0) {
+      this.sfx(ASSET_KEYS.sfx.specialCreate);
+    }
     transforms.forEach((transform) => {
       // Получаем тайл на позиции (ещё не трансформирован в Board)
       const tile = this.board.getTile(transform.pos);
@@ -943,6 +968,9 @@ export class GameScene extends Phaser.Scene {
     moves: Array<{ tile: Tile; to: Position }>;
     newTiles: Array<{ tile: Tile; pos: Position }>;
   }) {
+    if (collapse.moves.length > 0 || collapse.newTiles.length > 0) {
+      this.sfx(ASSET_KEYS.sfx.tileCollapse, 0.3);
+    }
     const tweens: Promise<void>[] = [];
 
     collapse.moves.forEach(({ tile, to }) => {
@@ -1045,6 +1073,9 @@ export class GameScene extends Phaser.Scene {
     this.mana -= cfg.cost;
     this.skillCooldowns[id] = cfg.cooldown; // Ставим на кулдаун
 
+    // Звук общий для всех скиллов
+    this.sfx(ASSET_KEYS.sfx.skill);
+
     // Обработка разных скиллов
     if (id === "powerStrike") {
       this.applyDamageToBoss(cfg.damage);
@@ -1116,6 +1147,7 @@ export class GameScene extends Phaser.Scene {
     if (!tile) return;
 
     // Удалить фишку без эффекта
+    this.sfx(ASSET_KEYS.sfx.hammer);
     this.board.removeTile(pos);
     const sprite = this.tileSprites.get(tile.id);
     sprite?.destroy();
@@ -1157,6 +1189,7 @@ export class GameScene extends Phaser.Scene {
     this.stopHintTimer();
     this.gameOver = true;
     this.busy = true;
+    this.sfx(ASSET_KEYS.sfx.victory);
     this.showGameEndModal("Victory!", "#44ff66", "Restart");
   }
 
@@ -1585,6 +1618,7 @@ export class GameScene extends Phaser.Scene {
 
   private async executeAttack() {
     const config = BOSS_ABILITIES.attack;
+    this.sfx(ASSET_KEYS.sfx.bossAttack);
     this.cameras.main.shake(200, 0.015 / DPR);
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
@@ -1626,6 +1660,7 @@ export class GameScene extends Phaser.Scene {
   private async executeShield() {
     const config = BOSS_ABILITIES.shield;
     await this.withCutscene(config.name, async () => {
+      this.sfx(ASSET_KEYS.sfx.shieldActivate);
       this.bossShieldDuration = config.shieldDuration;
       this.shieldIcon?.show(this.bossShieldDuration);
       if (this.shieldIcon) {
@@ -1642,12 +1677,14 @@ export class GameScene extends Phaser.Scene {
   private async executePowerStrike() {
     const config = BOSS_ABILITIES.powerStrike;
     await this.withCutscene(config.name, async () => {
+      this.sfx(ASSET_KEYS.sfx.bossAttack);
       this.cameras.main.shake(300, 0.02 / DPR);
       this.applyDamageToPlayer(config.damage);
       this.flashPlayerAvatar();
 
       const manaDrain = Math.min(this.mana, config.manaDrain);
       if (manaDrain > 0) {
+        this.sfx(ASSET_KEYS.sfx.manaDrain);
         this.mana -= manaDrain;
         if (this.playerAvatar) {
           showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 10, manaDrain, "mana_loss");
@@ -1658,6 +1695,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async animateBombsAppear(bombs: Array<{ pos: Position; tile: Tile }>) {
+    this.sfx(ASSET_KEYS.sfx.bombPlace);
     const tweens: Promise<void>[] = [];
 
     bombs.forEach(({ pos, tile }) => {
@@ -1724,6 +1762,7 @@ export class GameScene extends Phaser.Scene {
         duration: 350,
         ease: "Quad.easeIn",
         onComplete: () => {
+          this.sfx(ASSET_KEYS.sfx.bombExplode);
           this.cameras.main.shake(120, 0.012 / DPR);
           this.flashPlayerAvatar();
           resolve();
@@ -1760,6 +1799,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private animateBombDefused(pos: Position) {
+    this.sfx(ASSET_KEYS.sfx.bombDefuse);
     const worldPos = this.toWorld(pos);
     const flash = this.add.circle(worldPos.x, worldPos.y, CELL_SIZE / 2, UI_COLORS.defusedFlash, 0.8)
       .setDepth(100);
@@ -1808,6 +1848,7 @@ export class GameScene extends Phaser.Scene {
     fullscreenBoss: Phaser.GameObjects.Image,
     abilityText: Phaser.GameObjects.Text
   ): Promise<void> {
+    this.sfx(ASSET_KEYS.sfx.abilityAnnounce);
     return new Promise<void>((resolve) => {
       this.tweens.add({
         targets: overlay,
@@ -1861,6 +1902,7 @@ export class GameScene extends Phaser.Scene {
     this.stopHintTimer();
     this.gameOver = true;
     this.busy = true;
+    this.sfx(ASSET_KEYS.sfx.defeat);
     this.showGameEndModal("Defeat", "#ff6666", "Retry");
   }
 

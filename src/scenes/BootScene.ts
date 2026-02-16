@@ -40,6 +40,11 @@ export class BootScene extends Phaser.Scene {
       const ext = TILE_EXTENSIONS[kind] ?? "png";
       this.load.image(key, `assets/tiles/${key}.${ext}`);
     });
+
+    // Load SFX
+    Object.values(ASSET_KEYS.sfx).forEach(key => {
+      this.load.audio(key, [`assets/sfx/${key}.ogg`, `assets/sfx/${key}.mp3`]);
+    });
   }
 
   create() {
