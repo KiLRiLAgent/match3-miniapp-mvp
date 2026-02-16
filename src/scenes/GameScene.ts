@@ -117,15 +117,10 @@ export class GameScene extends Phaser.Scene {
 
   private sfx(key: string, volume = 0.5) {
     const mgr = this.sound as Phaser.Sound.WebAudioSoundManager;
-    const ctx = mgr.context;
-    if (ctx?.state === "suspended") {
-      ctx.resume().then(() => {
-        console.log(`[SFX] resumed ctx, playing ${key}, state=${ctx.state}`);
-        this.sound.play(key, { volume });
-      });
+    if (mgr.context?.state === "suspended") {
+      mgr.context.resume().then(() => this.sound.play(key, { volume }));
       return;
     }
-    console.log(`[SFX] playing ${key}, ctx=${ctx?.state}, locked=${this.sound.locked}`);
     this.sound.play(key, { volume });
   }
 

@@ -221,13 +221,8 @@ export class IntroScene extends Phaser.Scene {
     // VS контейнер появляется во время зума
     this.vsContainer = this.createVSScreen();
     const mgr = this.sound as Phaser.Sound.WebAudioSoundManager;
-    const ctx = mgr.context;
-    console.log(`[SFX-Intro] VS sound, ctx=${ctx?.state}, locked=${this.sound.locked}`);
-    if (ctx?.state === "suspended") {
-      ctx.resume().then(() => {
-        console.log(`[SFX-Intro] resumed, playing VS, state=${ctx.state}`);
-        this.sound.play(ASSET_KEYS.sfx.vs, { volume: 0.6 });
-      });
+    if (mgr.context?.state === "suspended") {
+      mgr.context.resume().then(() => this.sound.play(ASSET_KEYS.sfx.vs, { volume: 0.6 }));
     } else {
       this.sound.play(ASSET_KEYS.sfx.vs, { volume: 0.6 });
     }
