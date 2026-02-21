@@ -89,6 +89,8 @@ export class GameScene extends Phaser.Scene {
   private playerAvatar?: Phaser.GameObjects.Rectangle;
 
   private bossShieldDuration = 0;
+  private bossShieldOverlay?: Phaser.GameObjects.Graphics;
+  private bossShieldPulseTween?: Phaser.Tweens.Tween;
   private bombCooldownTexts = new Map<number, Phaser.GameObjects.Text>();
 
   private boardOrigin = { x: 0, y: 0 };
@@ -144,6 +146,8 @@ export class GameScene extends Phaser.Scene {
     this.turnText = undefined;
     this.hammerOverlay = undefined;
     this.hammerHint = undefined;
+    this.bossShieldOverlay = undefined;
+    this.bossShieldPulseTween = undefined;
     this.skillButtons = {};
 
     this.cameras.main.setZoom(DPR);
@@ -245,6 +249,7 @@ export class GameScene extends Phaser.Scene {
     this.clearBombCooldownTexts();
     this.rebuildPositionMap();
     this.shieldIcon?.hide();
+    this.hideBossShieldOverlay(true);
   }
 
   private clearBombCooldownTexts() {
@@ -495,6 +500,22 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(initialAlpha);
     // Depth 0.5 чтобы закрывать Сафиру (0), но быть под тайлами (1)
     bg.setDepth(0.5);
+
+    // Semi-transparent grid lines
+    const gridGfx = this.add.graphics();
+    gridGfx.lineStyle(1, 0xffffff, 0.08);
+    for (let col = 1; col < BOARD_WIDTH; col++) {
+      const lx = this.boardOrigin.x + col * CELL_SIZE;
+      gridGfx.moveTo(lx, this.boardOrigin.y);
+      gridGfx.lineTo(lx, this.boardOrigin.y + heightPx);
+    }
+    for (let row = 1; row < BOARD_HEIGHT; row++) {
+      const ly = this.boardOrigin.y + row * CELL_SIZE;
+      gridGfx.moveTo(this.boardOrigin.x, ly);
+      gridGfx.lineTo(this.boardOrigin.x + widthPx, ly);
+    }
+    gridGfx.strokePath();
+    gridGfx.setDepth(0.6).setAlpha(initialAlpha);
 
     for (let y = 0; y < BOARD_HEIGHT; y++) {
       for (let x = 0; x < BOARD_WIDTH; x++) {
@@ -1494,6 +1515,9 @@ export class GameScene extends Phaser.Scene {
     if (this.bossShieldDuration > 0) {
       this.bossShieldDuration--;
       this.shieldIcon?.updateDuration(this.bossShieldDuration);
+      if (this.bossShieldDuration <= 0) {
+        this.hideBossShieldOverlay();
+      }
     }
 
     // Тикаем бомбы на поле
@@ -1699,7 +1723,13 @@ export class GameScene extends Phaser.Scene {
       if (this.shieldIcon) {
         showDamageNumber(this, this.shieldIcon.x, this.shieldIcon.y, 0, "shield");
       }
+
+      // Chain-closing animation during cutscene
+      await this.animateShieldChainClose();
     });
+
+    // Show persistent shield overlay on boss after cutscene
+    this.showBossShieldOverlay();
 
     if (!this.shieldTipShown) {
       this.shieldTipShown = true;
@@ -1918,6 +1948,108 @@ export class GameScene extends Phaser.Scene {
           resolve();
         },
       });
+    });
+  }
+
+  private async animateShieldChainClose(): Promise<void> {
+    if (!this.bossImage) return;
+    const cx = this.bossImage.x;
+    const cy = this.bossImage.y;
+    const radius = Math.max(this.bossImage.displayWidth, this.bossImage.displayHeight) * 0.45;
+
+    const gfx = this.add.graphics();
+    gfx.setDepth(502); // Above cutscene elements
+
+    return new Promise<void>(resolve => {
+      const progress = { value: 0 };
+      this.tweens.add({
+        targets: progress,
+        value: 1,
+        duration: 600,
+        ease: "Quad.easeInOut",
+        onUpdate: () => {
+          gfx.clear();
+          const endAngle = progress.value * Math.PI * 2;
+          // Glowing arc
+          gfx.lineStyle(4, 0x66ccff, 0.9);
+          gfx.beginPath();
+          gfx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + endAngle, false);
+          gfx.strokePath();
+          // Inner glow
+          gfx.lineStyle(8, 0x3399ff, 0.3);
+          gfx.beginPath();
+          gfx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + endAngle, false);
+          gfx.strokePath();
+        },
+        onComplete: () => {
+          gfx.destroy();
+          resolve();
+        },
+      });
+    });
+  }
+
+  private showBossShieldOverlay() {
+    this.hideBossShieldOverlay(true);
+    if (!this.bossImage) return;
+
+    const cx = this.bossImage.x;
+    const cy = this.bossImage.y;
+    const radius = Math.max(this.bossImage.displayWidth, this.bossImage.displayHeight) * 0.45;
+
+    const gfx = this.add.graphics();
+    gfx.setDepth(0.8); // Above board bg, below tiles
+
+    // Semi-transparent blue fill
+    gfx.fillStyle(0x3399ff, 0.12);
+    gfx.fillCircle(cx, cy, radius);
+    // Glowing edge
+    gfx.lineStyle(3, 0x66ccff, 0.5);
+    gfx.strokeCircle(cx, cy, radius);
+
+    gfx.setAlpha(0);
+    this.bossShieldOverlay = gfx;
+
+    // Fade in, then start pulsing
+    this.tweens.add({
+      targets: gfx,
+      alpha: 1,
+      duration: 300,
+      ease: "Quad.easeOut",
+      onComplete: () => {
+        this.bossShieldPulseTween = this.tweens.add({
+          targets: gfx,
+          alpha: 0.6,
+          duration: 1200,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      },
+    });
+  }
+
+  private hideBossShieldOverlay(immediate = false) {
+    if (this.bossShieldPulseTween) {
+      this.bossShieldPulseTween.stop();
+      this.bossShieldPulseTween = undefined;
+    }
+    if (!this.bossShieldOverlay) return;
+
+    if (immediate) {
+      this.bossShieldOverlay.destroy();
+      this.bossShieldOverlay = undefined;
+      return;
+    }
+
+    const gfx = this.bossShieldOverlay;
+    this.bossShieldOverlay = undefined;
+    this.tweens.add({
+      targets: gfx,
+      alpha: 0,
+      duration: 400,
+      ease: "Quad.easeIn",
+      onComplete: () => gfx.destroy(),
     });
   }
 
