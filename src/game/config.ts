@@ -28,11 +28,14 @@ export function setScreenSize(
 export const BOARD_WIDTH = 8;
 export const BOARD_HEIGHT = 7;
 
-// Фиксированные размеры элементов (не масштабируются!)
-export const CELL_SIZE = 46; // Размер ячейки
+// Размеры поля (динамически вычисляются)
+export let CELL_SIZE = 46; // Размер ячейки (пересчитывается в updateScaledValues)
 export const BOARD_PADDING = 8;
+export const SCREEN_PADDING = 16; // Отступ от краёв экрана
 
 export function updateScaledValues() {
+  // Вычисляем CELL_SIZE чтобы поле занимало всю ширину экрана
+  CELL_SIZE = Math.floor((GAME_WIDTH - 2 * SCREEN_PADDING - 2 * BOARD_PADDING) / BOARD_WIDTH);
   UI_LAYOUT = getUILayout();
 }
 
@@ -232,7 +235,7 @@ export const getUILayout = () => {
   const boardHeight = BOARD_HEIGHT * CELL_SIZE;
 
   // === СНИЗУ ВВЕРХ ===
-  const screenPadding = 16; // Отступ от краёв экрана
+  const screenPadding = SCREEN_PADDING;
   const bottomPadding = 16 + SAFE_AREA.bottom; // Базовый отступ
 
   // 1. Кнопки скиллов (круглые, самый низ)
@@ -260,10 +263,10 @@ export const getUILayout = () => {
   const playerBarsX = avatarX + avatarWidth / 2 + 8;
   const playerBarWidth = GAME_WIDTH - playerBarsX - screenPadding;
 
-  // 5. Match-3 поле (над нижней панелью)
+  // 5. Match-3 поле (над нижней панелью, выровнено по ширине)
   const boardBottomY = playerHpBarY - 12;
   const boardOriginY = boardBottomY - boardHeight;
-  const boardOriginX = (GAME_WIDTH - boardWidth) / 2;
+  const boardOriginX = screenPadding + BOARD_PADDING;
 
   // 6. HP бар босса (над полем, меньше ширина для круглой иконки)
   const cooldownIconSize = 40;

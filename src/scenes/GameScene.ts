@@ -378,6 +378,24 @@ export class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.openSettings());
 
+    // === SPINE POC (Spineboy idle) ===
+    try {
+      if (this.add.spine) {
+        const spineboy = this.add.spine(
+          L.avatarX,
+          L.avatarY + L.avatarHeight / 2,
+          "spineboy",
+          "idle",
+          true
+        );
+        spineboy.setScale(0.08);
+        spineboy.setDepth(5);
+        spineboy.setAlpha(initialAlpha);
+      }
+    } catch {
+      // Spine plugin not loaded — skip silently
+    }
+
     // Режим настройки фона
     if (this.bgDebugMode) {
       this.buildBgDebugUI();
@@ -1257,7 +1275,7 @@ export class GameScene extends Phaser.Scene {
     for (const id of this.hintedSpriteIds) {
       const sprite = this.tileSprites.get(id);
       if (sprite) {
-        sprite.clearTint();
+        sprite.preFX?.clear();
         const pos = this.tilePositions.get(id);
         if (pos) {
           const world = this.toWorld(pos);
@@ -1275,13 +1293,23 @@ export class GameScene extends Phaser.Scene {
     const move = this.potentialMoves[this.hintIndex % this.potentialMoves.length];
     this.hintIndex++;
 
-    // Tint all match tiles
-    for (const pos of move.matchPositions) {
+    // Glow all match tiles + from tile
+    const allHintPositions = [...move.matchPositions, move.from];
+    for (const pos of allHintPositions) {
       const tile = this.board.getTile(pos);
       if (!tile) continue;
       const sprite = this.tileSprites.get(tile.id);
-      if (!sprite) continue;
-      sprite.setTint(HINT_ANIMATION.tintColor);
+      if (!sprite || !sprite.preFX) continue;
+      const glow = sprite.preFX.addGlow(HINT_ANIMATION.glowColor, 0);
+      const tween = this.tweens.add({
+        targets: glow,
+        outerStrength: HINT_ANIMATION.glowMaxStrength,
+        duration: HINT_ANIMATION.glowPulseDuration,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+      this.hintTweens.push(tween);
       this.hintedSpriteIds.push(tile.id);
     }
 
