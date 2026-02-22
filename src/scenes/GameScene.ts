@@ -1289,9 +1289,8 @@ export class GameScene extends Phaser.Scene {
 
     for (const id of this.hintedSpriteIds) {
       const sprite = this.tileSprites.get(id);
-      if (sprite) {
-        sprite.preFX?.clear();
-        sprite.resetPipeline();
+      if (sprite?.scene) {
+        sprite.setAlpha(1);
         const pos = this.tilePositions.get(id);
         if (pos) {
           const world = this.toWorld(pos);
@@ -1309,17 +1308,16 @@ export class GameScene extends Phaser.Scene {
     const move = this.potentialMoves[this.hintIndex % this.potentialMoves.length];
     this.hintIndex++;
 
-    // Glow all match tiles + from tile
+    // Alpha-pulse all match tiles + from tile (no preFX — safe on Android)
     const allHintPositions = [...move.matchPositions, move.from];
     for (const pos of allHintPositions) {
       const tile = this.board.getTile(pos);
       if (!tile) continue;
       const sprite = this.tileSprites.get(tile.id);
-      if (!sprite || !sprite.preFX) continue;
-      const glow = sprite.preFX.addGlow(HINT_ANIMATION.glowColor, 0);
+      if (!sprite) continue;
       const tween = this.tweens.add({
-        targets: glow,
-        outerStrength: HINT_ANIMATION.glowMaxStrength,
+        targets: sprite,
+        alpha: { from: 0.4, to: 1 },
         duration: HINT_ANIMATION.glowPulseDuration,
         yoyo: true,
         repeat: -1,
@@ -1962,28 +1960,22 @@ export class GameScene extends Phaser.Scene {
       strokeThickness: 3,
     }).setOrigin(0.5).setDepth(0.5).setAlpha(0);
 
-    // Add white glow effect (same as hint tiles)
-    const glow = img.preFX?.addGlow(HINT_ANIMATION.glowColor, 0);
-
-    // Fade in
+    // Fade in + alpha pulse (no preFX — safe on Android)
     this.tweens.add({
-      targets: [img, this.bossShieldText],
+      targets: this.bossShieldText,
       alpha: 1,
       duration: 300,
       ease: "Quad.easeOut",
     });
 
-    // Pulse glow
-    if (glow) {
-      this.bossShieldGlowTween = this.tweens.add({
-        targets: glow,
-        outerStrength: HINT_ANIMATION.glowMaxStrength,
-        duration: HINT_ANIMATION.glowPulseDuration,
-        yoyo: true,
-        repeat: -1,
-        ease: "Sine.easeInOut",
-      });
-    }
+    this.bossShieldGlowTween = this.tweens.add({
+      targets: img,
+      alpha: { from: 0.7, to: 1 },
+      duration: HINT_ANIMATION.glowPulseDuration,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
   }
 
   private hideBossShieldOverlay(immediate = false) {
@@ -1992,8 +1984,6 @@ export class GameScene extends Phaser.Scene {
       this.bossShieldGlowTween = undefined;
     }
     if (!this.bossShieldOverlay) return;
-
-    this.bossShieldOverlay.preFX?.clear();
 
     if (immediate) {
       this.bossShieldOverlay.destroy();
