@@ -1291,6 +1291,7 @@ export class GameScene extends Phaser.Scene {
       const sprite = this.tileSprites.get(id);
       if (sprite) {
         sprite.preFX?.clear();
+        sprite.resetPipeline();
         const pos = this.tilePositions.get(id);
         if (pos) {
           const world = this.toWorld(pos);
