@@ -377,17 +377,17 @@ export class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.openSettings());
 
-    // === SPINE POC (Spineboy idle) ===
+    // === SPINE POC (Spineboy idle, top-left corner) ===
     try {
       if (this.add.spine) {
         const spineboy = this.add.spine(
-          L.avatarX,
-          L.avatarY + L.avatarHeight / 2,
+          50 + SAFE_AREA.left,
+          90 + SAFE_AREA.top,
           "spineboy",
-          "idle",
+          "run",
           true
         );
-        spineboy.setScale(0.08);
+        spineboy.setScale(0.12);
         spineboy.setDepth(5);
         spineboy.setAlpha(initialAlpha);
       }
