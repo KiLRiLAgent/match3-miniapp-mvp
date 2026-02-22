@@ -37,7 +37,6 @@ import { CooldownIcon } from "../ui/CooldownIcon";
 import { showDamageNumber } from "../ui/DamageNumber";
 import { BossAbilityManager } from "../game/BossAbility";
 import { BOSS_ABILITIES } from "../game/config";
-import { ShieldIcon } from "../ui/ShieldIcon";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
 import { clamp, wait, tweenPromise } from "../utils/helpers";
@@ -85,12 +84,12 @@ export class GameScene extends Phaser.Scene {
 
   private bossAbilityManager!: BossAbilityManager;
   private cooldownIcon?: CooldownIcon;
-  private shieldIcon?: ShieldIcon;
   private playerAvatar?: Phaser.GameObjects.Rectangle;
 
   private bossShieldDuration = 0;
   private bossShieldOverlay?: Phaser.GameObjects.Image;
   private bossShieldGlowTween?: Phaser.Tweens.Tween;
+  private bossShieldText?: Phaser.GameObjects.Text;
   private bombCooldownTexts = new Map<number, Phaser.GameObjects.Text>();
 
   private boardOrigin = { x: 0, y: 0 };
@@ -141,13 +140,13 @@ export class GameScene extends Phaser.Scene {
     this.playerHpBar = undefined;
     this.manaBar = undefined;
     this.cooldownIcon = undefined;
-    this.shieldIcon = undefined;
     this.playerAvatar = undefined;
     this.turnText = undefined;
     this.hammerOverlay = undefined;
     this.hammerHint = undefined;
     this.bossShieldOverlay = undefined;
     this.bossShieldGlowTween = undefined;
+    this.bossShieldText = undefined;
     this.skillButtons = {};
 
     this.cameras.main.setZoom(DPR);
@@ -248,7 +247,6 @@ export class GameScene extends Phaser.Scene {
     this.tilePositions.clear();
     this.clearBombCooldownTexts();
     this.rebuildPositionMap();
-    this.shieldIcon?.hide();
     this.hideBossShieldOverlay(true);
   }
 
@@ -300,10 +298,6 @@ export class GameScene extends Phaser.Scene {
     // === ИКОНКА КУЛДАУНА ===
     this.cooldownIcon = new CooldownIcon(this, L.cooldownIconX, L.cooldownIconY, L.cooldownIconSize);
     this.cooldownIcon.setDepth(4).setAlpha(initialAlpha);
-
-    // === ИКОНКА ЩИТА ===
-    this.shieldIcon = new ShieldIcon(this, GAME_WIDTH / 2, L.bossHpBarY - 30, 40);
-    this.shieldIcon.setDepth(4).setAlpha(initialAlpha);
 
     // === АВАТАР ИГРОКА (изображение с золотой рамкой и маской) ===
     // Золотая рамка
@@ -719,8 +713,8 @@ export class GameScene extends Phaser.Scene {
     // Проверка щита
     if (this.bossShieldDuration > 0) {
       this.sfx(ASSET_KEYS.sfx.shieldBlock);
-      if (this.shieldIcon) {
-        showDamageNumber(this, this.shieldIcon.x, this.shieldIcon.y, 0, "shield");
+      if (this.bossShieldOverlay) {
+        showDamageNumber(this, this.bossShieldOverlay.x, this.bossShieldOverlay.y, 0, "shield");
       }
       if (this.bossImage) {
         this.shakeTarget(this.bossImage, VISUAL_EFFECTS.damageShakeOffset * 0.3);
@@ -1514,7 +1508,7 @@ export class GameScene extends Phaser.Scene {
     // Тикаем щит босса
     if (this.bossShieldDuration > 0) {
       this.bossShieldDuration--;
-      this.shieldIcon?.updateDuration(this.bossShieldDuration);
+      this.bossShieldText?.setText(this.bossShieldDuration.toString());
       if (this.bossShieldDuration <= 0) {
         this.hideBossShieldOverlay();
       }
@@ -1719,10 +1713,6 @@ export class GameScene extends Phaser.Scene {
     await this.withCutscene(config.name, async () => {
       this.sfx(ASSET_KEYS.sfx.shieldActivate);
       this.bossShieldDuration = config.shieldDuration;
-      this.shieldIcon?.show(this.bossShieldDuration);
-      if (this.shieldIcon) {
-        showDamageNumber(this, this.shieldIcon.x, this.shieldIcon.y, 0, "shield");
-      }
 
       // Show shield image appearing during cutscene
       this.showBossShieldOverlay();
@@ -1952,20 +1942,31 @@ export class GameScene extends Phaser.Scene {
     this.hideBossShieldOverlay(true);
     if (!this.bossImage) return;
 
-    const img = this.add.image(this.bossImage.x, this.bossImage.y, ASSET_KEYS.boss.shield);
-    const targetHeight = this.bossImage.displayHeight * 0.4;
+    const shieldY = this.bossImage.y - this.bossImage.displayHeight * 0.35;
+    const img = this.add.image(this.bossImage.x, shieldY, ASSET_KEYS.boss.shield);
+    const targetHeight = this.bossImage.displayHeight * 0.2;
     const scale = targetHeight / img.height;
     img.setScale(scale);
     img.setDepth(0.4);
     img.setAlpha(0);
     this.bossShieldOverlay = img;
 
+    // Duration text on the shield
+    this.bossShieldText = this.add.text(img.x, img.y + 2, this.bossShieldDuration.toString(), {
+      fontSize: "18px",
+      fontFamily: "Arial, sans-serif",
+      color: "#ffffff",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(0.5).setAlpha(0);
+
     // Add white glow effect (same as hint tiles)
     const glow = img.preFX?.addGlow(HINT_ANIMATION.glowColor, 0);
 
     // Fade in
     this.tweens.add({
-      targets: img,
+      targets: [img, this.bossShieldText],
       alpha: 1,
       duration: 300,
       ease: "Quad.easeOut",
@@ -1996,17 +1997,24 @@ export class GameScene extends Phaser.Scene {
     if (immediate) {
       this.bossShieldOverlay.destroy();
       this.bossShieldOverlay = undefined;
+      this.bossShieldText?.destroy();
+      this.bossShieldText = undefined;
       return;
     }
 
     const img = this.bossShieldOverlay;
+    const txt = this.bossShieldText;
     this.bossShieldOverlay = undefined;
+    this.bossShieldText = undefined;
     this.tweens.add({
-      targets: img,
+      targets: [img, txt].filter(Boolean),
       alpha: 0,
       duration: 400,
       ease: "Quad.easeIn",
-      onComplete: () => img.destroy(),
+      onComplete: () => {
+        img.destroy();
+        txt?.destroy();
+      },
     });
   }
 
