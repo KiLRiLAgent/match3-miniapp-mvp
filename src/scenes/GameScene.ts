@@ -89,8 +89,8 @@ export class GameScene extends Phaser.Scene {
   private playerAvatar?: Phaser.GameObjects.Rectangle;
 
   private bossShieldDuration = 0;
-  private bossShieldOverlay?: Phaser.GameObjects.Graphics;
-  private bossShieldPulseTween?: Phaser.Tweens.Tween;
+  private bossShieldOverlay?: Phaser.GameObjects.Image;
+  private bossShieldGlowTween?: Phaser.Tweens.Tween;
   private bombCooldownTexts = new Map<number, Phaser.GameObjects.Text>();
 
   private boardOrigin = { x: 0, y: 0 };
@@ -147,7 +147,7 @@ export class GameScene extends Phaser.Scene {
     this.hammerOverlay = undefined;
     this.hammerHint = undefined;
     this.bossShieldOverlay = undefined;
-    this.bossShieldPulseTween = undefined;
+    this.bossShieldGlowTween = undefined;
     this.skillButtons = {};
 
     this.cameras.main.setZoom(DPR);
@@ -830,7 +830,7 @@ export class GameScene extends Phaser.Scene {
 
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
-      .setDisplaySize(CELL_SIZE - 6, CELL_SIZE - 6)
+      .setDisplaySize(CELL_SIZE - 2, CELL_SIZE - 2)
       .setAlpha(alpha)
       .setInteractive({ useHandCursor: true });
     sprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -923,7 +923,7 @@ export class GameScene extends Phaser.Scene {
         const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
         sprite.setTexture(textureKey);
         // ВАЖНО: пересчитываем размер после смены текстуры
-        sprite.setDisplaySize(CELL_SIZE - 6, CELL_SIZE - 6);
+        sprite.setDisplaySize(CELL_SIZE - 2, CELL_SIZE - 2);
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
@@ -1683,8 +1683,8 @@ export class GameScene extends Phaser.Scene {
     await wait(this, 300);
   }
 
-  private async withCutscene(abilityName: string, logic: () => Promise<void>) {
-    const { overlay, fullscreenBoss, abilityText } = this.createAbilityCutscene(abilityName);
+  private async withCutscene(abilityName: string, logic: () => Promise<void>, bossTextureKey?: string) {
+    const { overlay, fullscreenBoss, abilityText } = this.createAbilityCutscene(abilityName, bossTextureKey);
     await this.showAbilityCutscene(overlay, fullscreenBoss, abilityText);
     await wait(this, 600);
     await logic();
@@ -1724,12 +1724,9 @@ export class GameScene extends Phaser.Scene {
         showDamageNumber(this, this.shieldIcon.x, this.shieldIcon.y, 0, "shield");
       }
 
-      // Chain-closing animation during cutscene
-      await this.animateShieldChainClose();
-    });
-
-    // Show persistent shield overlay on boss after cutscene
-    this.showBossShieldOverlay();
+      // Show shield image appearing during cutscene
+      this.showBossShieldOverlay();
+    }, ASSET_KEYS.boss.battle);
 
     if (!this.shieldTipShown) {
       this.shieldTipShown = true;
@@ -1877,14 +1874,14 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private createAbilityCutscene(abilityName: string) {
+  private createAbilityCutscene(abilityName: string, bossTextureKey?: string) {
     const overlay = this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0)
       .setDepth(500);
 
     const fullscreenBoss = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 35, ASSET_KEYS.boss.ulta)
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 35, bossTextureKey ?? ASSET_KEYS.boss.ulta)
       .setDisplaySize(588, 588)
       .setOrigin(0.5)
       .setAlpha(0)
@@ -1951,90 +1948,50 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private async animateShieldChainClose(): Promise<void> {
-    if (!this.bossImage) return;
-    const cx = this.bossImage.x;
-    const cy = this.bossImage.y;
-    const radius = Math.max(this.bossImage.displayWidth, this.bossImage.displayHeight) * 0.45;
-
-    const gfx = this.add.graphics();
-    gfx.setDepth(502); // Above cutscene elements
-
-    return new Promise<void>(resolve => {
-      const progress = { value: 0 };
-      this.tweens.add({
-        targets: progress,
-        value: 1,
-        duration: 600,
-        ease: "Quad.easeInOut",
-        onUpdate: () => {
-          gfx.clear();
-          const endAngle = progress.value * Math.PI * 2;
-          // Glowing arc
-          gfx.lineStyle(4, 0x66ccff, 0.9);
-          gfx.beginPath();
-          gfx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + endAngle, false);
-          gfx.strokePath();
-          // Inner glow
-          gfx.lineStyle(8, 0x3399ff, 0.3);
-          gfx.beginPath();
-          gfx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + endAngle, false);
-          gfx.strokePath();
-        },
-        onComplete: () => {
-          gfx.destroy();
-          resolve();
-        },
-      });
-    });
-  }
-
   private showBossShieldOverlay() {
     this.hideBossShieldOverlay(true);
     if (!this.bossImage) return;
 
-    const cx = this.bossImage.x;
-    const cy = this.bossImage.y;
-    const radius = Math.max(this.bossImage.displayWidth, this.bossImage.displayHeight) * 0.45;
+    const img = this.add.image(this.bossImage.x, this.bossImage.y, ASSET_KEYS.boss.shield);
+    const targetHeight = this.bossImage.displayHeight * 0.4;
+    const scale = targetHeight / img.height;
+    img.setScale(scale);
+    img.setDepth(0.4);
+    img.setAlpha(0);
+    this.bossShieldOverlay = img;
 
-    const gfx = this.add.graphics();
-    gfx.setDepth(0.8); // Above board bg, below tiles
+    // Add white glow effect (same as hint tiles)
+    const glow = img.preFX?.addGlow(HINT_ANIMATION.glowColor, 0);
 
-    // Semi-transparent blue fill
-    gfx.fillStyle(0x3399ff, 0.12);
-    gfx.fillCircle(cx, cy, radius);
-    // Glowing edge
-    gfx.lineStyle(3, 0x66ccff, 0.5);
-    gfx.strokeCircle(cx, cy, radius);
-
-    gfx.setAlpha(0);
-    this.bossShieldOverlay = gfx;
-
-    // Fade in, then start pulsing
+    // Fade in
     this.tweens.add({
-      targets: gfx,
+      targets: img,
       alpha: 1,
       duration: 300,
       ease: "Quad.easeOut",
-      onComplete: () => {
-        this.bossShieldPulseTween = this.tweens.add({
-          targets: gfx,
-          alpha: 0.6,
-          duration: 1200,
-          yoyo: true,
-          repeat: -1,
-          ease: "Sine.easeInOut",
-        });
-      },
     });
+
+    // Pulse glow
+    if (glow) {
+      this.bossShieldGlowTween = this.tweens.add({
+        targets: glow,
+        outerStrength: HINT_ANIMATION.glowMaxStrength,
+        duration: HINT_ANIMATION.glowPulseDuration,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
   }
 
   private hideBossShieldOverlay(immediate = false) {
-    if (this.bossShieldPulseTween) {
-      this.bossShieldPulseTween.stop();
-      this.bossShieldPulseTween = undefined;
+    if (this.bossShieldGlowTween) {
+      this.bossShieldGlowTween.stop();
+      this.bossShieldGlowTween = undefined;
     }
     if (!this.bossShieldOverlay) return;
+
+    this.bossShieldOverlay.preFX?.clear();
 
     if (immediate) {
       this.bossShieldOverlay.destroy();
@@ -2042,14 +1999,14 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const gfx = this.bossShieldOverlay;
+    const img = this.bossShieldOverlay;
     this.bossShieldOverlay = undefined;
     this.tweens.add({
-      targets: gfx,
+      targets: img,
       alpha: 0,
       duration: 400,
       ease: "Quad.easeIn",
-      onComplete: () => gfx.destroy(),
+      onComplete: () => img.destroy(),
     });
   }
 

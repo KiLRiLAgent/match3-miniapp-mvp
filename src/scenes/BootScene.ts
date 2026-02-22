@@ -18,6 +18,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image(ASSET_KEYS.boss.battle, "assets/safira/safira_battle.png");
     this.load.image(ASSET_KEYS.boss.damaged, "assets/safira/safira_damaged.png");
     this.load.image(ASSET_KEYS.boss.ulta, "assets/safira/safira_ulta.png");
+    this.load.image(ASSET_KEYS.boss.shield, "assets/shield.png");
 
     // Load intro assets
     this.load.image(ASSET_KEYS.intro.background, "assets/intro/background.png");
@@ -72,7 +73,7 @@ export class BootScene extends Phaser.Scene {
 
   private buildSpecialTileTextures() {
     const d = DPR;
-    const size = (CELL_SIZE - 4) * d;
+    const size = (CELL_SIZE - 2) * d;
     const specialTiles = [
       { color: 0xf7c948, accent: 0xffffff, key: ASSET_KEYS.tiles[TileKind.BoosterRow] },
       { color: 0xf17c67, accent: 0xffffff, key: ASSET_KEYS.tiles[TileKind.BoosterCol] },
@@ -96,7 +97,7 @@ export class BootScene extends Phaser.Scene {
     const d = DPR;
     const g = this.add.graphics();
     const center = CELL_SIZE * d / 2;
-    const radius = (CELL_SIZE - 8) * d / 2;
+    const radius = (CELL_SIZE - 4) * d / 2;
 
     // Ярко-красный фон
     g.fillStyle(0xdd3333, 1);

@@ -6,6 +6,7 @@ export const ASSET_KEYS = {
     battle: "safira_battle",
     damaged: "safira_damaged",
     ulta: "safira_ulta",
+    shield: "boss_shield",
   },
   intro: {
     background: "intro_background",
