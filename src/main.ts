@@ -37,15 +37,6 @@ setTimeout(() => {
     physics: {
       default: "arcade",
     },
-    plugins: {
-      scene: [
-        {
-          key: "SpinePlugin",
-          plugin: window.SpinePlugin,
-          mapping: "spine",
-        },
-      ],
-    },
   };
 
   const game = new Phaser.Game(config);

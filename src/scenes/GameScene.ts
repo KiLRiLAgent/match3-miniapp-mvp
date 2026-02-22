@@ -377,24 +377,6 @@ export class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.openSettings());
 
-    // === SPINE POC (Spineboy idle, top-left corner) ===
-    try {
-      if (this.add.spine) {
-        const spineboy = this.add.spine(
-          50 + SAFE_AREA.left,
-          90 + SAFE_AREA.top,
-          "spineboy",
-          "run",
-          true
-        );
-        spineboy.setScale(0.12);
-        spineboy.setDepth(5);
-        spineboy.setAlpha(initialAlpha);
-      }
-    } catch {
-      // Spine plugin not loaded — skip silently
-    }
-
     // Режим настройки фона
     if (this.bgDebugMode) {
       this.buildBgDebugUI();

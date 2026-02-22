@@ -46,11 +46,6 @@ export class BootScene extends Phaser.Scene {
     Object.values(ASSET_KEYS.sfx).forEach(key => {
       this.load.audio(key, [`assets/sfx/${key}.ogg`, `assets/sfx/${key}.mp3`]);
     });
-
-    // Load Spine POC (Spineboy)
-    if (this.load.spine) {
-      this.load.spine("spineboy", "assets/spine/spineboy-pro.json", "assets/spine/spineboy-pma.atlas", true);
-    }
   }
 
   create() {
