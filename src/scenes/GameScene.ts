@@ -1390,14 +1390,14 @@ export class GameScene extends Phaser.Scene {
 
       const worldPos = this.toWorld(pos);
       const overlay = this.add
-        .rectangle(worldPos.x, worldPos.y, CELL_SIZE - 2, CELL_SIZE - 2, 0xffffff, 1)
+        .rectangle(worldPos.x, worldPos.y, CELL_SIZE, CELL_SIZE, 0xffffff, 1)
         .setDepth(1.5)
         .setAlpha(0);
       this.hintOverlays.push(overlay);
 
       const tween = this.tweens.add({
         targets: overlay,
-        alpha: { from: 0, to: 0.5 },
+        alpha: { from: 0, to: 0.6 },
         duration: HINT_ANIMATION.glowPulseDuration,
         yoyo: true,
         repeat: -1,
