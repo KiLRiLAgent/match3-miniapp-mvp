@@ -40,8 +40,14 @@ import { BOSS_ABILITIES } from "../game/config";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
 import { clamp, wait, tweenPromise } from "../utils/helpers";
+import { isMuted, getVolume, toggleMute } from "../utils/audioSettings";
+import { hapticLight, hapticMedium, hapticHeavy, hapticVictory, hapticDefeat } from "../utils/haptics";
+import { emitTileParticles } from "../ui/TileParticles";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { INTRO_ANIMATION } from "../game/animations";
+import type { MatchBonus } from "../match3/types";
+
+const SKILL_IDS: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 
 const SKILL_TUTORIAL = [
   { id: "powerStrike" as SkillId, text: "⚡ Мощный удар\nНаноси урон, когда\nу босса нет щита!" },
@@ -112,17 +118,36 @@ export class GameScene extends Phaser.Scene {
 
   private cascadeCount = 0;
 
+  // Hint white overlays (task 1)
+  private hintOverlays: Phaser.GameObjects.Rectangle[] = [];
+
+  // Mute button (task 3)
+  private muteButton?: Phaser.GameObjects.Text;
+
+  // Game stats (task 9)
+  private stats = {
+    totalDamageDealt: 0,
+    totalDamageReceived: 0,
+    totalHealDone: 0,
+    maxCascade: 0,
+    turnsPlayed: 0,
+    skillsUsed: 0,
+    bombsDefused: 0,
+  };
+
   constructor() {
     super("GameScene");
   }
 
   private sfx(key: string, volume = 0.5) {
+    if (isMuted()) return;
+    const finalVolume = volume * getVolume();
     const mgr = this.sound as Phaser.Sound.WebAudioSoundManager;
     if (mgr.context?.state === "suspended") {
-      mgr.context.resume().then(() => this.sound.play(key, { volume }));
+      mgr.context.resume().then(() => this.sound.play(key, { volume: finalVolume }));
       return;
     }
-    this.sound.play(key, { volume });
+    this.sound.play(key, { volume: finalVolume });
   }
 
   // Данные о состоянии фона/босса из интро (для плавного перехода)
@@ -148,6 +173,7 @@ export class GameScene extends Phaser.Scene {
     this.bossShieldGlowTween = undefined;
     this.bossShieldText = undefined;
     this.skillButtons = {};
+    this.muteButton = undefined;
 
     this.cameras.main.setZoom(DPR);
     this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
@@ -179,25 +205,17 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private async fadeInUI(): Promise<void> {
-    const elementsToFade: Phaser.GameObjects.GameObject[] = [];
-
+  private fadeInUI(): Promise<void> {
     // Собираем все UI элементы кроме босса
-    this.children.list.forEach(child => {
-      if (child !== this.bossImage && (child as any).alpha !== undefined) {
-        elementsToFade.push(child);
-      }
-    });
+    const elementsToFade = this.children.list.filter(
+      child => child !== this.bossImage && (child as any).alpha !== undefined
+    );
 
-    // Fade in игровых элементов
-    return new Promise(resolve => {
-      this.tweens.add({
-        targets: elementsToFade,
-        alpha: 1,
-        duration: INTRO_ANIMATION.gameElementsFadeIn,
-        ease: "Quad.easeOut",
-        onComplete: () => resolve(),
-      });
+    return tweenPromise(this, {
+      targets: elementsToFade,
+      alpha: 1,
+      duration: INTRO_ANIMATION.gameElementsFadeIn,
+      ease: "Quad.easeOut",
     });
   }
 
@@ -241,6 +259,10 @@ export class GameScene extends Phaser.Scene {
     this.shieldTipShown = false;
     this.manaTipShown = false;
     this.activeTip = undefined;
+    this.stats = {
+      totalDamageDealt: 0, totalDamageReceived: 0, totalHealDone: 0,
+      maxCascade: 0, turnsPlayed: 0, skillsUsed: 0, bombsDefused: 0,
+    };
     this.board = new Match3Board(BOARD_WIDTH, BOARD_HEIGHT);
     this.bossAbilityManager = new BossAbilityManager();
     this.tileSprites.clear();
@@ -253,6 +275,19 @@ export class GameScene extends Phaser.Scene {
   private clearBombCooldownTexts() {
     this.bombCooldownTexts.forEach(text => text.destroy());
     this.bombCooldownTexts.clear();
+  }
+
+  private createBombCooldownText(tileId: number, x: number, y: number, cooldown: number): Phaser.GameObjects.Text {
+    const text = this.add.text(x, y, cooldown.toString(), {
+      fontSize: "16px",
+      fontFamily: "Arial, sans-serif",
+      color: "#ffffff",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(2);
+    this.bombCooldownTexts.set(tileId, text);
+    return text;
   }
 
   private buildHud(startHidden = false) {
@@ -364,6 +399,21 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(1, 0.5)
       .setDepth(4)
       .setVisible(false);
+
+    // === КНОПКА MUTE ===
+    this.muteButton = this.add
+      .text(GAME_WIDTH - 70, 65 + SAFE_AREA.top, isMuted() ? "🔇" : "🔊", {
+        fontSize: "26px",
+        fontFamily: "Arial, sans-serif",
+      })
+      .setOrigin(0.5)
+      .setDepth(5)
+      .setAlpha(initialAlpha)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => {
+        const nowMuted = toggleMute();
+        this.muteButton?.setText(nowMuted ? "🔇" : "🔊");
+      });
 
     // === КНОПКА НАСТРОЕК ===
     this.add
@@ -511,9 +561,7 @@ export class GameScene extends Phaser.Scene {
     const y = L.skillButtonsY;
     const initialAlpha = startHidden ? 0 : 1;
 
-    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
-
-    skillIds.forEach((id, idx) => {
+    SKILL_IDS.forEach((id, idx) => {
       const cfg = SKILL_CONFIG[id];
       const btn = new SkillButton(
         this,
@@ -640,10 +688,22 @@ export class GameScene extends Phaser.Scene {
       this.sfx(this.cascadeCount === 0 ? ASSET_KEYS.sfx.match : ASSET_KEYS.sfx.cascade);
       this.cascadeCount++;
 
+      // Haptic for first match / cascades
+      if (this.cascadeCount === 1) hapticMedium();
+      else hapticHeavy();
+
+      // Track max cascade for stats
+      this.stats.maxCascade = Math.max(this.stats.maxCascade, this.cascadeCount);
+
+      // Show cascade counter (x2, x3, ...)
+      if (this.cascadeCount >= 2) {
+        this.showCascadeCounter(this.cascadeCount);
+      }
+
       await this.animateClear(outcome, actor);
 
       // Применяем эффекты СРАЗУ после полёта фишек (не в конце!)
-      this.applyMatchResults(outcome.counts, actor);
+      this.applyMatchResults(outcome.counts, actor, outcome.matchBonuses);
 
       // Если игра закончилась - прекращаем цикл
       if (this.gameOver) break;
@@ -664,14 +724,29 @@ export class GameScene extends Phaser.Scene {
       swapTargets = [];
     }
 
+    // Check for deadlock after cascades settle
+    if (!this.gameOver) {
+      await this.checkAndReshuffle();
+    }
+
     if (endTurnAfter && !this.gameOver) {
       await this.finishPlayerTurn();
     }
   }
 
-  private applyMatchResults(totals: CountTotals, actor: "player" | "boss") {
-    const physDamage = totals[TileKind.Sword] * GAME_PARAMS.tiles.swordDamage;
-    const magDamage = totals[TileKind.Star] * GAME_PARAMS.tiles.starDamage;
+  private applyMatchResults(totals: CountTotals, actor: "player" | "boss", matchBonuses: MatchBonus[] = []) {
+    let physDamage = totals[TileKind.Sword] * GAME_PARAMS.tiles.swordDamage;
+    let magDamage = totals[TileKind.Star] * GAME_PARAMS.tiles.starDamage;
+
+    // Apply match length multipliers to damage tiles
+    for (const bonus of matchBonuses) {
+      if (bonus.kind === TileKind.Sword) {
+        physDamage = Math.floor(physDamage * bonus.multiplier);
+      } else if (bonus.kind === TileKind.Star) {
+        magDamage = Math.floor(magDamage * bonus.multiplier);
+      }
+    }
+
     const damage = physDamage + Math.floor(magDamage * PLAYER_MAG_DAMAGE_MULTIPLIER);
     const manaGain = totals[TileKind.Mana] * GAME_PARAMS.tiles.mpPerTile;
     const healGain = totals[TileKind.Heal] * GAME_PARAMS.tiles.hpPerTile;
@@ -705,7 +780,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.bossHp = Math.max(0, this.bossHp - damage);
+    this.stats.totalDamageDealt += damage;
     this.sfx(ASSET_KEYS.sfx.bossHit);
+    hapticMedium();
     if (this.bossImage) {
       this.flashBoss();
       showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, damage, "damage");
@@ -717,6 +794,8 @@ export class GameScene extends Phaser.Scene {
     if (damage <= 0) return;
 
     this.sfx(ASSET_KEYS.sfx.playerHit);
+    hapticHeavy();
+    this.stats.totalDamageReceived += damage;
     this.playerHp = clamp(this.playerHp - damage, 0, GAME_PARAMS.player.hpMax);
     if (this.playerAvatar) {
       showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 30, damage, "damage");
@@ -756,6 +835,7 @@ export class GameScene extends Phaser.Scene {
     const actualHeal = this.playerHp - oldHp;
 
     if (actualHeal > 0) {
+      this.stats.totalHealDone += actualHeal;
       this.sfx(ASSET_KEYS.sfx.heal);
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 40, actualHeal, "heal");
@@ -856,6 +936,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.sfx(ASSET_KEYS.sfx.swap);
+    hapticLight();
     return Promise.all([
       this.createTween(spriteA, this.toWorld(posA), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
       this.createTween(spriteB, this.toWorld(posB), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
@@ -893,6 +974,11 @@ export class GameScene extends Phaser.Scene {
       // Получаем тайл на позиции (ещё не трансформирован в Board)
       const tile = this.board.getTile(transform.pos);
       if (!tile) return;
+
+      // Special particle burst
+      const wPos = this.toWorld(transform.pos);
+      emitTileParticles(this, wPos.x, wPos.y, transform.kind, 12);
+
       const sprite = this.tileSprites.get(tile.id);
       if (sprite) {
         // Используем kind из transform, а не из tile (tile ещё не обновлён)
@@ -913,14 +999,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private isDamageTile(kind: TileKind): boolean {
-    return DAMAGE_TILES.includes(kind as typeof DAMAGE_TILES[number]);
-  }
-
-  private isResourceTile(kind: TileKind): boolean {
-    return RESOURCE_TILES.includes(kind as typeof RESOURCE_TILES[number]);
-  }
-
   private groupTilesByTarget(
     cleared: Array<{ pos: Position; tile: Tile }>,
     tweens: Promise<void>[],
@@ -931,6 +1009,8 @@ export class GameScene extends Phaser.Scene {
   } {
     const tilesToBoss: Array<{ x: number; y: number; kind: TileKind }> = [];
     const tilesToPlayer: Array<{ x: number; y: number; kind: TileKind }> = [];
+    const toOpponent = actor === "player" ? tilesToBoss : tilesToPlayer;
+    const toSelf = actor === "player" ? tilesToPlayer : tilesToBoss;
 
     cleared.forEach(({ pos, tile }) => {
       const sprite = this.tileSprites.get(tile.id);
@@ -946,16 +1026,13 @@ export class GameScene extends Phaser.Scene {
       const worldPos = this.toWorld(pos);
       const tileData = { x: worldPos.x, y: worldPos.y, kind: tile.kind };
 
-      const isDamage = this.isDamageTile(tile.base);
-      const isResource = this.isResourceTile(tile.base);
+      // Particle effect on tile clear
+      emitTileParticles(this, worldPos.x, worldPos.y, tile.kind);
 
       // Damage tiles fly to opponent, resource tiles fly to self
-      const toOpponent = actor === "player" ? tilesToBoss : tilesToPlayer;
-      const toSelf = actor === "player" ? tilesToPlayer : tilesToBoss;
-
-      if (isDamage) {
+      if (DAMAGE_TILES.includes(tile.base as typeof DAMAGE_TILES[number])) {
         toOpponent.push(tileData);
-      } else if (isResource) {
+      } else if (RESOURCE_TILES.includes(tile.base as typeof RESOURCE_TILES[number])) {
         toSelf.push(tileData);
       }
 
@@ -1057,8 +1134,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Обновляем состояние всех 4 кнопок способностей
-    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
-    skillIds.forEach((id) => {
+    SKILL_IDS.forEach((id) => {
       const cfg = SKILL_CONFIG[id];
       const cooldown = this.skillCooldowns[id];
       const canUse = cooldown === 0 && this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
@@ -1092,9 +1168,11 @@ export class GameScene extends Phaser.Scene {
 
     this.mana -= cfg.cost;
     this.skillCooldowns[id] = cfg.cooldown; // Ставим на кулдаун
+    this.stats.skillsUsed++;
 
     // Звук общий для всех скиллов
     this.sfx(ASSET_KEYS.sfx.skill);
+    hapticMedium();
 
     // Обработка разных скиллов
     if (id === "powerStrike") {
@@ -1196,8 +1274,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private tickSkillCooldowns() {
-    const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
-    for (const id of skillIds) {
+    for (const id of SKILL_IDS) {
       if (this.skillCooldowns[id] > 0) {
         this.skillCooldowns[id]--;
       }
@@ -1210,13 +1287,21 @@ export class GameScene extends Phaser.Scene {
     this.gameOver = true;
     this.busy = true;
     this.sfx(ASSET_KEYS.sfx.victory);
-    this.showGameEndModal("Victory!", "#44ff66", "Restart");
+    hapticVictory();
+    this.showGameEndModal("Victory!", "#44ff66", "Restart", true);
   }
 
   private toWorld(pos: Position) {
     return {
       x: this.boardOrigin.x + pos.x * CELL_SIZE + CELL_SIZE / 2,
       y: this.boardOrigin.y + pos.y * CELL_SIZE + CELL_SIZE / 2,
+    };
+  }
+
+  private get boardCenter(): { x: number; y: number } {
+    return {
+      x: this.boardOrigin.x + (BOARD_WIDTH * CELL_SIZE) / 2,
+      y: this.boardOrigin.y + (BOARD_HEIGHT * CELL_SIZE) / 2,
     };
   }
 
@@ -1269,10 +1354,16 @@ export class GameScene extends Phaser.Scene {
     }
     this.hintTweens = [];
 
+    // Destroy white overlays
+    for (const overlay of this.hintOverlays) {
+      overlay.destroy();
+    }
+    this.hintOverlays = [];
+
+    // Reset shake position for hinted sprites
     for (const id of this.hintedSpriteIds) {
       const sprite = this.tileSprites.get(id);
       if (sprite?.scene) {
-        sprite.setAlpha(1);
         const pos = this.tilePositions.get(id);
         if (pos) {
           const world = this.toWorld(pos);
@@ -1290,23 +1381,28 @@ export class GameScene extends Phaser.Scene {
     const move = this.potentialMoves[this.hintIndex % this.potentialMoves.length];
     this.hintIndex++;
 
-    // Alpha-pulse all match tiles + from tile (no preFX — safe on Android)
+    // White overlay pulse on all match tiles + from tile (safe on Android)
     const allHintPositions = [...move.matchPositions, move.from];
     for (const pos of allHintPositions) {
       const tile = this.board.getTile(pos);
       if (!tile) continue;
-      const sprite = this.tileSprites.get(tile.id);
-      if (!sprite) continue;
+      this.hintedSpriteIds.push(tile.id);
+
+      const worldPos = this.toWorld(pos);
+      const overlay = this.add
+        .rectangle(worldPos.x, worldPos.y, CELL_SIZE - 2, CELL_SIZE - 2, 0xffffff, 0)
+        .setDepth(1.5);
+      this.hintOverlays.push(overlay);
+
       const tween = this.tweens.add({
-        targets: sprite,
-        alpha: { from: 0.4, to: 1 },
+        targets: overlay,
+        alpha: { from: 0, to: 0.5 },
         duration: HINT_ANIMATION.glowPulseDuration,
         yoyo: true,
         repeat: -1,
         ease: "Sine.easeInOut",
       });
       this.hintTweens.push(tween);
-      this.hintedSpriteIds.push(tile.id);
     }
 
     // Shake the "from" tile in the swipe direction
@@ -1479,6 +1575,7 @@ export class GameScene extends Phaser.Scene {
 
   private async finishPlayerTurn() {
     if (this.gameOver) return;
+    this.stats.turnsPlayed++;
 
     // Тикаем кулдауны скиллов игрока
     this.tickSkillCooldowns();
@@ -1737,21 +1834,8 @@ export class GameScene extends Phaser.Scene {
       const sprite = this.spawnTileSprite(tile, pos, startY);
       sprite.setPosition(worldPos.x, startY);
 
-      // Create cooldown text (positioned at cell center since toWorld returns center)
-      const cooldownText = this.add.text(
-        worldPos.x,
-        startY,
-        tile.cooldown?.toString() ?? "",
-        {
-          fontSize: "16px",
-          fontFamily: "Arial, sans-serif",
-          color: "#ffffff",
-          fontStyle: "bold",
-          stroke: "#000000",
-          strokeThickness: 3,
-        }
-      ).setOrigin(0.5).setDepth(2);
-      this.bombCooldownTexts.set(tile.id, cooldownText);
+      // Create cooldown text (positioned at start Y, will animate down)
+      const cooldownText = this.createBombCooldownText(tile.id, worldPos.x, startY, tile.cooldown ?? 0);
 
       // Animate drop
       tweens.push(
@@ -1816,6 +1900,7 @@ export class GameScene extends Phaser.Scene {
 
   private async defuseBombs(bombPositions: Position[]) {
     const tweens: Promise<void>[] = [];
+    this.stats.bombsDefused += bombPositions.length;
 
     bombPositions.forEach(pos => {
       const tile = this.board.getTile(pos);
@@ -2006,40 +2091,216 @@ export class GameScene extends Phaser.Scene {
     this.gameOver = true;
     this.busy = true;
     this.sfx(ASSET_KEYS.sfx.defeat);
-    this.showGameEndModal("Defeat", "#ff6666", "Retry");
+    hapticDefeat();
+    this.showGameEndModal("Defeat", "#ff6666", "Retry", false);
   }
 
-  private showGameEndModal(message: string, textColor: string, buttonText: string) {
+  private showGameEndModal(message: string, textColor: string, buttonText: string, isVictory: boolean) {
+    // Screen flash
+    const flashColor = isVictory ? 0xffff44 : 0xff4444;
+    const flash = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, flashColor, 0.6)
+      .setOrigin(0, 0)
+      .setDepth(998);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => flash.destroy(),
+    });
+
+    // Dark overlay with fade in
     const overlay = this.add
-      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.7)
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0)
       .setDepth(999);
+    this.tweens.add({ targets: overlay, alpha: 0.75, duration: 400 });
 
-    const text = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, message, {
-        fontSize: "36px",
+    // Title with scale-in
+    const title = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 100, message, {
+        fontSize: "42px",
         color: textColor,
         fontFamily: "Arial, sans-serif",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 4,
       })
       .setOrigin(0.5)
-      .setDepth(999);
+      .setDepth(1000)
+      .setScale(0);
+    this.tweens.add({
+      targets: title,
+      scale: 1,
+      duration: 400,
+      ease: "Back.easeOut",
+      delay: 200,
+    });
 
+    // Stats lines with staggered fade
+    const statLines = [
+      `Урон нанесён: ${this.stats.totalDamageDealt}`,
+      `Урон получен: ${this.stats.totalDamageReceived}`,
+      `Исцеление: ${this.stats.totalHealDone}`,
+      `Макс. каскад: x${this.stats.maxCascade}`,
+      `Ходов: ${this.stats.turnsPlayed}`,
+      `Скиллов: ${this.stats.skillsUsed}`,
+      `Бомб обезврежено: ${this.stats.bombsDefused}`,
+    ];
+
+    const baseY = GAME_HEIGHT / 2 - 40;
+    statLines.forEach((line, i) => {
+      const statText = this.add
+        .text(GAME_WIDTH / 2, baseY + i * 24, line, {
+          fontSize: "16px",
+          color: "#dddddd",
+          fontFamily: "Arial, sans-serif",
+        })
+        .setOrigin(0.5)
+        .setDepth(1000)
+        .setAlpha(0);
+      this.tweens.add({
+        targets: statText,
+        alpha: 1,
+        duration: 200,
+        delay: 500 + i * 100,
+      });
+    });
+
+    // Retry button with delay
     const btn = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, buttonText, {
+      .text(GAME_WIDTH / 2, baseY + statLines.length * 24 + 30, buttonText, {
         fontSize: "20px",
         backgroundColor: "#2d5bff",
-        padding: { x: 16, y: 8 },
+        padding: { x: 24, y: 10 },
         color: "#ffffff",
         fontFamily: "Arial, sans-serif",
+        fontStyle: "bold",
       })
       .setOrigin(0.5)
-      .setDepth(999)
+      .setDepth(1000)
+      .setAlpha(0)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => {
         this.scene.stop("GameScene");
         this.scene.start("IntroScene");
       });
+    this.tweens.add({
+      targets: btn,
+      alpha: 1,
+      duration: 300,
+      delay: 500 + statLines.length * 100 + 200,
+    });
 
-    this.add.container(0, 0, [overlay, text, btn]).setDepth(999);
+    // Confetti for victory
+    if (isVictory && this.textures.exists(ASSET_KEYS.particle)) {
+      const confetti = this.add.particles(GAME_WIDTH / 2, -10, ASSET_KEYS.particle, {
+        x: { min: -GAME_WIDTH / 2, max: GAME_WIDTH / 2 },
+        speed: { min: 60, max: 160 },
+        angle: { min: 70, max: 110 },
+        scale: { start: 1.2, end: 0.4 },
+        alpha: { start: 1, end: 0 },
+        lifespan: 2500,
+        tint: [0xff4444, 0x44ff44, 0x4488ff, 0xffff44, 0xff44ff],
+        frequency: 60,
+        quantity: 3,
+      });
+      confetti.setDepth(1001);
+      this.time.delayedCall(3000, () => {
+        confetti.stop();
+        this.time.delayedCall(2500, () => confetti.destroy());
+      });
+    }
+  }
+
+  private showCascadeCounter(count: number): void {
+    const fontSize = Math.min(36 + (count - 2) * 10, 64);
+    const center = this.boardCenter;
+    const text = this.add
+      .text(center.x, center.y, `x${count}`, {
+        fontSize: `${fontSize}px`,
+        color: "#ffdd44",
+        fontFamily: "Arial, sans-serif",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(100)
+      .setScale(0);
+
+    this.tweens.add({
+      targets: text,
+      scale: 1,
+      duration: 250,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        this.tweens.add({
+          targets: text,
+          y: text.y - 40,
+          alpha: 0,
+          duration: 500,
+          delay: 200,
+          ease: "Quad.easeOut",
+          onComplete: () => text.destroy(),
+        });
+      },
+    });
+  }
+
+  private async checkAndReshuffle(): Promise<void> {
+    let attempts = 0;
+    while (this.board.findPotentialMoves().length === 0 && attempts < 10) {
+      attempts++;
+      this.board.shuffleBaseTiles();
+
+      // Show reshuffle text
+      const center = this.boardCenter;
+      const text = this.add
+        .text(center.x, center.y, "Перемешиваю!", {
+          fontSize: "24px",
+          color: "#ffffff",
+          fontFamily: "Arial, sans-serif",
+          fontStyle: "bold",
+          stroke: "#000000",
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5)
+        .setDepth(100);
+
+      // Rebuild all tile sprites
+      this.rebuildAllSprites();
+      await wait(this, 600);
+      text.destroy();
+
+      // Check for accidental matches after shuffle and resolve them
+      const matches = this.board.findMatches();
+      if (matches.length > 0) {
+        await this.resolveBoard(matches, [], [], false, "player");
+      }
+    }
+  }
+
+  private rebuildAllSprites(): void {
+    // Destroy all current tile sprites
+    this.tileSprites.forEach((sprite) => sprite.destroy());
+    this.tileSprites.clear();
+    this.clearBombCooldownTexts();
+
+    // Rebuild from board state
+    for (let y = 0; y < BOARD_HEIGHT; y++) {
+      for (let x = 0; x < BOARD_WIDTH; x++) {
+        const tile = this.board.getTile({ x, y });
+        if (tile) {
+          this.spawnTileSprite(tile, { x, y });
+          // Recreate bomb cooldown texts
+          if (tile.kind === TileKind.Bomb && tile.cooldown !== undefined) {
+            const worldPos = this.toWorld({ x, y });
+            this.createBombCooldownText(tile.id, worldPos.x, worldPos.y, tile.cooldown);
+          }
+        }
+      }
+    }
+    this.rebuildPositionMap();
   }
 }

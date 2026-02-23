@@ -33,6 +33,7 @@ export const ASSET_KEYS = {
     [TileKind.Ultimate]: "tile_ultimate",
     [TileKind.Bomb]: "tile_bomb",
   },
+  particle: "particle",
   sfx: {
     swap: "sfx_swap",
     swapFail: "sfx_swap_fail",

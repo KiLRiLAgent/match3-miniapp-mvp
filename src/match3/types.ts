@@ -42,3 +42,9 @@ export type PotentialMove = {
   to: Position;
   matchPositions: Position[];
 };
+
+export type MatchBonus = {
+  kind: BaseTileKind;
+  count: number;
+  multiplier: number;
+};

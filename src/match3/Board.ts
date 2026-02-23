@@ -1,6 +1,6 @@
-import { BASE_TYPES } from "../game/config";
+import { BASE_TYPES, MATCH_MULTIPLIERS, MATCH_MULTIPLIER_DEFAULT } from "../game/config";
 import { TileKind } from "./types";
-import type { BaseTileKind, Match, Position, PotentialMove, Tile } from "./types";
+import type { BaseTileKind, Match, MatchBonus, Position, PotentialMove, Tile } from "./types";
 
 export type SpecialTransform = {
   pos: Position;
@@ -13,6 +13,7 @@ export type ClearOutcome = {
   cleared: Array<{ pos: Position; tile: Tile }>;
   transforms: SpecialTransform[];
   counts: Record<BaseTileKind, number>;
+  matchBonuses: MatchBonus[];
 };
 
 export type CollapseMove = {
@@ -327,8 +328,18 @@ export class Match3Board {
       clearSet.delete(this.key(transform.pos));
     }
 
+    // Compute match bonuses (multiplier for long matches on damage tiles)
+    const matchBonuses: MatchBonus[] = [];
+    for (const match of matches) {
+      const count = match.positions.length;
+      if (count >= 4 && (match.kind === TileKind.Sword || match.kind === TileKind.Star)) {
+        const multiplier = MATCH_MULTIPLIERS[count] ?? MATCH_MULTIPLIER_DEFAULT;
+        matchBonuses.push({ kind: match.kind, count, multiplier });
+      }
+    }
+
     const { cleared, counts: finalCounts } = this.buildClearOutcome(clearSet);
-    return { cleared, transforms, counts: finalCounts };
+    return { cleared, transforms, counts: finalCounts, matchBonuses };
   }
 
   private expandSpecialsCascade(
@@ -607,6 +618,26 @@ export class Match3Board {
     { x: 0, y: -1 },
     { x: 0, y: 1 },
   ] as const;
+
+  /** Fisher-Yates shuffle of all non-special, non-bomb tiles */
+  shuffleBaseTiles(): void {
+    const positions: Position[] = [];
+    this.forEachTile((pos, tile) => {
+      if (!this.isBomb(tile.kind) && !this.isSpecial(tile.kind)) {
+        positions.push(pos);
+      }
+    });
+
+    // Fisher-Yates
+    for (let i = positions.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rng() * (i + 1));
+      const posA = positions[i];
+      const posB = positions[j];
+      const tmp = this.grid[posA.y][posA.x];
+      this.grid[posA.y][posA.x] = this.grid[posB.y][posB.x];
+      this.grid[posB.y][posB.x] = tmp;
+    }
+  }
 
   getAdjacentBombs(clearedPositions: Position[]): Position[] {
     const bombsToRemove: Position[] = [];

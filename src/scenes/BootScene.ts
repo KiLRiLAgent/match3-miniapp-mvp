@@ -3,9 +3,9 @@ import { ASSET_KEYS } from "../game/assets";
 import { CELL_SIZE, BASE_TYPES, setScreenSize, updateScaledValues, loadGameParams, DPR } from "../game/config";
 import { TileKind } from "../match3/types";
 import { getSafeAreaInsets } from "../telegram/telegram";
+import { loadAudioSettings } from "../utils/audioSettings";
+import { loadHapticSettings } from "../utils/haptics";
 
-// All tiles use png
-const TILE_EXTENSIONS: Record<string, string> = {};
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -13,6 +13,50 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    // === Loading screen (task 2) ===
+    const cx = this.cameras.main.width / 2;
+    const cy = this.cameras.main.height / 2;
+
+    const titleText = this.add
+      .text(cx, cy - 60, "Match-3 Battle", {
+        fontSize: "28px",
+        color: "#ffffff",
+        fontFamily: "Arial, sans-serif",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
+
+    const barWidth = 220;
+    const barHeight = 20;
+    const barBg = this.add
+      .rectangle(cx, cy, barWidth, barHeight, 0x333333)
+      .setOrigin(0.5);
+    barBg.setStrokeStyle(2, 0x555555);
+
+    const barFill = this.add
+      .rectangle(cx - barWidth / 2 + 2, cy, 0, barHeight - 4, 0x3b82f6)
+      .setOrigin(0, 0.5);
+
+    const percentText = this.add
+      .text(cx, cy + 30, "0%", {
+        fontSize: "16px",
+        color: "#aaaaaa",
+        fontFamily: "Arial, sans-serif",
+      })
+      .setOrigin(0.5);
+
+    this.load.on("progress", (value: number) => {
+      barFill.width = (barWidth - 4) * value;
+      percentText.setText(`${Math.floor(value * 100)}%`);
+    });
+
+    this.load.on("complete", () => {
+      titleText.destroy();
+      barBg.destroy();
+      barFill.destroy();
+      percentText.destroy();
+    });
+
     // Load boss sprites (new Safira assets)
     this.load.image(ASSET_KEYS.boss.normal, "assets/safira/safira_normal.png");
     this.load.image(ASSET_KEYS.boss.battle, "assets/safira/safira_battle.png");
@@ -38,8 +82,7 @@ export class BootScene extends Phaser.Scene {
     // Load base tile sprites
     BASE_TYPES.forEach((kind) => {
       const key = ASSET_KEYS.tiles[kind];
-      const ext = TILE_EXTENSIONS[kind] ?? "png";
-      this.load.image(key, `assets/tiles/${key}.${ext}`);
+      this.load.image(key, `assets/tiles/${key}.png`);
     });
 
     // Load SFX
@@ -56,6 +99,11 @@ export class BootScene extends Phaser.Scene {
     updateScaledValues();
 
     this.buildSpecialTileTextures();
+    this.buildParticleTexture();
+
+    // Load user settings
+    loadAudioSettings();
+    loadHapticSettings();
 
     // Загружаем параметры до старта любых сцен
     loadGameParams();
@@ -124,6 +172,14 @@ export class BootScene extends Phaser.Scene {
     g.fillCircle(center + 7 * d, center - radius * 0.7, 2 * d);
 
     g.generateTexture(ASSET_KEYS.tiles[TileKind.Bomb], CELL_SIZE * d, CELL_SIZE * d);
+    g.destroy();
+  }
+
+  private buildParticleTexture() {
+    const g = this.add.graphics();
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(4, 4, 4);
+    g.generateTexture(ASSET_KEYS.particle, 8, 8);
     g.destroy();
   }
 }
