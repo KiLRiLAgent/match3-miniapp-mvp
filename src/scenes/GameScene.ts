@@ -120,6 +120,7 @@ export class GameScene extends Phaser.Scene {
 
   // Hint glow sprites (white silhouette clones)
   private hintOverlays: Phaser.GameObjects.Image[] = [];
+  private hintSyncFn?: () => void;
 
   // Mute button (task 3)
   private muteButton?: Phaser.GameObjects.Text;
@@ -1354,6 +1355,12 @@ export class GameScene extends Phaser.Scene {
     }
     this.hintTweens = [];
 
+    // Remove glow sync listener
+    if (this.hintSyncFn) {
+      this.events.off("update", this.hintSyncFn);
+      this.hintSyncFn = undefined;
+    }
+
     // Destroy white silhouette glow sprites
     for (const glow of this.hintOverlays) {
       glow.destroy();
@@ -1416,7 +1423,7 @@ export class GameScene extends Phaser.Scene {
       this.hintTweens.push(tween);
     }
 
-    // Shake the "from" tile + its glow in the swipe direction
+    // Shake the "from" tile in the swipe direction
     const fromTile = this.board.getTile(move.from);
     if (!fromTile) return;
     const fromSprite = this.tileSprites.get(fromTile.id);
@@ -1434,21 +1441,29 @@ export class GameScene extends Phaser.Scene {
     fromSprite.setPosition(world.x, world.y);
     if (fromGlow) fromGlow.setPosition(world.x, world.y);
 
-    // Shake both sprite and glow together
-    const shakeTargets = fromGlow ? [fromSprite, fromGlow] : [fromSprite];
+    // Sync glow position to sprite every frame
+    if (fromGlow) {
+      const syncFn = () => {
+        if (fromGlow.scene && fromSprite.scene) {
+          fromGlow.setPosition(fromSprite.x, fromSprite.y);
+        }
+      };
+      this.events.on("update", syncFn);
+      this.hintSyncFn = syncFn;
+    }
 
     // Asymmetric shake: fast snap forward, slow ease back
     const fwdDuration = HINT_ANIMATION.shakeDuration * 0.35;
     const bwdDuration = HINT_ANIMATION.shakeDuration * 0.65;
     const fwd = {
-      targets: shakeTargets,
+      targets: fromSprite,
       x: world.x + dx * dist,
       y: world.y + dy * dist,
       duration: fwdDuration,
       ease: "Quart.easeIn",
     };
     const bwd = {
-      targets: shakeTargets,
+      targets: fromSprite,
       x: world.x,
       y: world.y,
       duration: bwdDuration,
