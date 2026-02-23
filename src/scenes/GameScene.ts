@@ -1389,11 +1389,14 @@ export class GameScene extends Phaser.Scene {
     this.hintIndex++;
 
     // Highlight only tiles of the same kind as the moving tile
-    const fromTileForKind = this.board.getTile(move.from);
-    if (!fromTileForKind) return;
-    const hintKind = fromTileForKind.base;
+    const fromTile = this.board.getTile(move.from);
+    if (!fromTile) return;
+    const hintKind = fromTile.base;
+    const fromSprite = this.tileSprites.get(fromTile.id);
+    if (!fromSprite) return;
 
     // White silhouette glow: clone sprite with tintFill, pulse alpha
+    let fromGlow: Phaser.GameObjects.Image | undefined;
     const allHintPositions = [move.from, ...move.matchPositions];
     for (const pos of allHintPositions) {
       const tile = this.board.getTile(pos);
@@ -1412,25 +1415,11 @@ export class GameScene extends Phaser.Scene {
         .setDepth(1.5);
       this.hintOverlays.push(glow);
 
-      const tween = this.tweens.add({
-        targets: glow,
-        alpha: { from: 0, to: 0.5 },
-        duration: HINT_ANIMATION.glowPulseDuration,
-        yoyo: true,
-        repeat: -1,
-        ease: "Sine.easeInOut",
-      });
-      this.hintTweens.push(tween);
+      // Track the glow for the from tile
+      if (tile.id === fromTile.id) {
+        fromGlow = glow;
+      }
     }
-
-    // Shake the "from" tile in the swipe direction
-    const fromTile = this.board.getTile(move.from);
-    if (!fromTile) return;
-    const fromSprite = this.tileSprites.get(fromTile.id);
-    if (!fromSprite) return;
-
-    // Find the glow overlay for the from tile (first one created, at index 0)
-    const fromGlow = this.hintOverlays[0];
 
     const dx = move.to.x - move.from.x;
     const dy = move.to.y - move.from.y;
@@ -1439,13 +1428,25 @@ export class GameScene extends Phaser.Scene {
     // Use grid position as base (not sprite.x/y) to prevent drift
     const world = this.toWorld(move.from);
     fromSprite.setPosition(world.x, world.y);
-    if (fromGlow) fromGlow.setPosition(world.x, world.y);
 
-    // Sync glow position to sprite every frame
+    // Sync glow position + alpha to shake progress every frame
     if (fromGlow) {
       const syncFn = () => {
-        if (fromGlow.scene && fromSprite.scene) {
-          fromGlow.setPosition(fromSprite.x, fromSprite.y);
+        if (!fromGlow.scene || !fromSprite.scene) return;
+
+        // Sync from-glow position to sprite
+        fromGlow.setPosition(fromSprite.x, fromSprite.y);
+
+        // Calculate progress: 0 = at origin, 1 = at max displacement
+        const offsetX = fromSprite.x - world.x;
+        const offsetY = fromSprite.y - world.y;
+        const currentDist = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+        const progress = Math.min(currentDist / dist, 1);
+
+        // Apply alpha to all glow overlays (from + partners)
+        const glowAlpha = progress * 0.5;
+        for (const g of this.hintOverlays) {
+          g.setAlpha(glowAlpha);
         }
       };
       this.events.on("update", syncFn);
