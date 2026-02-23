@@ -1416,11 +1416,14 @@ export class GameScene extends Phaser.Scene {
       this.hintTweens.push(tween);
     }
 
-    // Shake the "from" tile in the swipe direction
+    // Shake the "from" tile + its glow in the swipe direction
     const fromTile = this.board.getTile(move.from);
     if (!fromTile) return;
     const fromSprite = this.tileSprites.get(fromTile.id);
     if (!fromSprite) return;
+
+    // Find the glow overlay for the from tile (first one created, at index 0)
+    const fromGlow = this.hintOverlays[0];
 
     const dx = move.to.x - move.from.x;
     const dy = move.to.y - move.from.y;
@@ -1429,19 +1432,23 @@ export class GameScene extends Phaser.Scene {
     // Use grid position as base (not sprite.x/y) to prevent drift
     const world = this.toWorld(move.from);
     fromSprite.setPosition(world.x, world.y);
+    if (fromGlow) fromGlow.setPosition(world.x, world.y);
+
+    // Shake both sprite and glow together
+    const shakeTargets = fromGlow ? [fromSprite, fromGlow] : [fromSprite];
 
     // Asymmetric shake: fast snap forward, slow ease back
     const fwdDuration = HINT_ANIMATION.shakeDuration * 0.35;
     const bwdDuration = HINT_ANIMATION.shakeDuration * 0.65;
     const fwd = {
-      targets: fromSprite,
+      targets: shakeTargets,
       x: world.x + dx * dist,
       y: world.y + dy * dist,
       duration: fwdDuration,
       ease: "Quart.easeIn",
     };
     const bwd = {
-      targets: fromSprite,
+      targets: shakeTargets,
       x: world.x,
       y: world.y,
       duration: bwdDuration,
