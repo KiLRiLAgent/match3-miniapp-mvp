@@ -118,6 +118,9 @@ export class GameScene extends Phaser.Scene {
 
   private cascadeCount = 0;
 
+  // Hint glow sprites (white silhouette clones)
+  private hintOverlays: Phaser.GameObjects.Image[] = [];
+
   // Mute button (task 3)
   private muteButton?: Phaser.GameObjects.Text;
 
@@ -1351,11 +1354,16 @@ export class GameScene extends Phaser.Scene {
     }
     this.hintTweens = [];
 
-    // Reset scale and position for hinted sprites
+    // Destroy white silhouette glow sprites
+    for (const glow of this.hintOverlays) {
+      glow.destroy();
+    }
+    this.hintOverlays = [];
+
+    // Reset position for hinted sprites (shake may have moved them)
     for (const id of this.hintedSpriteIds) {
       const sprite = this.tileSprites.get(id);
       if (sprite?.scene) {
-        sprite.setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2);
         const pos = this.tilePositions.get(id);
         if (pos) {
           const world = this.toWorld(pos);
@@ -1378,7 +1386,7 @@ export class GameScene extends Phaser.Scene {
     if (!fromTileForKind) return;
     const hintKind = fromTileForKind.base;
 
-    // Pulse scale on from tile + matching partners (same kind only)
+    // White silhouette glow: clone sprite with tintFill, pulse alpha
     const allHintPositions = [move.from, ...move.matchPositions];
     for (const pos of allHintPositions) {
       const tile = this.board.getTile(pos);
@@ -1388,11 +1396,18 @@ export class GameScene extends Phaser.Scene {
 
       this.hintedSpriteIds.push(tile.id);
 
-      const baseScale = sprite.scaleX;
+      // Clone as white silhouette (follows tile shape via alpha channel)
+      const glow = this.add
+        .image(sprite.x, sprite.y, sprite.texture.key)
+        .setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2)
+        .setTintFill(0xffffff)
+        .setAlpha(0)
+        .setDepth(1.5);
+      this.hintOverlays.push(glow);
+
       const tween = this.tweens.add({
-        targets: sprite,
-        scaleX: baseScale * 1.15,
-        scaleY: baseScale * 1.15,
+        targets: glow,
+        alpha: { from: 0, to: 0.5 },
         duration: HINT_ANIMATION.glowPulseDuration,
         yoyo: true,
         repeat: -1,
