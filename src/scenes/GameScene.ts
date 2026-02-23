@@ -118,9 +118,6 @@ export class GameScene extends Phaser.Scene {
 
   private cascadeCount = 0;
 
-  // Hint white overlays (task 1)
-  private hintOverlays: Phaser.GameObjects.Rectangle[] = [];
-
   // Mute button (task 3)
   private muteButton?: Phaser.GameObjects.Text;
 
@@ -886,7 +883,7 @@ export class GameScene extends Phaser.Scene {
 
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
-      .setDisplaySize(CELL_SIZE - 2, CELL_SIZE - 2)
+      .setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2)
       .setAlpha(alpha)
       .setInteractive({ useHandCursor: true });
     sprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -985,7 +982,7 @@ export class GameScene extends Phaser.Scene {
         const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
         sprite.setTexture(textureKey);
         // ВАЖНО: пересчитываем размер после смены текстуры
-        sprite.setDisplaySize(CELL_SIZE - 2, CELL_SIZE - 2);
+        sprite.setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2);
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
@@ -1354,16 +1351,11 @@ export class GameScene extends Phaser.Scene {
     }
     this.hintTweens = [];
 
-    // Destroy white overlays
-    for (const overlay of this.hintOverlays) {
-      overlay.destroy();
-    }
-    this.hintOverlays = [];
-
-    // Reset shake position for hinted sprites
+    // Reset scale and position for hinted sprites
     for (const id of this.hintedSpriteIds) {
       const sprite = this.tileSprites.get(id);
       if (sprite?.scene) {
+        sprite.setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2);
         const pos = this.tilePositions.get(id);
         if (pos) {
           const world = this.toWorld(pos);
@@ -1381,23 +1373,26 @@ export class GameScene extends Phaser.Scene {
     const move = this.potentialMoves[this.hintIndex % this.potentialMoves.length];
     this.hintIndex++;
 
-    // White overlay pulse on all match tiles + from tile (safe on Android)
-    const allHintPositions = [...move.matchPositions, move.from];
+    // Highlight only tiles of the same kind as the moving tile
+    const fromTileForKind = this.board.getTile(move.from);
+    if (!fromTileForKind) return;
+    const hintKind = fromTileForKind.base;
+
+    // Pulse scale on from tile + matching partners (same kind only)
+    const allHintPositions = [move.from, ...move.matchPositions];
     for (const pos of allHintPositions) {
       const tile = this.board.getTile(pos);
-      if (!tile) continue;
+      if (!tile || tile.base !== hintKind) continue;
+      const sprite = this.tileSprites.get(tile.id);
+      if (!sprite) continue;
+
       this.hintedSpriteIds.push(tile.id);
 
-      const worldPos = this.toWorld(pos);
-      const overlay = this.add
-        .rectangle(worldPos.x, worldPos.y, CELL_SIZE, CELL_SIZE, 0xffffff, 1)
-        .setDepth(1.5)
-        .setAlpha(0);
-      this.hintOverlays.push(overlay);
-
+      const baseScale = sprite.scaleX;
       const tween = this.tweens.add({
-        targets: overlay,
-        alpha: { from: 0, to: 0.6 },
+        targets: sprite,
+        scaleX: baseScale * 1.15,
+        scaleY: baseScale * 1.15,
         duration: HINT_ANIMATION.glowPulseDuration,
         yoyo: true,
         repeat: -1,
