@@ -1390,8 +1390,9 @@ export class GameScene extends Phaser.Scene {
 
       const worldPos = this.toWorld(pos);
       const overlay = this.add
-        .rectangle(worldPos.x, worldPos.y, CELL_SIZE - 2, CELL_SIZE - 2, 0xffffff, 0)
-        .setDepth(1.5);
+        .rectangle(worldPos.x, worldPos.y, CELL_SIZE - 2, CELL_SIZE - 2, 0xffffff, 1)
+        .setDepth(1.5)
+        .setAlpha(0);
       this.hintOverlays.push(overlay);
 
       const tween = this.tweens.add({
@@ -2008,7 +2009,7 @@ export class GameScene extends Phaser.Scene {
     this.hideBossShieldOverlay(true);
     if (!this.bossImage) return;
 
-    const shieldY = this.bossImage.y - this.bossImage.displayHeight * 0.35;
+    const shieldY = this.bossImage.y - this.bossImage.displayHeight * 0.15;
     const img = this.add.image(this.bossImage.x, shieldY, ASSET_KEYS.boss.shield);
     const targetHeight = this.bossImage.displayHeight * 0.2;
     const scale = targetHeight / img.height;
