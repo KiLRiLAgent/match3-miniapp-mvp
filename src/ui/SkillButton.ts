@@ -49,7 +49,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
       .text(0, -2, icon, {
         fontSize: "24px",
         color: "#ffffff",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
       })
       .setOrigin(0.5);
 
@@ -67,7 +67,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
       .text(0, size / 2 + 12, `${cost} MP`, {
         fontSize: "12px",
         color: "#aabbff",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -113,11 +113,15 @@ export class SkillButton extends Phaser.GameObjects.Container {
     this.iconText.setY(-2);
 
     const alpha = enabled ? 1 : 0.4;
+    const isActive = ready && enabled;
     const bgColor = !enabled ? COLORS.bgDisabled : ready ? COLORS.bgReady : COLORS.bgIdle;
-    const strokeAlpha = enabled ? 0.6 : 0.2;
 
     this.bg.setFillStyle(bgColor, 0.95);
-    this.bg.setStrokeStyle(2, 0xffffff, strokeAlpha);
+    this.bg.setStrokeStyle(
+      isActive ? 3 : 2,
+      isActive ? 0x66aaff : 0xffffff,
+      isActive ? 0.9 : enabled ? 0.6 : 0.2
+    );
     this.bg.setAlpha(alpha);
     this.iconText.setAlpha(alpha);
     if (this.iconImage) this.iconImage.setAlpha(alpha);
