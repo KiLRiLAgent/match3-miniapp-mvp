@@ -1447,18 +1447,25 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Yellow outline rectangle around each hint tile individually
+    // Single unified yellow outline rectangle around all hint tiles
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const pos of allHintPositions) {
       const t = this.board.getTile(pos);
       if (!t || t.base !== hintKind) continue;
       const w = this.toWorld(pos);
+      minX = Math.min(minX, w.x - CELL_SIZE / 2);
+      minY = Math.min(minY, w.y - CELL_SIZE / 2);
+      maxX = Math.max(maxX, w.x + CELL_SIZE / 2);
+      maxY = Math.max(maxY, w.y + CELL_SIZE / 2);
+    }
+    if (minX !== Infinity) {
       const pad = 3;
       const rect = this.add
         .rectangle(
-          w.x - CELL_SIZE / 2 - pad,
-          w.y - CELL_SIZE / 2 - pad,
-          CELL_SIZE + pad * 2,
-          CELL_SIZE + pad * 2,
+          minX - pad,
+          minY - pad,
+          maxX - minX + pad * 2,
+          maxY - minY + pad * 2,
         )
         .setOrigin(0, 0)
         .setFillStyle()
