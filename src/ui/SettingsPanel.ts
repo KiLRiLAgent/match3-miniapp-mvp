@@ -78,7 +78,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .text(GAME_WIDTH / 2, panelY + 25, "⚙️ Настройки", {
         fontSize: "24px",
         color: "#ffffff",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -88,7 +88,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .text(panelX + panelWidth - 20, panelY + 15, "✕", {
         fontSize: "28px",
         color: "#ff6666",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
       })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
@@ -179,7 +179,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         .text(panelX + 15, y, param.label, {
           fontSize: "16px",
           color: "#ffffff",
-          fontFamily: "Arial, sans-serif",
+          fontFamily: "'Exo 2', Arial, sans-serif",
         })
         .setOrigin(0, 0.5);
 
@@ -197,7 +197,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         .text(panelX + panelWidth - 115, y, "−", {
           fontSize: "24px",
           color: "#ff8888",
-          fontFamily: "Arial, sans-serif",
+          fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
         })
         .setOrigin(0.5);
@@ -211,7 +211,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         .text(panelX + panelWidth - 65, y, displayValue, {
           fontSize: param.isPattern ? "12px" : "16px",
           color: "#ffffff",
-          fontFamily: "Arial, sans-serif",
+          fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
         })
         .setOrigin(0.5);
@@ -230,7 +230,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         .text(panelX + panelWidth - 20, y, "+", {
           fontSize: "24px",
           color: "#88ff88",
-          fontFamily: "Arial, sans-serif",
+          fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
         })
         .setOrigin(0.5);
@@ -271,7 +271,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .text(GAME_WIDTH / 2, panelY + panelHeight - 35, "💾 Сохранить и перезапустить", {
         fontSize: "18px",
         color: "#88ff88",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
       })
       .setOrigin(0.5);

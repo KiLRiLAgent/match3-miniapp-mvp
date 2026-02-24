@@ -21,7 +21,7 @@ export class BootScene extends Phaser.Scene {
       .text(cx, cy - 60, "Match-3 Battle", {
         fontSize: "28px",
         color: "#ffffff",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -41,7 +41,7 @@ export class BootScene extends Phaser.Scene {
       .text(cx, cy + 30, "0%", {
         fontSize: "16px",
         color: "#aaaaaa",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
       })
       .setOrigin(0.5);
 

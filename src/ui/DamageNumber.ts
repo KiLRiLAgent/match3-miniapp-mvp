@@ -26,7 +26,7 @@ export class DamageNumber extends Phaser.GameObjects.Container {
     const text = scene.add
       .text(0, 0, displayText, {
         fontSize,
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         color,
         stroke: "#000000",
         strokeThickness: 4,

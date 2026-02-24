@@ -9,8 +9,7 @@ export class ShieldIcon extends Phaser.GameObjects.Container {
     super(scene, x, y);
 
     const bg = scene.add
-      .rectangle(0, 0, size, size, 0x3366ff, 0.9)
-      .setOrigin(0.5)
+      .circle(0, 0, size / 2, 0x3366ff, 0.9)
       .setStrokeStyle(2, 0xffffff, 0.8);
 
     const shieldEmoji = scene.add.text(0, -2, "\u{1F6E1}", { fontSize: "22px" }).setOrigin(0.5);
@@ -18,7 +17,7 @@ export class ShieldIcon extends Phaser.GameObjects.Container {
     this.cooldownText = scene.add
       .text(0, size / 2 - 10, "2", {
         fontSize: "14px",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         color: "#ffffff",
         fontStyle: "bold",
         stroke: "#000000",

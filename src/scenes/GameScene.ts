@@ -285,7 +285,7 @@ export class GameScene extends Phaser.Scene {
   private createBombCooldownText(tileId: number, x: number, y: number, cooldown: number): Phaser.GameObjects.Text {
     const text = this.add.text(x, y, cooldown.toString(), {
       fontSize: "16px",
-      fontFamily: "Arial, sans-serif",
+      fontFamily: "'Exo 2', Arial, sans-serif",
       color: "#ffffff",
       fontStyle: "bold",
       stroke: "#000000",
@@ -323,7 +323,7 @@ export class GameScene extends Phaser.Scene {
       .text(L.bossHpBarX, L.bossNameY, "Сафира: Пламя Бездны", {
         fontSize: "16px",
         color: "#ffffff",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
       })
       .setOrigin(0, 0.5)
       .setDepth(4)
@@ -332,7 +332,7 @@ export class GameScene extends Phaser.Scene {
     // === HP БАР БОССА ===
     this.bossHpBar = new Meter(
       this, L.bossHpBarX, L.bossHpBarY,
-      L.hpBarWidth, L.hpBarHeight, "", UI_COLORS.bossHp
+      L.hpBarWidth, L.hpBarHeight, "", UI_COLORS.bossHp, true
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА КУЛДАУНА ===
@@ -389,7 +389,7 @@ export class GameScene extends Phaser.Scene {
     // === HP БАР ИГРОКА ===
     this.playerHpBar = new Meter(
       this, L.playerHpBarX, L.playerHpBarY,
-      L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp
+      L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp, true
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === MANA БАР ИГРОКА ===
@@ -400,7 +400,7 @@ export class GameScene extends Phaser.Scene {
 
     // Текст хода (скрыт, не нужен по референсу)
     this.turnText = this.add
-      .text(GAME_WIDTH - 16, L.bossNameY, "", { fontSize: "14px", color: "#ffffff", fontFamily: "Arial, sans-serif" })
+      .text(GAME_WIDTH - 16, L.bossNameY, "", { fontSize: "14px", color: "#ffffff", fontFamily: "'Exo 2', Arial, sans-serif" })
       .setOrigin(1, 0.5)
       .setDepth(4)
       .setVisible(false);
@@ -409,7 +409,7 @@ export class GameScene extends Phaser.Scene {
     this.muteButton = this.add
       .text(GAME_WIDTH - 70, 65 + SAFE_AREA.top, isMuted() ? "🔇" : "🔊", {
         fontSize: "26px",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
       })
       .setOrigin(0.5)
       .setDepth(5)
@@ -424,7 +424,7 @@ export class GameScene extends Phaser.Scene {
     this.add
       .text(GAME_WIDTH - 35, 65 + SAFE_AREA.top, "⚙️", {
         fontSize: "26px",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
       })
       .setOrigin(0.5)
       .setDepth(5)
@@ -452,7 +452,7 @@ export class GameScene extends Phaser.Scene {
     const offsetText = this.add.text(GAME_WIDTH / 2, panelY - 30, `Смещение: ${GAME_PARAMS.background.offsetY}`, {
       fontSize: "18px",
       color: "#ffffff",
-      fontFamily: "Arial, sans-serif",
+      fontFamily: "'Exo 2', Arial, sans-serif",
     }).setOrigin(0.5);
     container.add(offsetText);
 
@@ -1246,7 +1246,7 @@ export class GameScene extends Phaser.Scene {
       .text(GAME_WIDTH / 2, UI_LAYOUT.boardOriginY - 30, "Нажмите на фишку чтобы убрать её!", {
         fontSize: "16px",
         color: "#ffffff",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         stroke: "#000000",
         strokeThickness: 3,
       })
@@ -1670,7 +1670,19 @@ export class GameScene extends Phaser.Scene {
     // Тикаем щит босса
     if (this.bossShieldDuration > 0) {
       this.bossShieldDuration--;
-      this.bossShieldText?.setText(this.bossShieldDuration.toString());
+      if (this.bossShieldText) {
+        this.bossShieldText.setText(this.bossShieldDuration.toString());
+        if (this.bossShieldDuration === 1) {
+          this.bossShieldText.setColor("#ffaa44");
+        }
+        // Pulse on decrement
+        this.tweens.add({
+          targets: this.bossShieldText,
+          scale: { from: 1.3, to: 1 },
+          duration: 250,
+          ease: "Back.easeOut",
+        });
+      }
       if (this.bossShieldDuration <= 0) {
         this.hideBossShieldOverlay();
       }
@@ -2030,7 +2042,7 @@ export class GameScene extends Phaser.Scene {
     const abilityText = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, abilityName, {
         fontSize: "32px",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         color: "#ff4444",
         fontStyle: "bold",
         stroke: "#000000",
@@ -2102,13 +2114,14 @@ export class GameScene extends Phaser.Scene {
     this.bossShieldOverlay = img;
 
     // Duration text on the shield
+    const shieldColor = this.bossShieldDuration <= 1 ? "#ffaa44" : "#ffffff";
     this.bossShieldText = this.add.text(img.x, img.y + 2, this.bossShieldDuration.toString(), {
-      fontSize: "18px",
-      fontFamily: "Arial, sans-serif",
-      color: "#ffffff",
-      fontStyle: "bold",
-      stroke: "#000000",
-      strokeThickness: 3,
+      fontSize: "28px",
+      fontFamily: "'Exo 2', Arial, sans-serif",
+      color: shieldColor,
+      fontStyle: "700",
+      stroke: "#003366",
+      strokeThickness: 5,
     }).setOrigin(0.5).setDepth(0.5).setAlpha(0);
 
     // Fade in + alpha pulse (no preFX — safe on Android)
@@ -2180,6 +2193,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showGameEndModal(message: string, textColor: string, buttonText: string, isVictory: boolean) {
+    const font = "'Exo 2', Arial, sans-serif";
+
     // Screen flash
     const flashColor = isVictory ? 0xffff44 : 0xff4444;
     const flash = this.add
@@ -2200,100 +2215,192 @@ export class GameScene extends Phaser.Scene {
       .setDepth(999);
     this.tweens.add({ targets: overlay, alpha: 0.75, duration: 400 });
 
-    // Title with scale-in
-    const title = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 100, message, {
-        fontSize: "42px",
+    // Title glow layer (blurred shadow)
+    const titleGlow = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 110, message, {
+        fontSize: "48px",
         color: textColor,
-        fontFamily: "Arial, sans-serif",
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 4,
+        fontFamily: font,
+        fontStyle: "700",
+        stroke: textColor,
+        strokeThickness: 12,
+      })
+      .setOrigin(0.5)
+      .setDepth(1000)
+      .setAlpha(0)
+      .setScale(0);
+
+    // Title sharp layer
+    const title = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 110, message, {
+        fontSize: "48px",
+        color: "#ffffff",
+        fontFamily: font,
+        fontStyle: "700",
+        stroke: textColor,
+        strokeThickness: 6,
       })
       .setOrigin(0.5)
       .setDepth(1000)
       .setScale(0);
+
     this.tweens.add({
-      targets: title,
+      targets: [titleGlow, title],
       scale: 1,
       duration: 400,
       ease: "Back.easeOut",
       delay: 200,
     });
+    this.tweens.add({
+      targets: titleGlow,
+      alpha: 0.3,
+      duration: 400,
+      delay: 200,
+    });
 
-    // Stats lines with staggered fade
-    const statLines = [
-      `Урон нанесён: ${this.stats.totalDamageDealt}`,
-      `Урон получен: ${this.stats.totalDamageReceived}`,
-      `Исцеление: ${this.stats.totalHealDone}`,
-      `Макс. каскад: x${this.stats.maxCascade}`,
-      `Ходов: ${this.stats.turnsPlayed}`,
-      `Скиллов: ${this.stats.skillsUsed}`,
-      `Бомб обезврежено: ${this.stats.bombsDefused}`,
+    // Stats data: [emoji + label, value, color]
+    const statRows: [string, string, string][] = [
+      ["⚔  Урон нанесён", `${this.stats.totalDamageDealt}`, "#ff6666"],
+      ["💔  Урон получен", `${this.stats.totalDamageReceived}`, "#ff88aa"],
+      ["💚  Исцеление", `${this.stats.totalHealDone}`, "#44ff66"],
+      ["🔥  Макс. каскад", `x${this.stats.maxCascade}`, "#ffdd44"],
+      ["🎯  Ходов", `${this.stats.turnsPlayed}`, "#aaaaaa"],
+      ["⚡  Скиллов", `${this.stats.skillsUsed}`, "#66bbff"],
+      ["💣  Бомб обезврежено", `${this.stats.bombsDefused}`, "#44ff66"],
     ];
 
-    const baseY = GAME_HEIGHT / 2 - 40;
-    statLines.forEach((line, i) => {
-      const statText = this.add
-        .text(GAME_WIDTH / 2, baseY + i * 24, line, {
-          fontSize: "16px",
-          color: "#dddddd",
-          fontFamily: "Arial, sans-serif",
+    const rowSpacing = 30;
+    const panelPadX = 30;
+    const panelWidth = GAME_WIDTH - panelPadX * 2;
+    const panelHeight = statRows.length * rowSpacing + 24;
+    const panelY = GAME_HEIGHT / 2 - 60;
+
+    // Stats panel background
+    const panelBg = this.add.graphics().setDepth(1000).setAlpha(0);
+    panelBg.fillStyle(0x0a0c16, 0.85);
+    panelBg.fillRoundedRect(panelPadX, panelY, panelWidth, panelHeight, 12);
+    panelBg.lineStyle(1, 0x334466, 0.7);
+    panelBg.strokeRoundedRect(panelPadX, panelY, panelWidth, panelHeight, 12);
+    this.tweens.add({ targets: panelBg, alpha: 1, duration: 300, delay: 400 });
+
+    const statsBaseY = panelY + 18;
+    statRows.forEach(([label, value, color], i) => {
+      const labelText = this.add
+        .text(panelPadX + 16, statsBaseY + i * rowSpacing, label, {
+          fontSize: "17px",
+          color: "#cccccc",
+          fontFamily: font,
         })
-        .setOrigin(0.5)
+        .setOrigin(0, 0.5)
         .setDepth(1000)
         .setAlpha(0);
+
+      const valueText = this.add
+        .text(panelPadX + panelWidth - 16, statsBaseY + i * rowSpacing, value, {
+          fontSize: "17px",
+          color,
+          fontFamily: font,
+          fontStyle: "700",
+        })
+        .setOrigin(1, 0.5)
+        .setDepth(1000)
+        .setAlpha(0);
+
       this.tweens.add({
-        targets: statText,
+        targets: [labelText, valueText],
         alpha: 1,
         duration: 200,
-        delay: 500 + i * 100,
+        delay: 500 + i * 80,
       });
     });
 
-    // Retry button with delay
-    const btn = this.add
-      .text(GAME_WIDTH / 2, baseY + statLines.length * 24 + 30, buttonText, {
+    // Button
+    const btnY = panelY + panelHeight + 30;
+    const btnW = 160;
+    const btnH = 44;
+    const btnColor = isVictory ? 0x2d5bff : 0xcc3333;
+
+    const btnBg = this.add.graphics().setDepth(1000).setAlpha(0);
+    btnBg.fillStyle(btnColor, 1);
+    btnBg.fillRoundedRect(GAME_WIDTH / 2 - btnW / 2, btnY - btnH / 2, btnW, btnH, 10);
+    btnBg.lineStyle(2, 0xffffff, 0.3);
+    btnBg.strokeRoundedRect(GAME_WIDTH / 2 - btnW / 2, btnY - btnH / 2, btnW, btnH, 10);
+
+    const btnText = this.add
+      .text(GAME_WIDTH / 2, btnY, buttonText, {
         fontSize: "20px",
-        backgroundColor: "#2d5bff",
-        padding: { x: 24, y: 10 },
         color: "#ffffff",
-        fontFamily: "Arial, sans-serif",
-        fontStyle: "bold",
+        fontFamily: font,
+        fontStyle: "700",
       })
       .setOrigin(0.5)
       .setDepth(1000)
-      .setAlpha(0)
+      .setAlpha(0);
+
+    // Invisible hit area for the button
+    const btnHit = this.add
+      .rectangle(GAME_WIDTH / 2, btnY, btnW, btnH, 0x000000, 0)
+      .setDepth(1001)
       .setInteractive({ useHandCursor: true })
+      .on("pointerover", () => {
+        btnBg.setScale(1.05);
+        btnText.setScale(1.05);
+      })
+      .on("pointerout", () => {
+        btnBg.setScale(1);
+        btnText.setScale(1);
+      })
       .on("pointerdown", () => {
         this.scene.stop("GameScene");
         this.scene.start("IntroScene");
       });
+    btnHit.setAlpha(0);
+
+    const btnDelay = 500 + statRows.length * 80 + 200;
     this.tweens.add({
-      targets: btn,
-      alpha: 1,
-      duration: 300,
-      delay: 500 + statLines.length * 100 + 200,
+      targets: [btnBg, btnText, btnHit],
+      alpha: { value: 1, duration: 300, delay: btnDelay },
     });
 
-    // Confetti for victory
-    if (isVictory && this.textures.exists(ASSET_KEYS.particle)) {
-      const confetti = this.add.particles(GAME_WIDTH / 2, -10, ASSET_KEYS.particle, {
-        x: { min: -GAME_WIDTH / 2, max: GAME_WIDTH / 2 },
-        speed: { min: 60, max: 160 },
-        angle: { min: 70, max: 110 },
-        scale: { start: 1.2, end: 0.4 },
-        alpha: { start: 1, end: 0 },
-        lifespan: 2500,
-        tint: [0xff4444, 0x44ff44, 0x4488ff, 0xffff44, 0xff44ff],
-        frequency: 60,
-        quantity: 3,
-      });
-      confetti.setDepth(1001);
-      this.time.delayedCall(3000, () => {
-        confetti.stop();
-        this.time.delayedCall(2500, () => confetti.destroy());
-      });
+    // Particles
+    if (this.textures.exists(ASSET_KEYS.particle)) {
+      if (isVictory) {
+        // Confetti for victory
+        const confetti = this.add.particles(GAME_WIDTH / 2, -10, ASSET_KEYS.particle, {
+          x: { min: -GAME_WIDTH / 2, max: GAME_WIDTH / 2 },
+          speed: { min: 60, max: 160 },
+          angle: { min: 70, max: 110 },
+          scale: { start: 1.2, end: 0.4 },
+          alpha: { start: 1, end: 0 },
+          lifespan: 2500,
+          tint: [0xff4444, 0x44ff44, 0x4488ff, 0xffff44, 0xff44ff],
+          frequency: 60,
+          quantity: 3,
+        });
+        confetti.setDepth(1001);
+        this.time.delayedCall(3000, () => {
+          confetti.stop();
+          this.time.delayedCall(2500, () => confetti.destroy());
+        });
+      } else {
+        // Dark particles for defeat
+        const darkParticles = this.add.particles(GAME_WIDTH / 2, GAME_HEIGHT + 10, ASSET_KEYS.particle, {
+          x: { min: -GAME_WIDTH / 2, max: GAME_WIDTH / 2 },
+          speed: { min: 20, max: 60 },
+          angle: { min: 250, max: 290 },
+          scale: { start: 1.0, end: 0.2 },
+          alpha: { start: 0.5, end: 0 },
+          lifespan: 3000,
+          tint: [0x440000, 0x661111, 0x330000],
+          frequency: 100,
+          quantity: 2,
+        });
+        darkParticles.setDepth(1001);
+        this.time.delayedCall(4000, () => {
+          darkParticles.stop();
+          this.time.delayedCall(3000, () => darkParticles.destroy());
+        });
+      }
     }
   }
 
@@ -2304,7 +2411,7 @@ export class GameScene extends Phaser.Scene {
       .text(center.x, center.y, `x${count}`, {
         fontSize: `${fontSize}px`,
         color: "#ffdd44",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 4,
@@ -2344,7 +2451,7 @@ export class GameScene extends Phaser.Scene {
         .text(center.x, center.y, "Перемешиваю!", {
           fontSize: "24px",
           color: "#ffffff",
-          fontFamily: "Arial, sans-serif",
+          fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
           stroke: "#000000",
           strokeThickness: 3,
