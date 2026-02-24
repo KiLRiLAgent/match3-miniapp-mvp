@@ -318,12 +318,14 @@ export class IntroScene extends Phaser.Scene {
     container.add(playerGloom);
     container.add(playerFrame);
 
-    // Плавная пульсация: только +2% scale
+    // Плавная пульсация: alpha засвет + scale +3%
+    playerGloom.setAlpha(0.5);
     this.tweens.add({
       targets: playerGloom,
-      scaleX: playerGloom.scaleX * 1.02,
-      scaleY: playerGloom.scaleY * 1.02,
-      duration: 1000,
+      scaleX: playerGloom.scaleX * 1.03,
+      scaleY: playerGloom.scaleY * 1.03,
+      alpha: 0.65,
+      duration: 1200,
       ease: "Sine.easeInOut",
       yoyo: true,
       repeat: -1,

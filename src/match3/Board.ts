@@ -536,12 +536,13 @@ export class Match3Board {
               moveTo = from;
             }
 
-            // Collect only stationary match partners from the primary match
+            // Collect stationary match partners from ALL matches
             // (exclude swapped tiles — they're already shown via from/to and the shake animation)
-            const primaryMatch = matches[0];
             const partnerKeys = new Set<string>();
-            for (const p of primaryMatch.positions) {
-              if (!isSwapped(p)) partnerKeys.add(this.key(p));
+            for (const m of matches) {
+              for (const p of m.positions) {
+                if (!isSwapped(p)) partnerKeys.add(this.key(p));
+              }
             }
             moves.push({
               from: moveFrom,
