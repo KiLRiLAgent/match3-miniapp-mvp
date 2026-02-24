@@ -121,10 +121,10 @@ export class GameScene extends Phaser.Scene {
   // Hint glow sprites (white silhouette clones)
   private hintOverlays: Phaser.GameObjects.Image[] = [];
   private hintSyncFn?: () => void;
-  private hintRect?: Phaser.GameObjects.Rectangle;
+  private hintRects: Phaser.GameObjects.Rectangle[] = [];
 
-  // Press glow (match partners of pressed tile)
-  private pressGlows: Phaser.GameObjects.Image[] = [];
+  // Press glow (pressed tile only)
+  private pressGlow?: Phaser.GameObjects.Image;
 
   // Mute button (task 3)
   private muteButton?: Phaser.GameObjects.Text;
@@ -584,8 +584,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private clearPressGlow() {
-    for (const g of this.pressGlows) g.destroy();
-    this.pressGlows = [];
+    this.pressGlow?.destroy();
+    this.pressGlow = undefined;
   }
 
   private setupInputHandlers() {
@@ -933,23 +933,9 @@ export class GameScene extends Phaser.Scene {
         point: new Phaser.Math.Vector2(pointer.x, pointer.y),
       };
 
-      // Press glow: highlight match partners of pressed tile
+      // Press glow: highlight only the pressed tile
       this.clearPressGlow();
-      const partnerPositions = new Set<string>();
-      for (const move of this.potentialMoves) {
-        const eq = (a: Position, b: Position) => a.x === b.x && a.y === b.y;
-        if (eq(move.from, current) || eq(move.to, current)) {
-          for (const mp of move.matchPositions) partnerPositions.add(`${mp.x},${mp.y}`);
-        }
-      }
-      for (const key of partnerPositions) {
-        const [px, py] = key.split(",").map(Number);
-        const partnerTile = this.board.getTile({ x: px, y: py });
-        if (!partnerTile) continue;
-        const partnerSprite = this.tileSprites.get(partnerTile.id);
-        if (!partnerSprite) continue;
-        this.pressGlows.push(this.createTileGlow(partnerSprite, 0.5));
-      }
+      this.pressGlow = this.createTileGlow(sprite, 0.5);
     });
     sprite.setDepth(1);
     this.tileSprites.set(tile.id, sprite);
@@ -1409,11 +1395,9 @@ export class GameScene extends Phaser.Scene {
     }
     this.hintOverlays = [];
 
-    // Destroy hint bounding rectangle
-    if (this.hintRect) {
-      this.hintRect.destroy();
-      this.hintRect = undefined;
-    }
+    // Destroy hint bounding rectangles
+    for (const r of this.hintRects) r.destroy();
+    this.hintRects = [];
 
     // Reset position for hinted sprites (shake may have moved them)
     for (const id of this.hintedSpriteIds) {
@@ -1463,30 +1447,25 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Yellow bounding rectangle around all hint positions
-    const allUsedPositions = allHintPositions.filter(p => {
-      const t = this.board.getTile(p);
-      return t && t.base === hintKind;
-    });
-    if (allUsedPositions.length > 0) {
-      const minX = Math.min(...allUsedPositions.map(p => p.x));
-      const maxX = Math.max(...allUsedPositions.map(p => p.x));
-      const minY = Math.min(...allUsedPositions.map(p => p.y));
-      const maxY = Math.max(...allUsedPositions.map(p => p.y));
-      const topLeft = this.toWorld({ x: minX, y: minY });
+    // Yellow outline rectangle around each hint tile individually
+    for (const pos of allHintPositions) {
+      const t = this.board.getTile(pos);
+      if (!t || t.base !== hintKind) continue;
+      const w = this.toWorld(pos);
       const pad = 3;
-      this.hintRect = this.add
+      const rect = this.add
         .rectangle(
-          topLeft.x - CELL_SIZE / 2 - pad,
-          topLeft.y - CELL_SIZE / 2 - pad,
-          (maxX - minX + 1) * CELL_SIZE + pad * 2,
-          (maxY - minY + 1) * CELL_SIZE + pad * 2,
+          w.x - CELL_SIZE / 2 - pad,
+          w.y - CELL_SIZE / 2 - pad,
+          CELL_SIZE + pad * 2,
+          CELL_SIZE + pad * 2,
         )
         .setOrigin(0, 0)
         .setFillStyle()
         .setStrokeStyle(2, 0xffdd44, 1)
         .setAlpha(0)
         .setDepth(0.7);
+      this.hintRects.push(rect);
     }
 
     const dx = move.to.x - move.from.x;
@@ -1517,10 +1496,8 @@ export class GameScene extends Phaser.Scene {
           g.setAlpha(glowAlpha);
         }
 
-        // Sync hint rectangle alpha
-        if (this.hintRect) {
-          this.hintRect.setAlpha(glowAlpha * 0.8);
-        }
+        // Sync hint rectangle alphas
+        for (const r of this.hintRects) r.setAlpha(glowAlpha * 0.8);
       };
       this.events.on("update", syncFn);
       this.hintSyncFn = syncFn;
