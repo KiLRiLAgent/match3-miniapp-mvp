@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { GAME_WIDTH, GAME_HEIGHT } from "../game/config";
 
 export const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -6,6 +7,22 @@ export const clamp = (value: number, min: number, max: number): number =>
 export const wait = (scene: Phaser.Scene, ms: number): Promise<void> =>
   new Promise<void>((resolve) => {
     scene.time.delayedCall(ms, () => resolve());
+  });
+
+export const waitOrTap = (scene: Phaser.Scene, ms: number, depth = 100): Promise<void> =>
+  new Promise<void>((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      blocker.destroy();
+      timer.destroy();
+      resolve();
+    };
+    const blocker = scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0);
+    blocker.setDepth(depth).setInteractive();
+    blocker.once("pointerdown", finish);
+    const timer = scene.time.delayedCall(ms, finish);
   });
 
 /**

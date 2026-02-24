@@ -39,7 +39,7 @@ import { BossAbilityManager } from "../game/BossAbility";
 import { BOSS_ABILITIES } from "../game/config";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
-import { clamp, wait, tweenPromise } from "../utils/helpers";
+import { clamp, wait, waitOrTap, tweenPromise } from "../utils/helpers";
 import { isMuted, getVolume, toggleMute } from "../utils/audioSettings";
 import { hapticLight, hapticMedium, hapticHeavy, hapticVictory, hapticDefeat } from "../utils/haptics";
 import { emitTileParticles } from "../ui/TileParticles";
@@ -244,7 +244,7 @@ export class GameScene extends Phaser.Scene {
     bubble.setDepth(100);
 
     await bubble.fadeIn();
-    await wait(this, INTRO_ANIMATION.speechBubbleHold);
+    await waitOrTap(this, INTRO_ANIMATION.speechBubbleHold, 101);
     await bubble.fadeOut();
   }
 

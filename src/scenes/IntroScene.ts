@@ -3,7 +3,7 @@ import { ASSET_KEYS } from "../game/assets";
 import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, DPR } from "../game/config";
 import { INTRO_ANIMATION, INTRO_EASING } from "../game/animations";
 import { SpeechBubble } from "../ui/SpeechBubble";
-import { wait, tweenPromise } from "../utils/helpers";
+import { wait, waitOrTap, tweenPromise } from "../utils/helpers";
 import { GameScene } from "./GameScene";
 
 // Диалоги с намеренными переносами строк для акцента
@@ -130,7 +130,7 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble.setDepth(10);
 
     await this.speechBubble.fadeIn();
-    await wait(this, INTRO_ANIMATION.speechBubbleHold);
+    await waitOrTap(this, INTRO_ANIMATION.speechBubbleHold, 11);
   }
 
   private async step4_poseChangeDialogue(): Promise<void> {
@@ -182,7 +182,7 @@ export class IntroScene extends Phaser.Scene {
     this.safira.destroy();
     this.safira = newSafira;
 
-    await wait(this, INTRO_ANIMATION.speechBubbleHold);
+    await waitOrTap(this, INTRO_ANIMATION.speechBubbleHold, 11);
 
     if (this.speechBubble) {
       await this.speechBubble.fadeOut();
@@ -234,7 +234,7 @@ export class IntroScene extends Phaser.Scene {
     });
 
     await Promise.all([bgZoomPromise, vsPromise]);
-    await wait(this, INTRO_ANIMATION.vsHold);
+    await waitOrTap(this, INTRO_ANIMATION.vsHold, 21);
   }
 
   private createVSScreen(): Phaser.GameObjects.Container {
