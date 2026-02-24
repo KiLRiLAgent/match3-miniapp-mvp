@@ -1459,39 +1459,42 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Single unified yellow outline rectangle around all hint tiles
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const pos of allHintPositions) {
-      const t = this.board.getTile(pos);
-      if (!t || t.base !== hintKind) continue;
-      const w = this.toWorld(pos);
-      minX = Math.min(minX, w.x - CELL_SIZE / 2);
-      minY = Math.min(minY, w.y - CELL_SIZE / 2);
-      maxX = Math.max(maxX, w.x + CELL_SIZE / 2);
-      maxY = Math.max(maxY, w.y + CELL_SIZE / 2);
-    }
-    if (minX !== Infinity) {
-      const pad = 3;
-      const rect = this.add
-        .rectangle(
-          minX - pad,
-          minY - pad,
-          maxX - minX + pad * 2,
-          maxY - minY + pad * 2,
-        )
-        .setOrigin(0, 0)
-        .setFillStyle()
-        .setStrokeStyle(2, 0xffdd44, 1)
-        .setAlpha(0)
-        .setDepth(0.7);
-      // Fade in the rectangle independently
-      this.tweens.add({
-        targets: rect,
-        alpha: 0.8,
-        duration: 250,
-        ease: "Quad.easeOut",
-      });
-      this.hintRects.push(rect);
+    // Single unified yellow outline rectangle around match result tiles (4+ only)
+    if (move.matchPositions.length >= 3) {
+      const matchResultPositions = [move.to, ...move.matchPositions];
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const pos of matchResultPositions) {
+        const t = this.board.getTile(pos);
+        if (!t || t.base !== hintKind) continue;
+        const w = this.toWorld(pos);
+        minX = Math.min(minX, w.x - CELL_SIZE / 2);
+        minY = Math.min(minY, w.y - CELL_SIZE / 2);
+        maxX = Math.max(maxX, w.x + CELL_SIZE / 2);
+        maxY = Math.max(maxY, w.y + CELL_SIZE / 2);
+      }
+      if (minX !== Infinity) {
+        const pad = 3;
+        const rect = this.add
+          .rectangle(
+            minX - pad,
+            minY - pad,
+            maxX - minX + pad * 2,
+            maxY - minY + pad * 2,
+          )
+          .setOrigin(0, 0)
+          .setFillStyle()
+          .setStrokeStyle(2, 0xffdd44, 1)
+          .setAlpha(0)
+          .setDepth(0.7);
+        // Fade in the rectangle independently
+        this.tweens.add({
+          targets: rect,
+          alpha: 0.8,
+          duration: 250,
+          ease: "Quad.easeOut",
+        });
+        this.hintRects.push(rect);
+      }
     }
 
     const dx = move.to.x - move.from.x;
