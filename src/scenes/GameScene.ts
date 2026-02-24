@@ -1395,8 +1395,20 @@ export class GameScene extends Phaser.Scene {
     }
     this.hintOverlays = [];
 
-    // Destroy hint bounding rectangles
-    for (const r of this.hintRects) r.destroy();
+    // Fade out hint bounding rectangles
+    for (const r of this.hintRects) {
+      if (r.scene) {
+        this.tweens.add({
+          targets: r,
+          alpha: 0,
+          duration: 250,
+          ease: "Quad.easeIn",
+          onComplete: () => r.destroy(),
+        });
+      } else {
+        r.destroy();
+      }
+    }
     this.hintRects = [];
 
     // Reset position for hinted sprites (shake may have moved them)
@@ -1472,6 +1484,13 @@ export class GameScene extends Phaser.Scene {
         .setStrokeStyle(2, 0xffdd44, 1)
         .setAlpha(0)
         .setDepth(0.7);
+      // Fade in the rectangle independently
+      this.tweens.add({
+        targets: rect,
+        alpha: 0.8,
+        duration: 250,
+        ease: "Quad.easeOut",
+      });
       this.hintRects.push(rect);
     }
 
@@ -1502,9 +1521,6 @@ export class GameScene extends Phaser.Scene {
         for (const g of this.hintOverlays) {
           g.setAlpha(glowAlpha);
         }
-
-        // Sync hint rectangle alphas
-        for (const r of this.hintRects) r.setAlpha(glowAlpha * 0.8);
       };
       this.events.on("update", syncFn);
       this.hintSyncFn = syncFn;
