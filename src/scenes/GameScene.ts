@@ -123,8 +123,8 @@ export class GameScene extends Phaser.Scene {
   private hintSyncFn?: () => void;
   private hintRect?: Phaser.GameObjects.Rectangle;
 
-  // Press glow
-  private pressGlow?: Phaser.GameObjects.Image;
+  // Press glow (match partners of pressed tile)
+  private pressGlows: Phaser.GameObjects.Image[] = [];
 
   // Mute button (task 3)
   private muteButton?: Phaser.GameObjects.Text;
@@ -584,10 +584,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private clearPressGlow() {
-    if (this.pressGlow) {
-      this.pressGlow.destroy();
-      this.pressGlow = undefined;
-    }
+    for (const g of this.pressGlows) g.destroy();
+    this.pressGlows = [];
   }
 
   private setupInputHandlers() {
@@ -935,9 +933,23 @@ export class GameScene extends Phaser.Scene {
         point: new Phaser.Math.Vector2(pointer.x, pointer.y),
       };
 
-      // Press glow: white silhouette while holding
-      this.pressGlow?.destroy();
-      this.pressGlow = this.createTileGlow(sprite, 0.5);
+      // Press glow: highlight match partners of pressed tile
+      this.clearPressGlow();
+      const partnerPositions = new Set<string>();
+      for (const move of this.potentialMoves) {
+        const eq = (a: Position, b: Position) => a.x === b.x && a.y === b.y;
+        if (eq(move.from, current) || eq(move.to, current)) {
+          for (const mp of move.matchPositions) partnerPositions.add(`${mp.x},${mp.y}`);
+        }
+      }
+      for (const key of partnerPositions) {
+        const [px, py] = key.split(",").map(Number);
+        const partnerTile = this.board.getTile({ x: px, y: py });
+        if (!partnerTile) continue;
+        const partnerSprite = this.tileSprites.get(partnerTile.id);
+        if (!partnerSprite) continue;
+        this.pressGlows.push(this.createTileGlow(partnerSprite, 0.5));
+      }
     });
     sprite.setDepth(1);
     this.tileSprites.set(tile.id, sprite);
