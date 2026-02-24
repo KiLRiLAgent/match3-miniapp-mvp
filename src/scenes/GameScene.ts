@@ -1469,10 +1469,10 @@ export class GameScene extends Phaser.Scene {
           topLeft.y - CELL_SIZE / 2 - pad,
           (maxX - minX + 1) * CELL_SIZE + pad * 2,
           (maxY - minY + 1) * CELL_SIZE + pad * 2,
-          0xffdd44,
-          1
         )
         .setOrigin(0, 0)
+        .setFillStyle()
+        .setStrokeStyle(2, 0xffdd44, 1)
         .setAlpha(0)
         .setDepth(0.7);
     }
@@ -1507,7 +1507,7 @@ export class GameScene extends Phaser.Scene {
 
         // Sync hint rectangle alpha
         if (this.hintRect) {
-          this.hintRect.setAlpha(glowAlpha * 0.4);
+          this.hintRect.setAlpha(glowAlpha * 0.8);
         }
       };
       this.events.on("update", syncFn);
