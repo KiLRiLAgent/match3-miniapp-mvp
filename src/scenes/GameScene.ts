@@ -121,6 +121,10 @@ export class GameScene extends Phaser.Scene {
   // Hint glow sprites (white silhouette clones)
   private hintOverlays: Phaser.GameObjects.Image[] = [];
   private hintSyncFn?: () => void;
+  private hintRect?: Phaser.GameObjects.Rectangle;
+
+  // Press glow
+  private pressGlow?: Phaser.GameObjects.Image;
 
   // Mute button (task 3)
   private muteButton?: Phaser.GameObjects.Text;
@@ -579,8 +583,17 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private clearPressGlow() {
+    if (this.pressGlow) {
+      this.pressGlow.destroy();
+      this.pressGlow = undefined;
+    }
+  }
+
   private setupInputHandlers() {
     this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+      this.clearPressGlow();
+
       const start = this.dragStart;
       this.dragStart = null;
 
@@ -597,6 +610,10 @@ export class GameScene extends Phaser.Scene {
         const target = { x: start.pos.x + dir.x, y: start.pos.y + dir.y };
         this.attemptSwap(start.pos, target);
       }
+    });
+
+    this.input.on("pointerupoutside", () => {
+      this.clearPressGlow();
     });
   }
 
@@ -879,6 +896,15 @@ export class GameScene extends Phaser.Scene {
     return ASSET_KEYS.tiles[tile.kind] ?? tile.kind;
   }
 
+  private createTileGlow(sprite: Phaser.GameObjects.Image, alpha: number) {
+    return this.add
+      .image(sprite.x, sprite.y, sprite.texture.key)
+      .setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2)
+      .setTintFill(0xffffff)
+      .setAlpha(alpha)
+      .setDepth(1.5);
+  }
+
   private spawnTileSprite(tile: Tile, pos: Position, startYOrAlpha?: number, initialAlpha?: number) {
     const world = this.toWorld(pos);
     // Если передан startY как число > 1, это Y-координата. Иначе это alpha.
@@ -908,6 +934,10 @@ export class GameScene extends Phaser.Scene {
         pos: { ...current },
         point: new Phaser.Math.Vector2(pointer.x, pointer.y),
       };
+
+      // Press glow: white silhouette while holding
+      this.pressGlow?.destroy();
+      this.pressGlow = this.createTileGlow(sprite, 0.5);
     });
     sprite.setDepth(1);
     this.tileSprites.set(tile.id, sprite);
@@ -1367,6 +1397,12 @@ export class GameScene extends Phaser.Scene {
     }
     this.hintOverlays = [];
 
+    // Destroy hint bounding rectangle
+    if (this.hintRect) {
+      this.hintRect.destroy();
+      this.hintRect = undefined;
+    }
+
     // Reset position for hinted sprites (shake may have moved them)
     for (const id of this.hintedSpriteIds) {
       const sprite = this.tileSprites.get(id);
@@ -1406,19 +1442,39 @@ export class GameScene extends Phaser.Scene {
 
       this.hintedSpriteIds.push(tile.id);
 
-      // Clone as white silhouette (follows tile shape via alpha channel)
-      const glow = this.add
-        .image(sprite.x, sprite.y, sprite.texture.key)
-        .setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2)
-        .setTintFill(0xffffff)
-        .setAlpha(0)
-        .setDepth(1.5);
+      const glow = this.createTileGlow(sprite, 0);
       this.hintOverlays.push(glow);
 
       // Track the glow for the from tile
       if (tile.id === fromTile.id) {
         fromGlow = glow;
       }
+    }
+
+    // Yellow bounding rectangle around all hint positions
+    const allUsedPositions = allHintPositions.filter(p => {
+      const t = this.board.getTile(p);
+      return t && t.base === hintKind;
+    });
+    if (allUsedPositions.length > 0) {
+      const minX = Math.min(...allUsedPositions.map(p => p.x));
+      const maxX = Math.max(...allUsedPositions.map(p => p.x));
+      const minY = Math.min(...allUsedPositions.map(p => p.y));
+      const maxY = Math.max(...allUsedPositions.map(p => p.y));
+      const topLeft = this.toWorld({ x: minX, y: minY });
+      const pad = 3;
+      this.hintRect = this.add
+        .rectangle(
+          topLeft.x - CELL_SIZE / 2 - pad,
+          topLeft.y - CELL_SIZE / 2 - pad,
+          (maxX - minX + 1) * CELL_SIZE + pad * 2,
+          (maxY - minY + 1) * CELL_SIZE + pad * 2,
+          0xffdd44,
+          1
+        )
+        .setOrigin(0, 0)
+        .setAlpha(0)
+        .setDepth(0.7);
     }
 
     const dx = move.to.x - move.from.x;
@@ -1447,6 +1503,11 @@ export class GameScene extends Phaser.Scene {
         const glowAlpha = progress * 0.5;
         for (const g of this.hintOverlays) {
           g.setAlpha(glowAlpha);
+        }
+
+        // Sync hint rectangle alpha
+        if (this.hintRect) {
+          this.hintRect.setAlpha(glowAlpha * 0.4);
         }
       };
       this.events.on("update", syncFn);
