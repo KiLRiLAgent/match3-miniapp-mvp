@@ -316,6 +316,23 @@ export class IntroScene extends Phaser.Scene {
     const playerGloom = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerGloom);
     playerGloom.setScale(frameScale);
     container.add(playerGloom);
+
+    // Белое свечение по принципу тайлового glow, но в половину слабее
+    const playerWhiteGlow = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerFrame);
+    playerWhiteGlow.setScale(frameScale * 1.03);
+    playerWhiteGlow.setTintFill(0xffffff);
+    playerWhiteGlow.setAlpha(0);
+    container.add(playerWhiteGlow);
+
+    this.tweens.add({
+      targets: playerWhiteGlow,
+      alpha: 0.25,
+      duration: 1200,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+
     container.add(playerFrame);
 
     // Плавная пульсация: alpha засвет + scale +3%

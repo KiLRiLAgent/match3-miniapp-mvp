@@ -1547,7 +1547,7 @@ export class GameScene extends Phaser.Scene {
       ease: "Sine.easeOut",
     };
     const tweens = [];
-    for (let i = 0; i <= HINT_ANIMATION.shakeRepeat; i++) {
+    for (let i = 0; i < HINT_ANIMATION.shakeRepeat; i++) {
       tweens.push({ ...fwd }, { ...bwd });
     }
     const chain = this.tweens.chain({ tweens });
