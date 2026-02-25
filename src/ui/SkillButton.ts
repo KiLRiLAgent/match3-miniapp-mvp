@@ -5,6 +5,7 @@ type SkillState = {
   ready: boolean;
   cooldown?: number;
   info?: string;
+  locked?: boolean;
 };
 
 const COLORS = {
@@ -47,7 +48,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
     // Эмодзи иконка по центру (скрыта если есть текстура)
     this.iconText = scene.add
       .text(0, -2, icon, {
-        fontSize: "24px",
+        fontSize: "30px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
       })
@@ -57,7 +58,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
     if (iconTexture) {
       this.iconImage = scene.add
         .image(0, 0, iconTexture)
-        .setDisplaySize(size * 0.6, size * 0.6)
+        .setDisplaySize(size * 0.7, size * 0.7)
         .setOrigin(0.5);
       this.iconText.setVisible(false);
     }
@@ -83,12 +84,28 @@ export class SkillButton extends Phaser.GameObjects.Container {
   applyState(state: SkillState) {
     const { enabled, ready, cooldown, info } = state;
 
+    // Заблокирован — показать замок
+    if (state.locked) {
+      this.isEnabled = false;
+      this.iconText.setText("🔒");
+      this.iconText.setVisible(true);
+      this.iconText.setFontSize(24);
+      this.iconText.setY(-2);
+      if (this.iconImage) this.iconImage.setVisible(false);
+      this.bg.setFillStyle(COLORS.bgDisabled, 0.9);
+      this.bg.setStrokeStyle(2, 0xffffff, 0.15);
+      this.bg.setAlpha(0.3);
+      this.iconText.setAlpha(0.4);
+      this.costText.setAlpha(0);
+      return;
+    }
+
     // На кулдауне - показать цифру вместо иконки
     if (cooldown && cooldown > 0) {
       this.isEnabled = false;
       this.iconText.setText(cooldown.toString());
       this.iconText.setVisible(true);
-      this.iconText.setFontSize(28);
+      this.iconText.setFontSize(30);
       this.iconText.setY(0);
       if (this.iconImage) this.iconImage.setVisible(false);
       this.bg.setFillStyle(COLORS.bgCooldown, 0.9);
@@ -109,7 +126,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
       this.iconText.setText(this.originalIcon);
       this.iconText.setVisible(true);
     }
-    this.iconText.setFontSize(24);
+    this.iconText.setFontSize(30);
     this.iconText.setY(-2);
 
     const alpha = enabled ? 1 : 0.4;

@@ -264,7 +264,8 @@ export const getUILayout = () => {
   const avatarWidth = 65; // На 30% шире (было 50)
   const skillsBottomY = skillButtonsY + skillButtonSize / 2 + skillCostOffset; // низ текста стоимости
   const avatarHeight = skillsBottomY - playerHpBarY;
-  const avatarX = screenPadding + avatarWidth / 2;
+  const avatarFramePadding = 4;
+  const avatarX = screenPadding + avatarFramePadding + avatarWidth / 2;
   const avatarY = playerHpBarY + avatarHeight / 2;
 
   // HP/MP бары начинаются после аватара
