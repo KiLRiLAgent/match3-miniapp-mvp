@@ -1460,7 +1460,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Single unified yellow outline rectangle around match result tiles (4+ only)
-    if (move.matchPositions.length >= 3) {
+    if (move.maxMatchLength >= 4) {
       const matchResultPositions = [move.to, ...move.matchPositions];
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const pos of matchResultPositions) {

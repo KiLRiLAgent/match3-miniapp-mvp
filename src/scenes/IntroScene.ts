@@ -374,17 +374,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step6_transitionToGame(): Promise<void> {
-    // 1. Сначала fade out VS (пока GameScene не запущена)
-    if (this.vsContainer) {
-      await tweenPromise(this, {
-        targets: this.vsContainer,
-        alpha: 0,
-        duration: 800,
-        ease: "Quad.easeInOut",
-      });
-    }
-
-    // 2. Запускаем GameScene (bg/boss рендерятся поверх IntroScene на тех же координатах)
+    // 1. Запускаем GameScene первой (bg/boss рендерятся за vsContainer)
     this.scene.launch("GameScene", {
       fromIntro: true,
       startHidden: true,
@@ -392,11 +382,22 @@ export class IntroScene extends Phaser.Scene {
 
     await wait(this, 100);
 
-    // 3. Показываем игровое поле с финальным диалогом
+    // 2. Одновременно: fade out VS + fade in GameScene
     const gameScene = this.scene.get("GameScene") as GameScene;
-    await gameScene.triggerFadeIn(DIALOGUE.final);
+    const fadeOutVS = this.vsContainer
+      ? tweenPromise(this, {
+          targets: this.vsContainer,
+          alpha: 0,
+          duration: 800,
+          ease: "Quad.easeInOut",
+        })
+      : Promise.resolve();
 
-    // 4. Останавливаем IntroScene
+    const fadeInGame = gameScene.triggerFadeIn(DIALOGUE.final);
+
+    await Promise.all([fadeOutVS, fadeInGame]);
+
+    // 3. Останавливаем IntroScene
     this.scene.stop("IntroScene");
   }
 }

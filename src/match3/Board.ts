@@ -544,10 +544,12 @@ export class Match3Board {
                 if (!isSwapped(p)) partnerKeys.add(this.key(p));
               }
             }
+            const maxMatchLength = Math.max(...matches.map(m => m.positions.length));
             moves.push({
               from: moveFrom,
               to: moveTo,
               matchPositions: Array.from(partnerKeys).map(k => this.fromKey(k)),
+              maxMatchLength,
             });
           }
         }

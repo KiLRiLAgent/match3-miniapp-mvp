@@ -41,6 +41,7 @@ export type PotentialMove = {
   from: Position;
   to: Position;
   matchPositions: Position[];
+  maxMatchLength: number;
 };
 
 export type MatchBonus = {
