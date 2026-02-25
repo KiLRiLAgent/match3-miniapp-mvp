@@ -1,12 +1,15 @@
 import Phaser from "phaser";
 
 export class Meter extends Phaser.GameObjects.Container {
-  private fill: Phaser.GameObjects.Rectangle;
-  private highlight: Phaser.GameObjects.Rectangle;
+  private fillGfx: Phaser.GameObjects.Graphics;
+  private highlightGfx: Phaser.GameObjects.Graphics;
   private label: Phaser.GameObjects.Text;
   private widthPx: number;
+  private heightPx: number;
+  private radius: number;
   private baseColor: number;
   private isHp: boolean;
+  private currentColor: number;
 
   constructor(
     scene: Phaser.Scene,
@@ -20,36 +23,26 @@ export class Meter extends Phaser.GameObjects.Container {
   ) {
     super(scene, x, y);
     this.widthPx = width;
+    this.heightPx = height;
     this.baseColor = color;
+    this.currentColor = color;
     this.isHp = isHp;
-
-    const radius = Math.round(height / 2);
+    this.radius = Math.round(height / 2);
 
     // Rounded border background
     const borderGfx = scene.add.graphics();
     borderGfx.fillStyle(0x0a0c16, 0.65);
-    borderGfx.fillRoundedRect(0, 0, width, height, radius);
+    borderGfx.fillRoundedRect(0, 0, width, height, this.radius);
     borderGfx.lineStyle(2, 0x334466, 0.7);
-    borderGfx.strokeRoundedRect(0, 0, width, height, radius);
+    borderGfx.strokeRoundedRect(0, 0, width, height, this.radius);
 
-    // Mask so fill/highlight stay within rounded shape
-    const maskGfx = scene.add.graphics();
-    maskGfx.fillStyle(0xffffff);
-    maskGfx.fillRoundedRect(0, 0, width, height, radius);
-    maskGfx.setVisible(false);
-    this.add(maskGfx);
-    const geoMask = maskGfx.createGeometryMask();
-
-    this.fill = scene.add
-      .rectangle(0, 0, width, height, color, 0.95)
-      .setOrigin(0, 0)
-      .setMask(geoMask);
+    // Fill drawn as rounded rect (no mask needed)
+    this.fillGfx = scene.add.graphics();
+    this.drawFill(width);
 
     // Highlight strip for faux gradient
-    this.highlight = scene.add
-      .rectangle(0, 0, width, Math.round(height * 0.3), 0xffffff, 0.15)
-      .setOrigin(0, 0)
-      .setMask(geoMask);
+    this.highlightGfx = scene.add.graphics();
+    this.drawHighlight(width);
 
     const title = scene.add
       .text(0, -18, label, {
@@ -71,20 +64,35 @@ export class Meter extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5, 0.5);
 
-    this.add([borderGfx, this.fill, this.highlight, title, this.label]);
+    this.add([borderGfx, this.fillGfx, this.highlightGfx, title, this.label]);
     scene.add.existing(this);
+  }
+
+  private drawFill(fillWidth: number) {
+    this.fillGfx.clear();
+    if (fillWidth <= 0) return;
+    this.fillGfx.fillStyle(this.currentColor, 0.95);
+    this.fillGfx.fillRoundedRect(0, 0, fillWidth, this.heightPx, this.radius);
+  }
+
+  private drawHighlight(fillWidth: number) {
+    this.highlightGfx.clear();
+    if (fillWidth <= 0) return;
+    this.highlightGfx.fillStyle(0xffffff, 0.15);
+    this.highlightGfx.fillRoundedRect(0, 0, fillWidth, Math.round(this.heightPx * 0.3), this.radius);
   }
 
   setValue(current: number, max: number) {
     const clamped = Phaser.Math.Clamp(current, 0, max);
     const ratio = max === 0 ? 0 : clamped / max;
-    this.fill.width = this.widthPx * ratio;
-    this.highlight.width = this.widthPx * ratio;
-    this.label.setText(`${Math.floor(clamped)}/${max}`);
+    const fillWidth = this.widthPx * ratio;
 
     if (this.isHp) {
-      const color = ratio > 0.5 ? this.baseColor : ratio > 0.25 ? 0xf5a623 : 0xde3e3e;
-      this.fill.setFillStyle(color, 0.95);
+      this.currentColor = ratio > 0.5 ? this.baseColor : ratio > 0.25 ? 0xf5a623 : 0xde3e3e;
     }
+
+    this.drawFill(fillWidth);
+    this.drawHighlight(fillWidth);
+    this.label.setText(`${Math.floor(clamped)}/${max}`);
   }
 }
