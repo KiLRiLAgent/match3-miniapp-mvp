@@ -316,10 +316,11 @@ export class IntroScene extends Phaser.Scene {
     const playerGloom = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerGloom);
     playerGloom.setScale(frameScale);
     container.add(playerGloom);
+    container.add(playerFrame);
 
-    // Белое свечение по принципу тайлового glow, но в половину слабее
+    // Белое свечение поверх рамки (по принципу тайлового glow, в половину слабее)
     const playerWhiteGlow = this.add.image(GAME_WIDTH / 2, playerFrameY, ASSET_KEYS.intro.playerFrame);
-    playerWhiteGlow.setScale(frameScale * 1.03);
+    playerWhiteGlow.setScale(frameScale);
     playerWhiteGlow.setTintFill(0xffffff);
     playerWhiteGlow.setAlpha(0);
     container.add(playerWhiteGlow);
@@ -332,8 +333,6 @@ export class IntroScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
     });
-
-    container.add(playerFrame);
 
     // Плавная пульсация: alpha засвет + scale +3%
     playerGloom.setAlpha(0.5);
