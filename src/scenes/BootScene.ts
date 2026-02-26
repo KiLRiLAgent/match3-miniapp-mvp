@@ -108,12 +108,14 @@ export class BootScene extends Phaser.Scene {
     // Загружаем параметры до старта любых сцен
     loadGameParams();
 
-    // Явно загружаем все начертания шрифта Exo 2 (document.fonts.ready ненадёжен на первом визите)
-    Promise.all([
+    // Загружаем шрифт Exo 2 с таймаутом (шрифты могут не загрузиться без интернета)
+    const fontPromise = Promise.all([
       document.fonts.load('500 16px "Exo 2"'),
       document.fonts.load('600 16px "Exo 2"'),
       document.fonts.load('700 16px "Exo 2"'),
-    ]).then(() => {
+    ]);
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+    Promise.race([fontPromise, timeout]).then(() => {
       this.scene.start("IntroScene");
     });
   }
