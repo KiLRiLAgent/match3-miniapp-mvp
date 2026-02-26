@@ -18,6 +18,27 @@ window.addEventListener("unhandledrejection", (e) => showError("REJECT: " + e.re
 // Инициализация Telegram WebApp до создания игры (fullscreen mode)
 initTelegram();
 
+function detectRenderer(): number {
+  try {
+    const c = document.createElement("canvas");
+    const gl = (c.getContext("webgl") || c.getContext("experimental-webgl")) as WebGLRenderingContext | null;
+    if (!gl) return Phaser.CANVAS;
+    const fb = gl.createFramebuffer();
+    const rb = gl.createRenderbuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA4, 2, 2);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, rb);
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.deleteFramebuffer(fb);
+    gl.deleteRenderbuffer(rb);
+    c.remove();
+    return ok ? Phaser.AUTO : Phaser.CANVAS;
+  } catch {
+    return Phaser.CANVAS;
+  }
+}
+
 // Ждём 100ms для полной инициализации Telegram API (safeAreaInset)
 setTimeout(() => {
   const screenWidth = window.innerWidth;
@@ -29,8 +50,10 @@ setTimeout(() => {
   setScreenSize(screenWidth, screenHeight, safeArea);
   updateScaledValues();
 
+  const rendererType = detectRenderer();
+
   const config: Phaser.Types.Core.GameConfig = {
-    type: Phaser.AUTO,
+    type: rendererType,
     width: screenWidth * dpr,
     height: screenHeight * dpr,
     parent: "app",
