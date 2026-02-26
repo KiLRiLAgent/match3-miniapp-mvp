@@ -1467,7 +1467,7 @@ export class GameScene extends Phaser.Scene {
 
       this.hintedSpriteIds.push(tile.id);
 
-      const glow = this.createTileGlow(sprite, 0);
+      const glow = this.createTileGlow(sprite, HINT_ANIMATION.glowBaseAlpha);
       this.hintOverlays.push(glow);
 
       // Track the glow for the from tile
@@ -1537,7 +1537,8 @@ export class GameScene extends Phaser.Scene {
         const progress = Math.min(currentDist / dist, 1);
 
         // Apply alpha to all glow overlays (from + partners)
-        const glowAlpha = progress * 0.5;
+        const glowAlpha = HINT_ANIMATION.glowBaseAlpha +
+          progress * (HINT_ANIMATION.glowPeakAlpha - HINT_ANIMATION.glowBaseAlpha);
         for (const g of this.hintOverlays) {
           g.setAlpha(glowAlpha);
         }
@@ -1563,12 +1564,12 @@ export class GameScene extends Phaser.Scene {
       duration: bwdDuration,
       ease: "Sine.easeOut",
     };
-    const tweens = [];
+    const chainTweens = [];
     for (let i = 0; i < HINT_ANIMATION.shakeRepeat; i++) {
-      tweens.push({ ...fwd }, { ...bwd });
+      chainTweens.push({ ...fwd }, { ...bwd });
     }
     const chain = this.tweens.chain({
-      tweens,
+      tweens: chainTweens,
       onComplete: () => {
         if (this.hintSyncFn) {
           this.events.off("update", this.hintSyncFn);

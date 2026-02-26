@@ -82,6 +82,8 @@ export const HINT_ANIMATION = {
   shakeDuration: 400,
   shakeDistance: 8,
   shakeRepeat: 3,
+  glowBaseAlpha: 0.15,
+  glowPeakAlpha: 0.6,
   glowSustainAlpha: 0.35,
   glowFadeOut: 300,
 } as const;
