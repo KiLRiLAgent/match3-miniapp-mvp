@@ -12,7 +12,17 @@ function showError(msg: string) {
   div.textContent = msg;
   document.body.appendChild(div);
 }
-window.onerror = (msg) => showError("ERROR: " + msg);
+
+let pendingCanvasRetry = false;
+
+window.onerror = (msg) => {
+  if (!pendingCanvasRetry && String(msg).includes("Framebuffer")) {
+    pendingCanvasRetry = true;
+    startGame(Phaser.CANVAS);
+    return true;
+  }
+  showError("ERROR: " + msg);
+};
 window.addEventListener("unhandledrejection", (e) => showError("REJECT: " + e.reason));
 
 // Инициализация Telegram WebApp до создания игры (fullscreen mode)
@@ -23,15 +33,16 @@ function detectRenderer(): number {
     const c = document.createElement("canvas");
     const gl = (c.getContext("webgl") || c.getContext("experimental-webgl")) as WebGLRenderingContext | null;
     if (!gl) return Phaser.CANVAS;
+    // Test with texture attachment — this is what Phaser uses internally
     const fb = gl.createFramebuffer();
-    const rb = gl.createRenderbuffer();
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA4, 2, 2);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, rb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
     gl.deleteFramebuffer(fb);
-    gl.deleteRenderbuffer(rb);
+    gl.deleteTexture(tex);
     c.remove();
     return ok ? Phaser.AUTO : Phaser.CANVAS;
   } catch {
@@ -39,8 +50,16 @@ function detectRenderer(): number {
   }
 }
 
-// Ждём 100ms для полной инициализации Telegram API (safeAreaInset)
-setTimeout(() => {
+let gameInstance: Phaser.Game | null = null;
+
+function startGame(rendererType: number) {
+  // Destroy previous instance if retrying with Canvas
+  if (gameInstance) {
+    try { gameInstance.destroy(true); } catch { /* ignore */ }
+    const appEl = document.getElementById("app");
+    if (appEl) appEl.innerHTML = "";
+  }
+
   const screenWidth = window.innerWidth;
   const screenHeight = window.innerHeight;
   const safeArea = getSafeAreaInsets();
@@ -49,8 +68,6 @@ setTimeout(() => {
   setDPR(dpr);
   setScreenSize(screenWidth, screenHeight, safeArea);
   updateScaledValues();
-
-  const rendererType = detectRenderer();
 
   const config: Phaser.Types.Core.GameConfig = {
     type: rendererType,
@@ -72,12 +89,13 @@ setTimeout(() => {
   };
 
   try {
-    const game = new Phaser.Game(config);
+    gameInstance = new Phaser.Game(config);
 
     // Aggressive audio unlock for Telegram WebApp / mobile WebViews.
     // Tiny silent WAV (44-byte header, no samples)
     const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
     let audioUnlocked = false;
+    const game = gameInstance;
     const unlockAudio = () => {
       if (audioUnlocked) return;
 
@@ -91,7 +109,7 @@ setTimeout(() => {
       // Step 2: Resume Web Audio context
       const snd = game.sound as Phaser.Sound.WebAudioSoundManager;
       const ctx = snd?.context;
-      if (!ctx) return; // Game not ready yet — keep listener for next gesture
+      if (!ctx) return;
       audioUnlocked = true;
       if (ctx.state === "suspended") ctx.resume();
 
@@ -114,4 +132,7 @@ setTimeout(() => {
   } catch (e) {
     showError("GAME: " + (e instanceof Error ? e.message : String(e)));
   }
-}, 100);
+}
+
+// Ждём 100ms для полной инициализации Telegram API (safeAreaInset)
+setTimeout(() => startGame(detectRenderer()), 100);
