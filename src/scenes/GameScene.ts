@@ -1396,9 +1396,19 @@ export class GameScene extends Phaser.Scene {
       this.hintSyncFn = undefined;
     }
 
-    // Destroy white silhouette glow sprites
+    // Fade out white silhouette glow sprites
     for (const glow of this.hintOverlays) {
-      glow.destroy();
+      if (glow.scene) {
+        this.tweens.add({
+          targets: glow,
+          alpha: 0,
+          duration: HINT_ANIMATION.glowFadeOut,
+          ease: "Quad.easeIn",
+          onComplete: () => glow.destroy(),
+        });
+      } else {
+        glow.destroy();
+      }
     }
     this.hintOverlays = [];
 
@@ -1557,7 +1567,18 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < HINT_ANIMATION.shakeRepeat; i++) {
       tweens.push({ ...fwd }, { ...bwd });
     }
-    const chain = this.tweens.chain({ tweens });
+    const chain = this.tweens.chain({
+      tweens,
+      onComplete: () => {
+        if (this.hintSyncFn) {
+          this.events.off("update", this.hintSyncFn);
+          this.hintSyncFn = undefined;
+        }
+        for (const g of this.hintOverlays) {
+          if (g.scene) g.setAlpha(HINT_ANIMATION.glowSustainAlpha);
+        }
+      },
+    });
     this.hintTweens.push(chain);
   }
 

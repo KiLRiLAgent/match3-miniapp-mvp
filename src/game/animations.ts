@@ -82,6 +82,8 @@ export const HINT_ANIMATION = {
   shakeDuration: 400,
   shakeDistance: 8,
   shakeRepeat: 3,
+  glowSustainAlpha: 0.35,
+  glowFadeOut: 300,
 } as const;
 
 export const INTRO_EASING = {
