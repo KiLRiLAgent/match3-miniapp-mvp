@@ -287,7 +287,50 @@ export class Match3Board {
       }
     });
 
-    for (const match of matches) {
+    // Detect L-shape: row + col match of same kind sharing a position
+    const usedInLShape = new Set<number>();
+
+    for (let i = 0; i < matches.length; i++) {
+      if (usedInLShape.has(i)) continue;
+      for (let j = i + 1; j < matches.length; j++) {
+        if (usedInLShape.has(j)) continue;
+        const a = matches[i], b = matches[j];
+        if (a.kind !== b.kind || a.direction === b.direction) continue;
+        const corner = a.positions.find(pa =>
+          b.positions.some(pb => this.positionsEqual(pa, pb))
+        );
+        if (!corner) continue;
+
+        usedInLShape.add(i);
+        usedInLShape.add(j);
+
+        const rowMatch = a.direction === "row" ? a : b;
+        const colMatch = a.direction === "col" ? a : b;
+        const specialKind = rowMatch.positions.length >= colMatch.positions.length
+          ? TileKind.BoosterRow : TileKind.BoosterCol;
+
+        const uniquePositions = this.dedupePositions([...a.positions, ...b.positions]);
+        const anchor = swapTargets.find(t =>
+          uniquePositions.some(p => this.positionsEqual(p, t))
+        ) ?? corner;
+
+        for (const pos of uniquePositions) {
+          if (!this.positionsEqual(pos, anchor)) addPos(pos);
+        }
+
+        const tileAtPos = this.getTile(anchor);
+        transforms.push({
+          pos: { ...anchor },
+          kind: specialKind,
+          base: a.kind,
+          tile: tileAtPos,
+        });
+      }
+    }
+
+    for (let idx = 0; idx < matches.length; idx++) {
+      if (usedInLShape.has(idx)) continue;
+      const match = matches[idx];
       let specialKind: TileKind | null = null;
       // Увеличены требования: 6+ для Ultimate, 5 для Booster
       if (match.positions.length >= 6) {
@@ -469,6 +512,16 @@ export class Match3Board {
     );
 
     return swappedPosition ?? match.positions[Math.floor(match.positions.length / 2)];
+  }
+
+  private dedupePositions(positions: Position[]): Position[] {
+    const seen = new Set<string>();
+    return positions.filter(p => {
+      const k = this.key(p);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   }
 
   private positionsEqual(a: Position, b: Position): boolean {
