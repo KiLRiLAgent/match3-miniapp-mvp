@@ -64,6 +64,13 @@ export const initTelegram = () => {
     // Запрос полноэкранного режима (Bot API 8.0+)
     tg.requestFullscreen?.();
 
+    // Повторный запрос с задержкой (race condition на iOS)
+    setTimeout(() => {
+      if (!tg.isFullscreen) {
+        tg.requestFullscreen?.();
+      }
+    }, 500);
+
     // TODO: validate tg.initData on backend for production security.
   } catch (err) {
     console.warn("Telegram init failed", err);
