@@ -126,6 +126,7 @@ export class GameScene extends Phaser.Scene {
 
   // Press glow (pressed tile only)
   private pressGlow?: Phaser.GameObjects.Image;
+  private gridGfx?: Phaser.GameObjects.Graphics;
 
   // Mute button (task 3)
   private muteButton?: Phaser.GameObjects.Text;
@@ -536,20 +537,20 @@ export class GameScene extends Phaser.Scene {
     bg.setDepth(0.5);
 
     // Semi-transparent grid lines
-    const gridGfx = this.add.graphics();
-    gridGfx.lineStyle(1, 0xffffff, 0.15);
+    this.gridGfx = this.add.graphics();
+    this.gridGfx.lineStyle(1, 0xffffff, 0.15);
     for (let col = 1; col < BOARD_WIDTH; col++) {
       const lx = this.boardOrigin.x + col * CELL_SIZE;
-      gridGfx.moveTo(lx, this.boardOrigin.y);
-      gridGfx.lineTo(lx, this.boardOrigin.y + heightPx);
+      this.gridGfx.moveTo(lx, this.boardOrigin.y);
+      this.gridGfx.lineTo(lx, this.boardOrigin.y + heightPx);
     }
     for (let row = 1; row < BOARD_HEIGHT; row++) {
       const ly = this.boardOrigin.y + row * CELL_SIZE;
-      gridGfx.moveTo(this.boardOrigin.x, ly);
-      gridGfx.lineTo(this.boardOrigin.x + widthPx, ly);
+      this.gridGfx.moveTo(this.boardOrigin.x, ly);
+      this.gridGfx.lineTo(this.boardOrigin.x + widthPx, ly);
     }
-    gridGfx.strokePath();
-    gridGfx.setDepth(0.6).setAlpha(initialAlpha);
+    this.gridGfx.strokePath();
+    this.gridGfx.setDepth(0.6).setAlpha(initialAlpha);
 
     for (let y = 0; y < BOARD_HEIGHT; y++) {
       for (let x = 0; x < BOARD_WIDTH; x++) {
@@ -643,6 +644,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private attemptSwap(a: Position, b: Position) {
+    this.clearPressGlow();
     if (!this.board.inBounds(a) || !this.board.inBounds(b)) return;
     const tileA = this.board.getTile(a);
     const tileB = this.board.getTile(b);
@@ -972,7 +974,9 @@ export class GameScene extends Phaser.Scene {
     return Promise.all([
       this.createTween(spriteA, this.toWorld(posA), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
       this.createTween(spriteB, this.toWorld(posB), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
-    ]).then(() => {});
+    ]).then(() => {
+      this.clearPressGlow();
+    });
   }
 
   private animateClear(
