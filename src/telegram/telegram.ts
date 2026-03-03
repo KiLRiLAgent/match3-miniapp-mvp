@@ -71,6 +71,13 @@ export const initTelegram = () => {
       }
     }, 500);
 
+    // Диагностика ошибок fullscreen (Bot API 8.0+)
+    if ((tg as any).onEvent) {
+      (tg as any).onEvent("fullscreenFailed", (evt: { error: string }) => {
+        console.warn("Fullscreen failed:", evt.error);
+      });
+    }
+
     // TODO: validate tg.initData on backend for production security.
   } catch (err) {
     console.warn("Telegram init failed", err);

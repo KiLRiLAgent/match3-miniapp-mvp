@@ -2065,10 +2065,13 @@ export class GameScene extends Phaser.Scene {
 
     const fullscreenBoss = this.add
       .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 35, bossTextureKey ?? ASSET_KEYS.boss.ulta)
-      .setDisplaySize(588, 588)
       .setOrigin(0.5)
       .setAlpha(0)
       .setDepth(501);
+    const maxW = 588;
+    const maxH = GAME_HEIGHT * 0.6;
+    const fitScale = Math.min(maxW / fullscreenBoss.width, maxH / fullscreenBoss.height);
+    fullscreenBoss.setDisplaySize(fullscreenBoss.width * fitScale, fullscreenBoss.height * fitScale);
 
     const abilityText = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, abilityName, {
