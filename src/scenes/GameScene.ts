@@ -530,14 +530,14 @@ export class GameScene extends Phaser.Scene {
         0.9
       )
       .setOrigin(0, 0)
-      .setStrokeStyle(2, 0xffffff, 0.08)
+      .setStrokeStyle(2, 0xffffff, 0.15)
       .setAlpha(initialAlpha);
     // Depth 0.5 чтобы закрывать Сафиру (0), но быть под тайлами (1)
     bg.setDepth(0.5);
 
     // Semi-transparent grid lines
     const gridGfx = this.add.graphics();
-    gridGfx.lineStyle(1, 0xffffff, 0.08);
+    gridGfx.lineStyle(1, 0xffffff, 0.15);
     for (let col = 1; col < BOARD_WIDTH; col++) {
       const lx = this.boardOrigin.x + col * CELL_SIZE;
       gridGfx.moveTo(lx, this.boardOrigin.y);
@@ -2068,9 +2068,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0)
       .setDepth(501);
-    const maxW = 588;
-    const maxH = GAME_HEIGHT * 0.6;
-    const fitScale = Math.min(maxW / fullscreenBoss.width, maxH / fullscreenBoss.height);
+    const fitScale = GAME_WIDTH / fullscreenBoss.width;
     fullscreenBoss.setDisplaySize(fullscreenBoss.width * fitScale, fullscreenBoss.height * fitScale);
 
     const abilityText = this.add
