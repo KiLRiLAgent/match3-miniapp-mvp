@@ -71,6 +71,7 @@ export class GameScene extends Phaser.Scene {
   private mana = 0;
 
   private bossImage?: Phaser.GameObjects.Image;
+  private bossImageGlow?: Phaser.GameObjects.Image;
   private bgImage?: Phaser.GameObjects.Image;
   private bgDebugMode = false; // Режим настройки фона
   private bossHpBar?: Meter;
@@ -168,6 +169,7 @@ export class GameScene extends Phaser.Scene {
   }) {
     // Очистить старые ссылки (важно при restart - Phaser переиспользует экземпляр)
     this.bossImage = undefined;
+    this.bossImageGlow = undefined;
     this.bossHpBar = undefined;
     this.playerHpBar = undefined;
     this.manaBar = undefined;
@@ -215,7 +217,7 @@ export class GameScene extends Phaser.Scene {
   private fadeInUI(): Promise<void> {
     // Собираем все UI элементы кроме босса
     const elementsToFade = this.children.list.filter(
-      child => child !== this.bossImage && (child as any).alpha !== undefined
+      child => child !== this.bossImage && child !== this.bossImageGlow && (child as any).alpha !== undefined
     );
 
     return tweenPromise(this, {
@@ -310,14 +312,22 @@ export class GameScene extends Phaser.Scene {
     this.bgImage.setScale(bgScale);
     this.bgImage.setPosition(GAME_WIDTH / 2, GAME_PARAMS.background.offsetY);
 
-    // === ИЗОБРАЖЕНИЕ БОССА (всегда из конфига) ===
+    // === ИЗОБРАЖЕНИЕ БОССА (двухслойное: glow + solid) ===
+    const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * this.bgImage.displayHeight;
+    const bossScale = bgScale * GAME_PARAMS.background.bossScale;
+
+    this.bossImageGlow = this.add
+      .image(0, 0, ASSET_KEYS.boss.battleGlow)
+      .setOrigin(0.5, 0.5)
+      .setDepth(-0.1);
+    this.bossImageGlow.setPosition(GAME_WIDTH / 2, bossY);
+    this.bossImageGlow.setScale(bossScale);
+
     this.bossImage = this.add
       .image(0, 0, ASSET_KEYS.boss.battle)
       .setOrigin(0.5, 0.5)
       .setDepth(0);
-    const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * this.bgImage.displayHeight;
     this.bossImage.setPosition(GAME_WIDTH / 2, bossY);
-    const bossScale = bgScale * GAME_PARAMS.background.bossScale;
     this.bossImage.setScale(bossScale);
 
     // === НАЗВАНИЕ БОССА ===
@@ -882,8 +892,10 @@ export class GameScene extends Phaser.Scene {
   private flashBoss() {
     if (!this.bossImage) return;
     this.bossImage.setTint(0xffffff);
+    this.bossImageGlow?.setTint(0xffffff);
     this.time.delayedCall(ANIMATION_DURATIONS.flashDuration, () => {
       this.bossImage?.clearTint();
+      this.bossImageGlow?.clearTint();
     });
   }
 
@@ -1188,9 +1200,9 @@ export class GameScene extends Phaser.Scene {
   private updateBossArt() {
     if (!this.bossImage) return;
     const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
-    // Используем battle (не normal) для синхронизации с интро
-    const key = ratio >= BOSS_DAMAGED_HP_THRESHOLD ? ASSET_KEYS.boss.battle : ASSET_KEYS.boss.damaged;
-    this.bossImage.setTexture(key);
+    const isBattle = ratio >= BOSS_DAMAGED_HP_THRESHOLD;
+    this.bossImage.setTexture(isBattle ? ASSET_KEYS.boss.battle : ASSET_KEYS.boss.damaged);
+    this.bossImageGlow?.setTexture(isBattle ? ASSET_KEYS.boss.battleGlow : ASSET_KEYS.boss.damagedGlow);
   }
 
   private activateSkill(id: SkillId) {

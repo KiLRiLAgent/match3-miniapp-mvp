@@ -16,6 +16,7 @@ const DIALOGUE = {
 export class IntroScene extends Phaser.Scene {
   private background!: Phaser.GameObjects.Image;
   private safira!: Phaser.GameObjects.Image;
+  private safiraGlow!: Phaser.GameObjects.Image;
   private speechBubble?: SpeechBubble;
   private vsContainer?: Phaser.GameObjects.Container;
   private sceneCenter!: { x: number; y: number };
@@ -98,6 +99,12 @@ export class IntroScene extends Phaser.Scene {
     // Сафира появляется ДАЛЕКО (маленькая)
     const farPos = this.getFarPosition();
 
+    this.safiraGlow = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.normalGlow);
+    this.safiraGlow.setOrigin(0.5, farPos.originY);
+    this.safiraGlow.setScale(farPos.scale);
+    this.safiraGlow.setAlpha(0);
+    this.safiraGlow.setDepth(0.9);
+
     this.safira = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.normal);
     this.safira.setOrigin(0.5, farPos.originY);
     this.safira.setScale(farPos.scale);
@@ -105,7 +112,7 @@ export class IntroScene extends Phaser.Scene {
     this.safira.setDepth(1);
 
     return tweenPromise(this, {
-      targets: this.safira,
+      targets: [this.safiraGlow, this.safira],
       alpha: 1,
       duration: INTRO_ANIMATION.safiraFadeIn,
       ease: INTRO_EASING.fade,
@@ -136,7 +143,13 @@ export class IntroScene extends Phaser.Scene {
   private async step4_poseChangeDialogue(): Promise<void> {
     const duration = INTRO_ANIMATION.poseTransitionDuration;
 
-    // Создаём новую Сафиру поверх старой
+    // Создаём новую Сафиру (glow + solid) поверх старой
+    const newSafiraGlow = this.add.image(this.safira.x, this.safira.y, ASSET_KEYS.boss.battleGlow);
+    newSafiraGlow.setOrigin(this.safira.originX, this.safira.originY);
+    newSafiraGlow.setScale(this.safira.scale);
+    newSafiraGlow.setDepth(0.9);
+    newSafiraGlow.setAlpha(0);
+
     const newSafira = this.add.image(this.safira.x, this.safira.y, ASSET_KEYS.boss.battle);
     newSafira.setOrigin(this.safira.originX, this.safira.originY);
     newSafira.setScale(this.safira.scale);
@@ -159,13 +172,13 @@ export class IntroScene extends Phaser.Scene {
     // Кроссфейд: старая уходит, новая проявляется + бабл появляется
     await Promise.all([
       tweenPromise(this, {
-        targets: this.safira,
+        targets: [this.safira, this.safiraGlow],
         alpha: 0,
         duration,
         ease: "Quad.easeInOut",
       }),
       tweenPromise(this, {
-        targets: newSafira,
+        targets: [newSafira, newSafiraGlow],
         alpha: 1,
         duration,
         ease: "Quad.easeInOut",
@@ -180,7 +193,9 @@ export class IntroScene extends Phaser.Scene {
     ]);
 
     this.safira.destroy();
+    this.safiraGlow.destroy();
     this.safira = newSafira;
+    this.safiraGlow = newSafiraGlow;
 
     await waitOrTap(this, INTRO_ANIMATION.speechBubbleHold, 11);
 
@@ -211,8 +226,12 @@ export class IntroScene extends Phaser.Scene {
         const t = (s - startScale) / (zoomedScale - startScale);
         const mult = introMult + t * (1.0 - introMult);
         const yOff = introYOffset * (1 - t);
-        this.safira.setPosition(GAME_WIDTH / 2, bgY + (GAME_PARAMS.background.bossOnBgY + yOff) * h);
-        this.safira.setScale(s * GAME_PARAMS.background.bossScale * mult);
+        const bossPos = { x: GAME_WIDTH / 2, y: bgY + (GAME_PARAMS.background.bossOnBgY + yOff) * h };
+        const bossScl = s * GAME_PARAMS.background.bossScale * mult;
+        this.safira.setPosition(bossPos.x, bossPos.y);
+        this.safira.setScale(bossScl);
+        this.safiraGlow.setPosition(bossPos.x, bossPos.y);
+        this.safiraGlow.setScale(bossScl);
       },
     });
 
