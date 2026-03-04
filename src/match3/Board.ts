@@ -1,4 +1,4 @@
-import { BASE_TYPES, MATCH_MULTIPLIERS, MATCH_MULTIPLIER_DEFAULT } from "../game/config";
+import { BASE_TYPES } from "../game/config";
 import { TileKind } from "./types";
 import type { BaseTileKind, Match, MatchBonus, Position, PotentialMove, Tile } from "./types";
 
@@ -7,6 +7,7 @@ export type SpecialTransform = {
   kind: TileKind;
   base: BaseTileKind;
   tile: Tile | null;
+  multiplier?: number;
 };
 
 export type ClearOutcome = {
@@ -304,11 +305,6 @@ export class Match3Board {
         usedInLShape.add(i);
         usedInLShape.add(j);
 
-        const rowMatch = a.direction === "row" ? a : b;
-        const colMatch = a.direction === "col" ? a : b;
-        const specialKind = rowMatch.positions.length >= colMatch.positions.length
-          ? TileKind.BoosterRow : TileKind.BoosterCol;
-
         const uniquePositions = this.dedupePositions([...a.positions, ...b.positions]);
         const anchor = swapTargets.find(t =>
           uniquePositions.some(p => this.positionsEqual(p, t))
@@ -321,9 +317,10 @@ export class Match3Board {
         const tileAtPos = this.getTile(anchor);
         transforms.push({
           pos: { ...anchor },
-          kind: specialKind,
+          kind: a.kind,
           base: a.kind,
           tile: tileAtPos,
+          multiplier: uniquePositions.length,
         });
       }
     }
@@ -331,36 +328,31 @@ export class Match3Board {
     for (let idx = 0; idx < matches.length; idx++) {
       if (usedInLShape.has(idx)) continue;
       const match = matches[idx];
-      let specialKind: TileKind | null = null;
-      // Увеличены требования: 6+ для Ultimate, 5 для Booster
-      if (match.positions.length >= 6) {
-        specialKind = TileKind.Ultimate;
-      } else if (match.positions.length === 5) {
-        specialKind =
-          match.direction === "row"
-            ? TileKind.BoosterRow
-            : TileKind.BoosterCol;
-      }
 
-      const specialPos = specialKind
-        ? this.chooseSpecialAnchor(match, swapTargets)
-        : null;
+      if (match.positions.length >= 4) {
+        // Enhanced tile: keep same kind, set multiplier
+        const specialPos = this.chooseSpecialAnchor(match, swapTargets);
 
-      for (const pos of match.positions) {
-        if (specialPos && this.positionsEqual(pos, specialPos)) {
-          continue;
+        for (const pos of match.positions) {
+          if (specialPos && this.positionsEqual(pos, specialPos)) continue;
+          addPos(pos);
         }
-        addPos(pos);
-      }
 
-      if (specialKind && specialPos) {
-        const tileAtPos = this.getTile(specialPos);
-        transforms.push({
-          pos: { ...specialPos },
-          kind: specialKind,
-          base: match.kind,
-          tile: tileAtPos,
-        });
+        if (specialPos) {
+          const tileAtPos = this.getTile(specialPos);
+          transforms.push({
+            pos: { ...specialPos },
+            kind: match.kind,
+            base: match.kind,
+            tile: tileAtPos,
+            multiplier: match.positions.length,
+          });
+        }
+      } else {
+        // Normal 3-match: clear all
+        for (const pos of match.positions) {
+          addPos(pos);
+        }
       }
     }
 
@@ -371,15 +363,7 @@ export class Match3Board {
       clearSet.delete(this.key(transform.pos));
     }
 
-    // Compute match bonuses (multiplier for long matches on damage tiles)
     const matchBonuses: MatchBonus[] = [];
-    for (const match of matches) {
-      const count = match.positions.length;
-      if (count >= 4 && (match.kind === TileKind.Sword || match.kind === TileKind.Star)) {
-        const multiplier = MATCH_MULTIPLIERS[count] ?? MATCH_MULTIPLIER_DEFAULT;
-        matchBonuses.push({ kind: match.kind, count, multiplier });
-      }
-    }
 
     const { cleared, counts: finalCounts } = this.buildClearOutcome(clearSet);
     return { cleared, transforms, counts: finalCounts, matchBonuses };
@@ -425,7 +409,7 @@ export class Match3Board {
       const tile = this.getTile(pos);
       if (tile) {
         cleared.push({ pos, tile });
-        counts[tile.base] += 1;
+        counts[tile.base] += tile.multiplier ?? 1;
       }
     }
 
@@ -439,11 +423,13 @@ export class Match3Board {
       if (current) {
         current.kind = transform.kind;
         current.base = transform.base;
+        current.multiplier = transform.multiplier;
       } else {
         this.grid[transform.pos.y][transform.pos.x] = {
           id: this.nextId++,
           kind: transform.kind,
           base: transform.base,
+          multiplier: transform.multiplier,
         };
       }
     });

@@ -99,6 +99,7 @@ export class GameScene extends Phaser.Scene {
   private bossShieldGlowTween?: Phaser.Tweens.Tween;
   private bossShieldText?: Phaser.GameObjects.Text;
   private bombCooldownTexts = new Map<number, Phaser.GameObjects.Text>();
+  private tileGlows = new Map<number, Phaser.GameObjects.Image>();
 
   private boardOrigin = { x: 0, y: 0 };
   private currentTurn: "player" | "boss" = "player";
@@ -277,6 +278,7 @@ export class GameScene extends Phaser.Scene {
     this.tileSprites.clear();
     this.tilePositions.clear();
     this.clearBombCooldownTexts();
+    this.clearTileGlows();
     this.rebuildPositionMap();
     this.hideBossShieldOverlay(true);
   }
@@ -284,6 +286,11 @@ export class GameScene extends Phaser.Scene {
   private clearBombCooldownTexts() {
     this.bombCooldownTexts.forEach(text => text.destroy());
     this.bombCooldownTexts.clear();
+  }
+
+  private clearTileGlows() {
+    this.tileGlows.forEach(glow => glow.destroy());
+    this.tileGlows.clear();
   }
 
   private createBombCooldownText(tileId: number, x: number, y: number, cooldown: number): Phaser.GameObjects.Text {
@@ -322,6 +329,16 @@ export class GameScene extends Phaser.Scene {
       .setDepth(-0.1);
     this.bossImageGlow.setPosition(GAME_WIDTH / 2, bossY);
     this.bossImageGlow.setScale(bossScale);
+
+    // Пульсация яркости прозрачного слоя
+    this.tweens.add({
+      targets: this.bossImageGlow,
+      alpha: { from: 0.7, to: 1.0 },
+      duration: 1500,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
 
     this.bossImage = this.add
       .image(0, 0, ASSET_KEYS.boss.main)
@@ -816,7 +833,8 @@ export class GameScene extends Phaser.Scene {
     hapticMedium();
     if (this.bossImage) {
       this.flashBoss();
-      showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, damage, "damage");
+      const dmgTarget = this.bossTarget;
+      showDamageNumber(this, dmgTarget.x, dmgTarget.y, damage, "damage");
       this.shakeTarget([this.bossImage, this.bossImageGlow], VISUAL_EFFECTS.damageShakeOffset);
     }
   }
@@ -892,9 +910,9 @@ export class GameScene extends Phaser.Scene {
 
   private flashBoss() {
     if (!this.bossImage) return;
-    this.bossImage.setTint(0xffffff);
-    this.bossImageGlow?.setTint(0xffffff);
-    this.time.delayedCall(ANIMATION_DURATIONS.flashDuration, () => {
+    this.bossImage.setTint(0xff6666);
+    this.bossImageGlow?.setTint(0xff6666);
+    this.time.delayedCall(200, () => {
       this.bossImage?.clearTint();
       this.bossImageGlow?.clearTint();
     });
@@ -957,7 +975,31 @@ export class GameScene extends Phaser.Scene {
     });
     sprite.setDepth(1);
     this.tileSprites.set(tile.id, sprite);
+
+    // Create glow for enhanced tiles (multiplier > 1)
+    if (tile.multiplier && tile.multiplier > 1) {
+      this.createTileGlowSprite(tile.id, sprite.x, sprite.y, tile.multiplier);
+    }
+
     return sprite;
+  }
+
+  private createTileGlowSprite(tileId: number, x: number, y: number, multiplier: number): Phaser.GameObjects.Image {
+    const glowKey = multiplier >= 5 ? "tile_glow_red" : "tile_glow_gold";
+    const glow = this.add.image(x, y, glowKey)
+      .setDisplaySize(CELL_SIZE + 4, CELL_SIZE + 4)
+      .setDepth(0.99);
+    // Pulsating glow animation
+    this.tweens.add({
+      targets: glow,
+      alpha: { from: 0.5, to: 1.0 },
+      duration: 800,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+    this.tileGlows.set(tileId, glow);
+    return glow;
   }
 
   private rebuildPositionMap() {
@@ -984,9 +1026,22 @@ export class GameScene extends Phaser.Scene {
 
     this.sfx(ASSET_KEYS.sfx.swap);
     hapticLight();
+    const targetA = this.toWorld(posA);
+    const targetB = this.toWorld(posB);
+
+    // Move enhanced tile glows along with sprites
+    const glowA = this.tileGlows.get(idA);
+    if (glowA) {
+      this.tweens.add({ targets: glowA, x: targetA.x, y: targetA.y, duration: ANIMATION_DURATIONS.swap, ease: ANIMATION_EASING.swap });
+    }
+    const glowB = this.tileGlows.get(idB);
+    if (glowB) {
+      this.tweens.add({ targets: glowB, x: targetB.x, y: targetB.y, duration: ANIMATION_DURATIONS.swap, ease: ANIMATION_EASING.swap });
+    }
+
     return Promise.all([
-      this.createTween(spriteA, this.toWorld(posA), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
-      this.createTween(spriteB, this.toWorld(posB), ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
+      this.createTween(spriteA, targetA, ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
+      this.createTween(spriteB, targetB, ANIMATION_DURATIONS.swap, ANIMATION_EASING.swap),
     ]).then(() => {
       this.clearPressGlow();
     });
@@ -995,7 +1050,7 @@ export class GameScene extends Phaser.Scene {
   private animateClear(
     outcome: {
       cleared: Array<{ pos: Position; tile: Tile }>;
-      transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position }>;
+      transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position; multiplier?: number }>;
     },
     actor: "player" | "boss" = "player"
   ) {
@@ -1015,7 +1070,7 @@ export class GameScene extends Phaser.Scene {
     return Promise.all(tweens);
   }
 
-  private animateTransforms(transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position }>) {
+  private animateTransforms(transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position; multiplier?: number }>) {
     if (transforms.length > 0) {
       this.sfx(ASSET_KEYS.sfx.specialCreate);
     }
@@ -1044,6 +1099,15 @@ export class GameScene extends Phaser.Scene {
           yoyo: true,
           ease: ANIMATION_EASING.scale,
         });
+
+        // Create glow for enhanced tiles
+        if (transform.multiplier && transform.multiplier > 1) {
+          // Remove old glow if exists
+          const oldGlow = this.tileGlows.get(tile.id);
+          oldGlow?.destroy();
+          this.tileGlows.delete(tile.id);
+          this.createTileGlowSprite(tile.id, wPos.x, wPos.y, transform.multiplier);
+        }
       }
     });
   }
@@ -1104,6 +1168,12 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => {
           sprite.destroy();
           this.tileSprites.delete(tileId);
+          // Destroy enhanced tile glow
+          const glow = this.tileGlows.get(tileId);
+          if (glow) {
+            glow.destroy();
+            this.tileGlows.delete(tileId);
+          }
           resolve();
         },
       });
@@ -1130,6 +1200,18 @@ export class GameScene extends Phaser.Scene {
       if (cooldownText) {
         this.tweens.add({
           targets: cooldownText,
+          x: target.x,
+          y: target.y,
+          duration: ANIMATION_DURATIONS.tileCollapse,
+          ease: ANIMATION_EASING.collapse,
+        });
+      }
+
+      // Animate enhanced tile glow along with sprite
+      const glow = this.tileGlows.get(tile.id);
+      if (glow) {
+        this.tweens.add({
+          targets: glow,
           x: target.x,
           y: target.y,
           duration: ANIMATION_DURATIONS.tileCollapse,
@@ -1308,6 +1390,10 @@ export class GameScene extends Phaser.Scene {
     this.bombCooldownTexts.get(tile.id)?.destroy();
     this.bombCooldownTexts.delete(tile.id);
 
+    // Убрать glow enhanced tile если был
+    this.tileGlows.get(tile.id)?.destroy();
+    this.tileGlows.delete(tile.id);
+
     // Выйти из режима молотка
     this.exitHammerMode();
 
@@ -1413,35 +1499,15 @@ export class GameScene extends Phaser.Scene {
       this.hintSyncFn = undefined;
     }
 
-    // Fade out white silhouette glow sprites
+    // Destroy glow sprites immediately (no fade) to prevent race with chain onComplete
     for (const glow of this.hintOverlays) {
-      if (glow.scene) {
-        this.tweens.add({
-          targets: glow,
-          alpha: 0,
-          duration: HINT_ANIMATION.glowFadeOut,
-          ease: "Quad.easeIn",
-          onComplete: () => glow.destroy(),
-        });
-      } else {
-        glow.destroy();
-      }
+      if (glow.scene) glow.destroy();
     }
     this.hintOverlays = [];
 
-    // Fade out hint bounding rectangles
+    // Destroy hint bounding rectangles immediately
     for (const r of this.hintRects) {
-      if (r.scene) {
-        this.tweens.add({
-          targets: r,
-          alpha: 0,
-          duration: 250,
-          ease: "Quad.easeIn",
-          onComplete: () => r.destroy(),
-        });
-      } else {
-        r.destroy();
-      }
+      if (r.scene) r.destroy();
     }
     this.hintRects = [];
 
@@ -1585,6 +1651,7 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < HINT_ANIMATION.shakeRepeat; i++) {
       chainTweens.push({ ...fwd }, { ...bwd });
     }
+    const chainGlows = [...this.hintOverlays];
     const chain = this.tweens.chain({
       tweens: chainTweens,
       onComplete: () => {
@@ -1592,8 +1659,11 @@ export class GameScene extends Phaser.Scene {
           this.events.off("update", this.hintSyncFn);
           this.hintSyncFn = undefined;
         }
-        for (const g of this.hintOverlays) {
-          if (g.scene) g.setAlpha(HINT_ANIMATION.glowSustainAlpha);
+        // Only set alpha if glows are still in the active hintOverlays array (not cleared)
+        for (const g of chainGlows) {
+          if (g.scene && this.hintOverlays.includes(g)) {
+            g.setAlpha(HINT_ANIMATION.glowSustainAlpha);
+          }
         }
       },
     });
@@ -1835,6 +1905,8 @@ export class GameScene extends Phaser.Scene {
       this.tileSprites.delete(tileId);
       text?.destroy();
       this.bombCooldownTexts.delete(tileId);
+      this.tileGlows.get(tileId)?.destroy();
+      this.tileGlows.delete(tileId);
       return Promise.resolve();
     }
 
@@ -1865,6 +1937,12 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => text.destroy(),
       });
       this.bombCooldownTexts.delete(tileId);
+    }
+
+    const glowSprite = this.tileGlows.get(tileId);
+    if (glowSprite) {
+      glowSprite.destroy();
+      this.tileGlows.delete(tileId);
     }
 
     return Promise.all(promises).then(() => {});
@@ -1901,7 +1979,7 @@ export class GameScene extends Phaser.Scene {
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
     this.updateHud();
-    await wait(this, 600);
+    await wait(this, 3000);
 
     // Вернуть основной спрайт (main или lowhp)
     this.updateBossArt();
@@ -1926,6 +2004,8 @@ export class GameScene extends Phaser.Scene {
         const sprite = this.tileSprites.get(tile.id);
         sprite?.destroy();
         this.tileSprites.delete(tile.id);
+        this.tileGlows.get(tile.id)?.destroy();
+        this.tileGlows.delete(tile.id);
       });
 
       this.rebuildPositionMap();
@@ -2084,8 +2164,8 @@ export class GameScene extends Phaser.Scene {
 
   private createAbilityCutscene(abilityName: string, bossTextureKey?: string, bossBackTextureKey?: string) {
     const overlay = this.add
-      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
-      .setOrigin(0, 0)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH * 2, GAME_HEIGHT * 2, 0x000000, 0)
+      .setOrigin(0.5)
       .setDepth(500);
 
     const mainKey = bossTextureKey ?? ASSET_KEYS.boss.attack;
@@ -2549,6 +2629,7 @@ export class GameScene extends Phaser.Scene {
     this.tileSprites.forEach((sprite) => sprite.destroy());
     this.tileSprites.clear();
     this.clearBombCooldownTexts();
+    this.clearTileGlows();
 
     // Rebuild from board state
     for (let y = 0; y < BOARD_HEIGHT; y++) {

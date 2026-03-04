@@ -146,6 +146,7 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.buildBombTexture();
+    this.buildEnhancedGlowTextures();
   }
 
   private buildBombTexture() {
@@ -185,6 +186,25 @@ export class BootScene extends Phaser.Scene {
 
     g.generateTexture(ASSET_KEYS.tiles[TileKind.Bomb], CELL_SIZE * d, CELL_SIZE * d);
     g.destroy();
+  }
+
+  private buildEnhancedGlowTextures() {
+    const d = DPR;
+    const size = CELL_SIZE * d;
+
+    // Gold glow (4-match)
+    const gold = this.add.graphics();
+    gold.fillStyle(0xffd700, 0.6);
+    gold.fillRoundedRect(0, 0, size, size, 10 * d);
+    gold.generateTexture("tile_glow_gold", size, size);
+    gold.destroy();
+
+    // Red glow (5+ match)
+    const red = this.add.graphics();
+    red.fillStyle(0xff4444, 0.6);
+    red.fillRoundedRect(0, 0, size, size, 10 * d);
+    red.generateTexture("tile_glow_red", size, size);
+    red.destroy();
   }
 
   private buildParticleTexture() {

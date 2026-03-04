@@ -25,6 +25,7 @@ export type Tile = {
   kind: TileKind;
   base: BaseTileKind;
   cooldown?: number;
+  multiplier?: number;
 };
 
 export type MatchDirection = "row" | "col";

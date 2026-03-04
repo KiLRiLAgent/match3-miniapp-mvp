@@ -3,16 +3,16 @@ import Phaser from "phaser";
 export type DamageNumberType = "damage" | "heal" | "mana" | "mana_loss" | "shield";
 
 const TYPE_CONFIG: Record<DamageNumberType, { color: string; prefix: string; fontSize: string }> = {
-  damage: { color: "#ff4444", prefix: "-", fontSize: "28px" },
-  heal: { color: "#44ff66", prefix: "+", fontSize: "28px" },
-  mana: { color: "#4488ff", prefix: "+", fontSize: "28px" },
-  mana_loss: { color: "#8844ff", prefix: "-", fontSize: "28px" },
-  shield: { color: "#66bbff", prefix: "", fontSize: "26px" },
+  damage: { color: "#ff4444", prefix: "-", fontSize: "56px" },
+  heal: { color: "#44ff66", prefix: "+", fontSize: "56px" },
+  mana: { color: "#4488ff", prefix: "+", fontSize: "56px" },
+  mana_loss: { color: "#8844ff", prefix: "-", fontSize: "56px" },
+  shield: { color: "#66bbff", prefix: "", fontSize: "52px" },
 };
 
 const ANIMATION = {
   scaleUp: { duration: 150, ease: "Back.easeOut" },
-  float: { duration: 800, delay: 200, ease: "Quad.easeOut", yOffset: -60 },
+  float: { duration: 800, delay: 200, ease: "Quad.easeOut", yOffset: -80 },
   xSpread: 20,
 } as const;
 
@@ -29,7 +29,7 @@ export class DamageNumber extends Phaser.GameObjects.Container {
         fontFamily: "'Exo 2', Arial, sans-serif",
         color,
         stroke: "#000000",
-        strokeThickness: 4,
+        strokeThickness: 6,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
