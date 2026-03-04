@@ -45,7 +45,6 @@ import { hapticLight, hapticMedium, hapticHeavy, hapticVictory, hapticDefeat } f
 import { emitTileParticles } from "../ui/TileParticles";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { INTRO_ANIMATION } from "../game/animations";
-import type { MatchBonus } from "../match3/types";
 
 const SKILL_IDS: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 
@@ -289,7 +288,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private clearTileGlows() {
-    this.tileGlows.forEach(glow => glow.destroy());
+    this.tileGlows.forEach(glow => {
+      this.tweens.killTweensOf(glow);
+      glow.destroy();
+    });
     this.tileGlows.clear();
   }
 
@@ -751,7 +753,7 @@ export class GameScene extends Phaser.Scene {
       await this.animateClear(outcome, actor);
 
       // Применяем эффекты СРАЗУ после полёта фишек (не в конце!)
-      this.applyMatchResults(outcome.counts, actor, outcome.matchBonuses);
+      this.applyMatchResults(outcome.counts, actor);
 
       // Если игра закончилась - прекращаем цикл
       if (this.gameOver) break;
@@ -782,19 +784,9 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private applyMatchResults(totals: CountTotals, actor: "player" | "boss", matchBonuses: MatchBonus[] = []) {
-    let physDamage = totals[TileKind.Sword] * GAME_PARAMS.tiles.swordDamage;
-    let magDamage = totals[TileKind.Star] * GAME_PARAMS.tiles.starDamage;
-
-    // Apply match length multipliers to damage tiles
-    for (const bonus of matchBonuses) {
-      if (bonus.kind === TileKind.Sword) {
-        physDamage = Math.floor(physDamage * bonus.multiplier);
-      } else if (bonus.kind === TileKind.Star) {
-        magDamage = Math.floor(magDamage * bonus.multiplier);
-      }
-    }
-
+  private applyMatchResults(totals: CountTotals, actor: "player" | "boss") {
+    const physDamage = totals[TileKind.Sword] * GAME_PARAMS.tiles.swordDamage;
+    const magDamage = totals[TileKind.Star] * GAME_PARAMS.tiles.starDamage;
     const damage = physDamage + Math.floor(magDamage * PLAYER_MAG_DAMAGE_MULTIPLIER);
     const manaGain = totals[TileKind.Mana] * GAME_PARAMS.tiles.mpPerTile;
     const healGain = totals[TileKind.Heal] * GAME_PARAMS.tiles.hpPerTile;
@@ -985,7 +977,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createTileGlowSprite(tileId: number, x: number, y: number, multiplier: number): Phaser.GameObjects.Image {
-    const glowKey = multiplier >= 5 ? "tile_glow_red" : "tile_glow_gold";
+    const glowKey = multiplier >= 5 ? ASSET_KEYS.glow.red : ASSET_KEYS.glow.gold;
     const glow = this.add.image(x, y, glowKey)
       .setDisplaySize(CELL_SIZE + 4, CELL_SIZE + 4)
       .setDepth(0.99);
@@ -1104,8 +1096,11 @@ export class GameScene extends Phaser.Scene {
         if (transform.multiplier && transform.multiplier > 1) {
           // Remove old glow if exists
           const oldGlow = this.tileGlows.get(tile.id);
-          oldGlow?.destroy();
-          this.tileGlows.delete(tile.id);
+          if (oldGlow) {
+            this.tweens.killTweensOf(oldGlow);
+            oldGlow.destroy();
+            this.tileGlows.delete(tile.id);
+          }
           this.createTileGlowSprite(tile.id, wPos.x, wPos.y, transform.multiplier);
         }
       }
@@ -1171,6 +1166,7 @@ export class GameScene extends Phaser.Scene {
           // Destroy enhanced tile glow
           const glow = this.tileGlows.get(tileId);
           if (glow) {
+            this.tweens.killTweensOf(glow);
             glow.destroy();
             this.tileGlows.delete(tileId);
           }
@@ -1391,8 +1387,12 @@ export class GameScene extends Phaser.Scene {
     this.bombCooldownTexts.delete(tile.id);
 
     // Убрать glow enhanced tile если был
-    this.tileGlows.get(tile.id)?.destroy();
-    this.tileGlows.delete(tile.id);
+    const hammerGlow = this.tileGlows.get(tile.id);
+    if (hammerGlow) {
+      this.tweens.killTweensOf(hammerGlow);
+      hammerGlow.destroy();
+      this.tileGlows.delete(tile.id);
+    }
 
     // Выйти из режима молотка
     this.exitHammerMode();
@@ -1905,8 +1905,12 @@ export class GameScene extends Phaser.Scene {
       this.tileSprites.delete(tileId);
       text?.destroy();
       this.bombCooldownTexts.delete(tileId);
-      this.tileGlows.get(tileId)?.destroy();
-      this.tileGlows.delete(tileId);
+      const bombGlow = this.tileGlows.get(tileId);
+      if (bombGlow) {
+        this.tweens.killTweensOf(bombGlow);
+        bombGlow.destroy();
+        this.tileGlows.delete(tileId);
+      }
       return Promise.resolve();
     }
 
@@ -1941,6 +1945,7 @@ export class GameScene extends Phaser.Scene {
 
     const glowSprite = this.tileGlows.get(tileId);
     if (glowSprite) {
+      this.tweens.killTweensOf(glowSprite);
       glowSprite.destroy();
       this.tileGlows.delete(tileId);
     }
@@ -2004,8 +2009,12 @@ export class GameScene extends Phaser.Scene {
         const sprite = this.tileSprites.get(tile.id);
         sprite?.destroy();
         this.tileSprites.delete(tile.id);
-        this.tileGlows.get(tile.id)?.destroy();
-        this.tileGlows.delete(tile.id);
+        const replGlow = this.tileGlows.get(tile.id);
+        if (replGlow) {
+          this.tweens.killTweensOf(replGlow);
+          replGlow.destroy();
+          this.tileGlows.delete(tile.id);
+        }
       });
 
       this.rebuildPositionMap();

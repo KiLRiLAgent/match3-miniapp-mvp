@@ -196,14 +196,14 @@ export class BootScene extends Phaser.Scene {
     const gold = this.add.graphics();
     gold.fillStyle(0xffd700, 0.6);
     gold.fillRoundedRect(0, 0, size, size, 10 * d);
-    gold.generateTexture("tile_glow_gold", size, size);
+    gold.generateTexture(ASSET_KEYS.glow.gold, size, size);
     gold.destroy();
 
     // Red glow (5+ match)
     const red = this.add.graphics();
     red.fillStyle(0xff4444, 0.6);
     red.fillRoundedRect(0, 0, size, size, 10 * d);
-    red.generateTexture("tile_glow_red", size, size);
+    red.generateTexture(ASSET_KEYS.glow.red, size, size);
     red.destroy();
   }
 

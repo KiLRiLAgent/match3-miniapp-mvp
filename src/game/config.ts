@@ -205,14 +205,6 @@ export function getBossAbilityPattern(): BossAbilityType[] {
   return GAME_PARAMS.bossPattern.map(n => ABILITY_MAP[n] || "attack");
 }
 
-// Damage multiplier for long matches (only damage tiles: Sword/Star)
-export const MATCH_MULTIPLIERS: Record<number, number> = {
-  3: 1.0,
-  4: 1.5,
-  5: 2.0,
-};
-export const MATCH_MULTIPLIER_DEFAULT = 2.5; // 6+ tiles
-
 export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Sword,
   TileKind.Star,

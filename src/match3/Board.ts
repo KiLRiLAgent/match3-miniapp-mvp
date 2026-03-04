@@ -1,6 +1,6 @@
 import { BASE_TYPES } from "../game/config";
 import { TileKind } from "./types";
-import type { BaseTileKind, Match, MatchBonus, Position, PotentialMove, Tile } from "./types";
+import type { BaseTileKind, Match, Position, PotentialMove, Tile } from "./types";
 
 export type SpecialTransform = {
   pos: Position;
@@ -14,7 +14,6 @@ export type ClearOutcome = {
   cleared: Array<{ pos: Position; tile: Tile }>;
   transforms: SpecialTransform[];
   counts: Record<BaseTileKind, number>;
-  matchBonuses: MatchBonus[];
 };
 
 export type CollapseMove = {
@@ -363,10 +362,8 @@ export class Match3Board {
       clearSet.delete(this.key(transform.pos));
     }
 
-    const matchBonuses: MatchBonus[] = [];
-
     const { cleared, counts: finalCounts } = this.buildClearOutcome(clearSet);
-    return { cleared, transforms, counts: finalCounts, matchBonuses };
+    return { cleared, transforms, counts: finalCounts };
   }
 
   private expandSpecialsCascade(
@@ -423,7 +420,7 @@ export class Match3Board {
       if (current) {
         current.kind = transform.kind;
         current.base = transform.base;
-        current.multiplier = transform.multiplier;
+        current.multiplier = Math.max(current.multiplier ?? 1, transform.multiplier ?? 1);
       } else {
         this.grid[transform.pos.y][transform.pos.x] = {
           id: this.nextId++,

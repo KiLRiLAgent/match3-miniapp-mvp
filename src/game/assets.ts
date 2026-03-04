@@ -39,6 +39,10 @@ export const ASSET_KEYS = {
     [TileKind.Ultimate]: "tile_ultimate",
     [TileKind.Bomb]: "tile_bomb",
   },
+  glow: {
+    gold: "tile_glow_gold",
+    red: "tile_glow_red",
+  },
   particle: "particle",
   sfx: {
     swap: "sfx_swap",
