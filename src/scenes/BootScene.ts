@@ -57,14 +57,17 @@ export class BootScene extends Phaser.Scene {
       percentText.destroy();
     });
 
-    // Load boss sprites (new Safira assets)
-    this.load.image(ASSET_KEYS.boss.normal, "assets/safira/safira_normal.png");
-    this.load.image(ASSET_KEYS.boss.normalGlow, "assets/safira/safira_normal_glow.png");
-    this.load.image(ASSET_KEYS.boss.battle, "assets/safira/safira_battle.png");
-    this.load.image(ASSET_KEYS.boss.battleGlow, "assets/safira/safira_battle_glow.png");
-    this.load.image(ASSET_KEYS.boss.damaged, "assets/safira/safira_damaged.png");
-    this.load.image(ASSET_KEYS.boss.damagedGlow, "assets/safira/safira_damaged_glow.png");
+    // Load boss sprites (5 states × 2 layers)
+    this.load.image(ASSET_KEYS.boss.intro, "assets/safira/safira_intro.png");
+    this.load.image(ASSET_KEYS.boss.introBack, "assets/safira/safira_intro_back.png");
+    this.load.image(ASSET_KEYS.boss.main, "assets/safira/safira_main.png");
+    this.load.image(ASSET_KEYS.boss.mainBack, "assets/safira/safira_main_back.png");
+    this.load.image(ASSET_KEYS.boss.attack, "assets/safira/safira_attack.png");
+    this.load.image(ASSET_KEYS.boss.attackBack, "assets/safira/safira_attack_back.png");
     this.load.image(ASSET_KEYS.boss.ulta, "assets/safira/safira_ulta.png");
+    this.load.image(ASSET_KEYS.boss.ultaBack, "assets/safira/safira_ulta_back.png");
+    this.load.image(ASSET_KEYS.boss.lowhp, "assets/safira/safira_lowhp.png");
+    this.load.image(ASSET_KEYS.boss.lowhpBack, "assets/safira/safira_lowhp_back.png");
     this.load.image(ASSET_KEYS.boss.shield, "assets/shield.png");
 
     // Load intro assets

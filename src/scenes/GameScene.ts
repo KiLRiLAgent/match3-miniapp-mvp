@@ -317,14 +317,14 @@ export class GameScene extends Phaser.Scene {
     const bossScale = bgScale * GAME_PARAMS.background.bossScale;
 
     this.bossImageGlow = this.add
-      .image(0, 0, ASSET_KEYS.boss.battleGlow)
+      .image(0, 0, ASSET_KEYS.boss.mainBack)
       .setOrigin(0.5, 0.5)
       .setDepth(-0.1);
     this.bossImageGlow.setPosition(GAME_WIDTH / 2, bossY);
     this.bossImageGlow.setScale(bossScale);
 
     this.bossImage = this.add
-      .image(0, 0, ASSET_KEYS.boss.battle)
+      .image(0, 0, ASSET_KEYS.boss.main)
       .setOrigin(0.5, 0.5)
       .setDepth(0);
     this.bossImage.setPosition(GAME_WIDTH / 2, bossY);
@@ -1201,8 +1201,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.bossImage) return;
     const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
     const isBattle = ratio >= BOSS_DAMAGED_HP_THRESHOLD;
-    this.bossImage.setTexture(isBattle ? ASSET_KEYS.boss.battle : ASSET_KEYS.boss.damaged);
-    this.bossImageGlow?.setTexture(isBattle ? ASSET_KEYS.boss.battleGlow : ASSET_KEYS.boss.damagedGlow);
+    this.bossImage.setTexture(isBattle ? ASSET_KEYS.boss.main : ASSET_KEYS.boss.lowhp);
+    this.bossImageGlow?.setTexture(isBattle ? ASSET_KEYS.boss.mainBack : ASSET_KEYS.boss.lowhpBack);
   }
 
   private activateSkill(id: SkillId) {
@@ -1890,21 +1890,29 @@ export class GameScene extends Phaser.Scene {
 
   private async executeAttack() {
     const config = BOSS_ABILITIES.attack;
+
+    // Временная подмена на attack-спрайт
+    this.bossImage?.setTexture(ASSET_KEYS.boss.attack);
+    this.bossImageGlow?.setTexture(ASSET_KEYS.boss.attackBack);
+
     this.sfx(ASSET_KEYS.sfx.bossAttack);
     this.cameras.main.shake(200, 0.015 / DPR);
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
     this.updateHud();
     await wait(this, 300);
+
+    // Вернуть основной спрайт (main или lowhp)
+    this.updateBossArt();
   }
 
-  private async withCutscene(abilityName: string, logic: () => Promise<void>, bossTextureKey?: string) {
-    const { overlay, fullscreenBoss, abilityText } = this.createAbilityCutscene(abilityName, bossTextureKey);
-    await this.showAbilityCutscene(overlay, fullscreenBoss, abilityText);
+  private async withCutscene(abilityName: string, logic: () => Promise<void>, bossTextureKey?: string, bossBackTextureKey?: string) {
+    const { overlay, fullscreenBack, fullscreenBoss, abilityText } = this.createAbilityCutscene(abilityName, bossTextureKey, bossBackTextureKey);
+    await this.showAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
     await wait(this, 600);
     await logic();
     await wait(this, 400);
-    await this.hideAbilityCutscene(overlay, fullscreenBoss, abilityText);
+    await this.hideAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
   }
 
   private async executeBombs() {
@@ -1937,7 +1945,7 @@ export class GameScene extends Phaser.Scene {
 
       // Show shield image appearing during cutscene
       this.showBossShieldOverlay();
-    }, ASSET_KEYS.boss.battle);
+    });
 
     if (!this.shieldTipShown) {
       this.shieldTipShown = true;
@@ -1962,7 +1970,7 @@ export class GameScene extends Phaser.Scene {
         }
       }
       this.updateHud();
-    });
+    }, ASSET_KEYS.boss.ulta, ASSET_KEYS.boss.ultaBack);
   }
 
   private async animateBombsAppear(bombs: Array<{ pos: Position; tile: Tile }>) {
@@ -2073,18 +2081,30 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private createAbilityCutscene(abilityName: string, bossTextureKey?: string) {
+  private createAbilityCutscene(abilityName: string, bossTextureKey?: string, bossBackTextureKey?: string) {
     const overlay = this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0)
       .setDepth(500);
 
+    const mainKey = bossTextureKey ?? ASSET_KEYS.boss.attack;
+    const backKey = bossBackTextureKey ?? ASSET_KEYS.boss.attackBack;
+
+    // Back (glow) layer
+    const fullscreenBack = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 35, backKey)
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(500.5);
+    const fitScale = GAME_WIDTH / fullscreenBack.width;
+    fullscreenBack.setDisplaySize(fullscreenBack.width * fitScale, fullscreenBack.height * fitScale);
+
+    // Main (solid) layer
     const fullscreenBoss = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 35, bossTextureKey ?? ASSET_KEYS.boss.ulta)
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 35, mainKey)
       .setOrigin(0.5)
       .setAlpha(0)
       .setDepth(501);
-    const fitScale = GAME_WIDTH / fullscreenBoss.width;
     fullscreenBoss.setDisplaySize(fullscreenBoss.width * fitScale, fullscreenBoss.height * fitScale);
 
     const abilityText = this.add
@@ -2098,13 +2118,14 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setAlpha(0)
-      .setDepth(501);
+      .setDepth(502);
 
-    return { overlay, fullscreenBoss, abilityText };
+    return { overlay, fullscreenBack, fullscreenBoss, abilityText };
   }
 
   private showAbilityCutscene(
     overlay: Phaser.GameObjects.Rectangle,
+    fullscreenBack: Phaser.GameObjects.Image,
     fullscreenBoss: Phaser.GameObjects.Image,
     abilityText: Phaser.GameObjects.Text
   ): Promise<void> {
@@ -2117,7 +2138,7 @@ export class GameScene extends Phaser.Scene {
         ease: ANIMATION_EASING.ability,
       });
       this.tweens.add({
-        targets: [fullscreenBoss, abilityText],
+        targets: [fullscreenBack, fullscreenBoss, abilityText],
         alpha: 1,
         duration: ANIMATION_DURATIONS.abilityFadeIn,
         delay: 100,
@@ -2129,17 +2150,19 @@ export class GameScene extends Phaser.Scene {
 
   private hideAbilityCutscene(
     overlay: Phaser.GameObjects.Rectangle,
+    fullscreenBack: Phaser.GameObjects.Image,
     fullscreenBoss: Phaser.GameObjects.Image,
     abilityText: Phaser.GameObjects.Text
   ): Promise<void> {
     return new Promise<void>((resolve) => {
       this.tweens.add({
-        targets: [overlay, fullscreenBoss, abilityText],
+        targets: [overlay, fullscreenBack, fullscreenBoss, abilityText],
         alpha: 0,
         duration: ANIMATION_DURATIONS.abilityFadeOut,
         ease: ANIMATION_EASING.fade,
         onComplete: () => {
           if (overlay.scene) overlay.destroy();
+          if (fullscreenBack.scene) fullscreenBack.destroy();
           if (fullscreenBoss.scene) fullscreenBoss.destroy();
           if (abilityText.scene) abilityText.destroy();
           resolve();

@@ -2,13 +2,16 @@ import { TileKind } from "../match3/types";
 
 export const ASSET_KEYS = {
   boss: {
-    normal: "safira_normal",
-    normalGlow: "safira_normal_glow",
-    battle: "safira_battle",
-    battleGlow: "safira_battle_glow",
-    damaged: "safira_damaged",
-    damagedGlow: "safira_damaged_glow",
+    intro: "safira_intro",
+    introBack: "safira_intro_back",
+    main: "safira_main",
+    mainBack: "safira_main_back",
+    attack: "safira_attack",
+    attackBack: "safira_attack_back",
     ulta: "safira_ulta",
+    ultaBack: "safira_ulta_back",
+    lowhp: "safira_lowhp",
+    lowhpBack: "safira_lowhp_back",
     shield: "boss_shield",
   },
   intro: {

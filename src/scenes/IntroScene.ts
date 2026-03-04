@@ -99,13 +99,13 @@ export class IntroScene extends Phaser.Scene {
     // Сафира появляется ДАЛЕКО (маленькая)
     const farPos = this.getFarPosition();
 
-    this.safiraGlow = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.normalGlow);
+    this.safiraGlow = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.introBack);
     this.safiraGlow.setOrigin(0.5, farPos.originY);
     this.safiraGlow.setScale(farPos.scale);
     this.safiraGlow.setAlpha(0);
     this.safiraGlow.setDepth(0.9);
 
-    this.safira = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.normal);
+    this.safira = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.intro);
     this.safira.setOrigin(0.5, farPos.originY);
     this.safira.setScale(farPos.scale);
     this.safira.setAlpha(0);
@@ -144,13 +144,13 @@ export class IntroScene extends Phaser.Scene {
     const duration = INTRO_ANIMATION.poseTransitionDuration;
 
     // Создаём новую Сафиру (glow + solid) поверх старой
-    const newSafiraGlow = this.add.image(this.safira.x, this.safira.y, ASSET_KEYS.boss.battleGlow);
+    const newSafiraGlow = this.add.image(this.safira.x, this.safira.y, ASSET_KEYS.boss.mainBack);
     newSafiraGlow.setOrigin(this.safira.originX, this.safira.originY);
     newSafiraGlow.setScale(this.safira.scale);
     newSafiraGlow.setDepth(0.9);
     newSafiraGlow.setAlpha(0);
 
-    const newSafira = this.add.image(this.safira.x, this.safira.y, ASSET_KEYS.boss.battle);
+    const newSafira = this.add.image(this.safira.x, this.safira.y, ASSET_KEYS.boss.main);
     newSafira.setOrigin(this.safira.originX, this.safira.originY);
     newSafira.setScale(this.safira.scale);
     newSafira.setDepth(this.safira.depth);
