@@ -1982,14 +1982,34 @@ export class GameScene extends Phaser.Scene {
     this.flashPlayerAvatar();
     this.updateHud();
 
-    // Подмена на attack-спрайт ПОСЛЕ updateHud (который вызывает updateBossArt и перезаписал бы текстуру)
+    // Dissolve out → смена текстуры на attack → dissolve in
+    await Promise.all([
+      this.bossImage ? tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }) : Promise.resolve(),
+      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
+    ]);
+
     this.bossImage?.setTexture(ASSET_KEYS.boss.attack);
     this.bossImageGlow?.setTexture(ASSET_KEYS.boss.attackBack);
 
+    await Promise.all([
+      this.bossImage ? tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }) : Promise.resolve(),
+      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
+    ]);
+
     await wait(this, 3000);
 
-    // Вернуть основной спрайт (main или lowhp)
+    // Dissolve out attack → вернуть основной спрайт → dissolve in
+    await Promise.all([
+      this.bossImage ? tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }) : Promise.resolve(),
+      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
+    ]);
+
     this.updateBossArt();
+
+    await Promise.all([
+      this.bossImage ? tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }) : Promise.resolve(),
+      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
+    ]);
   }
 
   private async withCutscene(abilityName: string, logic: () => Promise<void>, bossTextureKey?: string, bossBackTextureKey?: string) {
