@@ -978,8 +978,9 @@ export class GameScene extends Phaser.Scene {
 
   private createTileGlowSprite(tileId: number, x: number, y: number, multiplier: number): Phaser.GameObjects.Image {
     const glowKey = multiplier >= 5 ? ASSET_KEYS.glow.red : ASSET_KEYS.glow.gold;
+    const glowSize = (CELL_SIZE + 4) * 0.8;
     const glow = this.add.image(x, y, glowKey)
-      .setDisplaySize(CELL_SIZE + 4, CELL_SIZE + 4)
+      .setDisplaySize(glowSize, glowSize)
       .setDepth(0.99);
     // Pulsating glow animation
     this.tweens.add({
@@ -1975,15 +1976,16 @@ export class GameScene extends Phaser.Scene {
   private async executeAttack() {
     const config = BOSS_ABILITIES.attack;
 
-    // Временная подмена на attack-спрайт
-    this.bossImage?.setTexture(ASSET_KEYS.boss.attack);
-    this.bossImageGlow?.setTexture(ASSET_KEYS.boss.attackBack);
-
     this.sfx(ASSET_KEYS.sfx.bossAttack);
     this.cameras.main.shake(200, 0.015 / DPR);
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
     this.updateHud();
+
+    // Подмена на attack-спрайт ПОСЛЕ updateHud (который вызывает updateBossArt и перезаписал бы текстуру)
+    this.bossImage?.setTexture(ASSET_KEYS.boss.attack);
+    this.bossImageGlow?.setTexture(ASSET_KEYS.boss.attackBack);
+
     await wait(this, 3000);
 
     // Вернуть основной спрайт (main или lowhp)
