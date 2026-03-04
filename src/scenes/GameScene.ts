@@ -805,7 +805,7 @@ export class GameScene extends Phaser.Scene {
         showDamageNumber(this, this.bossShieldOverlay.x, this.bossShieldOverlay.y, 0, "shield");
       }
       if (this.bossImage) {
-        this.shakeTarget(this.bossImage, VISUAL_EFFECTS.damageShakeOffset * 0.3);
+        this.shakeTarget([this.bossImage, this.bossImageGlow], VISUAL_EFFECTS.damageShakeOffset * 0.3);
       }
       return;
     }
@@ -817,7 +817,7 @@ export class GameScene extends Phaser.Scene {
     if (this.bossImage) {
       this.flashBoss();
       showDamageNumber(this, this.bossImage.x, this.bossImage.y + 60, damage, "damage");
-      this.shakeTarget(this.bossImage, VISUAL_EFFECTS.damageShakeOffset);
+      this.shakeTarget([this.bossImage, this.bossImageGlow], VISUAL_EFFECTS.damageShakeOffset);
     }
   }
 
@@ -879,10 +879,11 @@ export class GameScene extends Phaser.Scene {
     this.bossHp = clamp(this.bossHp + healGain, 0, GAME_PARAMS.boss.hpMax);
   }
 
-  private shakeTarget(target: Phaser.GameObjects.Image, offset: number) {
+  private shakeTarget(target: Phaser.GameObjects.Image | (Phaser.GameObjects.Image | undefined)[], offset: number) {
+    const targets = Array.isArray(target) ? target.filter(Boolean) : [target];
     this.tweens.add({
-      targets: target,
-      x: target.x + offset,
+      targets,
+      x: `+=${offset}`,
       duration: ANIMATION_DURATIONS.shakeDuration,
       yoyo: true,
       repeat: 2,
@@ -1231,7 +1232,7 @@ export class GameScene extends Phaser.Scene {
       this.applyDamageToBoss(cfg.damage);
       this.flashBoss();
       if (this.bossImage) {
-        this.shakeTarget(this.bossImage, VISUAL_EFFECTS.bossShakeOffset);
+        this.shakeTarget([this.bossImage, this.bossImageGlow], VISUAL_EFFECTS.bossShakeOffset);
       }
     } else if (id === "stun" && cfg.stunTurns) {
       // Добавляем ходы к кулдауну босса
@@ -1818,10 +1819,10 @@ export class GameScene extends Phaser.Scene {
     this.rebuildPositionMap();
     await this.animateCollapse(collapse);
 
-    // Check for cascade matches (boss's turn)
+    // Check for cascade matches after bomb explosions (player benefits)
     const matches = this.board.findMatches();
     if (matches.length > 0) {
-      await this.resolveBoard(matches, [], [], false, "boss");
+      await this.resolveBoard(matches, [], [], false, "player");
     }
   }
 
@@ -1900,7 +1901,7 @@ export class GameScene extends Phaser.Scene {
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
     this.updateHud();
-    await wait(this, 300);
+    await wait(this, 600);
 
     // Вернуть основной спрайт (main или lowhp)
     this.updateBossArt();
