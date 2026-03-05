@@ -902,11 +902,10 @@ export class GameScene extends Phaser.Scene {
 
   private flashBoss() {
     if (!this.bossImage) return;
-    this.bossImage.setTint(0xff6666);
-    this.bossImageGlow?.setTint(0xff6666);
+    this.bossImage.setTexture(ASSET_KEYS.boss.damage);
+    this.bossImageGlow?.setTexture(ASSET_KEYS.boss.damageBack);
     this.time.delayedCall(200, () => {
-      this.bossImage?.clearTint();
-      this.bossImageGlow?.clearTint();
+      this.updateBossArt();
     });
   }
 

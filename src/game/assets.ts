@@ -12,6 +12,8 @@ export const ASSET_KEYS = {
     ultaBack: "safira_ulta_back",
     lowhp: "safira_lowhp",
     lowhpBack: "safira_lowhp_back",
+    damage: "safira_damage",
+    damageBack: "safira_damage_back",
     shield: "boss_shield",
   },
   intro: {

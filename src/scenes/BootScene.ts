@@ -68,6 +68,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image(ASSET_KEYS.boss.ultaBack, "assets/safira/safira_ulta_back.png");
     this.load.image(ASSET_KEYS.boss.lowhp, "assets/safira/safira_lowhp.png");
     this.load.image(ASSET_KEYS.boss.lowhpBack, "assets/safira/safira_lowhp_back.png");
+    this.load.image(ASSET_KEYS.boss.damage, "assets/safira/safira_damage.png");
+    this.load.image(ASSET_KEYS.boss.damageBack, "assets/safira/safira_damage_back.png");
     this.load.image(ASSET_KEYS.boss.shield, "assets/shield.png");
 
     // Load intro assets
