@@ -16,37 +16,38 @@ export class BootScene extends Phaser.Scene {
     // === Loading screen (task 2) ===
     const cx = this.cameras.main.width / 2;
     const cy = this.cameras.main.height / 2;
+    const d = DPR;
 
     const titleText = this.add
-      .text(cx, cy - 80, "Match-3 Battle", {
-        fontSize: "42px",
+      .text(cx, cy - 80 * d, "Match-3 Battle", {
+        fontSize: `${42 * d}px`,
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
 
-    const barWidth = 320;
-    const barHeight = 28;
+    const barWidth = 320 * d;
+    const barHeight = 28 * d;
     const barBg = this.add
       .rectangle(cx, cy, barWidth, barHeight, 0x333333)
       .setOrigin(0.5);
-    barBg.setStrokeStyle(3, 0x555555);
+    barBg.setStrokeStyle(3 * d, 0x555555);
 
     const barFill = this.add
-      .rectangle(cx - barWidth / 2 + 2, cy, 0, barHeight - 4, 0x3b82f6)
+      .rectangle(cx - barWidth / 2 + 2 * d, cy, 0, barHeight - 4 * d, 0x3b82f6)
       .setOrigin(0, 0.5);
 
     const percentText = this.add
-      .text(cx, cy + 40, "0%", {
-        fontSize: "24px",
+      .text(cx, cy + 40 * d, "0%", {
+        fontSize: `${24 * d}px`,
         color: "#aaaaaa",
         fontFamily: "'Exo 2', Arial, sans-serif",
       })
       .setOrigin(0.5);
 
     this.load.on("progress", (value: number) => {
-      barFill.width = (barWidth - 4) * value;
+      barFill.width = (barWidth - 4 * d) * value;
       percentText.setText(`${Math.floor(value * 100)}%`);
     });
 

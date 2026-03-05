@@ -758,9 +758,12 @@ export class GameScene extends Phaser.Scene {
       // Если игра закончилась - прекращаем цикл
       if (this.gameOver) break;
 
-      // Проверяем бомбы рядом с очищенными позициями
+      // Проверяем бомбы рядом с очищенными И трансформированными позициями
+      // (трансформация = матч произошёл, бомба рядом должна обезвреживаться)
       const clearedPositions = outcome.cleared.map(c => c.pos);
-      const adjacentBombs = this.board.getAdjacentBombs(clearedPositions);
+      const transformPositions = outcome.transforms.map(t => t.pos);
+      const allMatchPositions = [...clearedPositions, ...transformPositions];
+      const adjacentBombs = this.board.getAdjacentBombs(allMatchPositions);
       if (adjacentBombs.length > 0) {
         await this.defuseBombs(adjacentBombs);
       }
@@ -900,13 +903,48 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private flashBoss() {
-    if (!this.bossImage) return;
+  private bossFlashActive = false;
+
+  private async flashBoss() {
+    if (!this.bossImage || this.bossFlashActive) return;
+    this.bossFlashActive = true;
+
+    // Dissolve out
+    await Promise.all([
+      tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
+      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
+    ]);
+    if (!this.bossImage) { this.bossFlashActive = false; return; }
+
+    // Switch to damage texture
     this.bossImage.setTexture(ASSET_KEYS.boss.damage);
     this.bossImageGlow?.setTexture(ASSET_KEYS.boss.damageBack);
-    this.time.delayedCall(200, () => {
-      this.updateBossArt();
-    });
+
+    // Dissolve in
+    await Promise.all([
+      tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
+      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
+    ]);
+
+    // Hold damage sprite for 2 seconds
+    await wait(this, 2000);
+    if (!this.bossImage) { this.bossFlashActive = false; return; }
+
+    // Dissolve out
+    await Promise.all([
+      tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
+      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
+    ]);
+
+    // Restore normal art
+    this.bossFlashActive = false;
+    this.updateBossArt();
+
+    // Dissolve in
+    await Promise.all([
+      tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
+      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
+    ]);
   }
 
   private checkGameOver() {
@@ -1277,7 +1315,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateBossArt() {
-    if (!this.bossImage) return;
+    if (!this.bossImage || this.bossFlashActive) return;
     const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
     const isBattle = ratio >= BOSS_DAMAGED_HP_THRESHOLD;
     this.bossImage.setTexture(isBattle ? ASSET_KEYS.boss.main : ASSET_KEYS.boss.lowhp);
@@ -1975,29 +2013,22 @@ export class GameScene extends Phaser.Scene {
   private async executeAttack() {
     const config = BOSS_ABILITIES.attack;
 
-    this.sfx(ASSET_KEYS.sfx.bossAttack);
-    this.cameras.main.shake(200, 0.015 / DPR);
-    this.applyDamageToPlayer(config.damage);
-    this.flashPlayerAvatar();
-    this.updateHud();
-
     if (!this.bossImage) return;
 
     // Сохранить текущий масштаб и позицию
     const savedScale = this.bossImage.scaleX;
     const savedY = this.bossImage.y;
 
-    // Dissolve out
+    // 1. Dissolve out current boss sprite
     await Promise.all([
       tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
     ]);
 
-    // Сменить текстуру на attack
+    // 2. Switch to attack texture + scale to screen width
     this.bossImage.setTexture(ASSET_KEYS.boss.attack);
     this.bossImageGlow?.setTexture(ASSET_KEYS.boss.attackBack);
 
-    // Растянуть пропорционально на ширину экрана через setDisplaySize
     const aspectRatio = this.bossImage.height / this.bossImage.width;
     const attackDisplayW = GAME_WIDTH;
     const attackDisplayH = GAME_WIDTH * aspectRatio;
@@ -2012,11 +2043,18 @@ export class GameScene extends Phaser.Scene {
     this.bossImageGlow?.setDisplaySize(attackDisplayW, attackDisplayH);
     this.bossImageGlow?.setY(attackY);
 
-    // Dissolve in
+    // 3. Dissolve in attack sprite
     await Promise.all([
       tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
     ]);
+
+    // 4. NOW apply damage (after attack sprite is visible)
+    this.sfx(ASSET_KEYS.sfx.bossAttack);
+    this.cameras.main.shake(200, 0.015 / DPR);
+    this.applyDamageToPlayer(config.damage);
+    this.flashPlayerAvatar();
+    this.updateHud();
 
     await wait(this, 3000);
 
