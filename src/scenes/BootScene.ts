@@ -18,28 +18,28 @@ export class BootScene extends Phaser.Scene {
     const cy = this.cameras.main.height / 2;
 
     const titleText = this.add
-      .text(cx, cy - 60, "Match-3 Battle", {
-        fontSize: "28px",
+      .text(cx, cy - 80, "Match-3 Battle", {
+        fontSize: "42px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
 
-    const barWidth = 220;
-    const barHeight = 20;
+    const barWidth = 320;
+    const barHeight = 28;
     const barBg = this.add
       .rectangle(cx, cy, barWidth, barHeight, 0x333333)
       .setOrigin(0.5);
-    barBg.setStrokeStyle(2, 0x555555);
+    barBg.setStrokeStyle(3, 0x555555);
 
     const barFill = this.add
       .rectangle(cx - barWidth / 2 + 2, cy, 0, barHeight - 4, 0x3b82f6)
       .setOrigin(0, 0.5);
 
     const percentText = this.add
-      .text(cx, cy + 30, "0%", {
-        fontSize: "16px",
+      .text(cx, cy + 40, "0%", {
+        fontSize: "24px",
         color: "#aaaaaa",
         fontFamily: "'Exo 2', Arial, sans-serif",
       })
