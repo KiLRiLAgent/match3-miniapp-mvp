@@ -1998,19 +1998,19 @@ export class GameScene extends Phaser.Scene {
     this.bossImage.setTexture(ASSET_KEYS.boss.attack);
     this.bossImageGlow?.setTexture(ASSET_KEYS.boss.attackBack);
 
-    // Растянуть пропорционально на ширину экрана
-    const texW = this.bossImage.texture.source[0].width;
-    const texH = this.bossImage.texture.source[0].height;
-    const attackScale = GAME_WIDTH / texW;
-    const attackHeight = texH * attackScale;
+    // Растянуть пропорционально на ширину экрана через setDisplaySize
+    const aspectRatio = this.bossImage.height / this.bossImage.width;
+    const attackDisplayW = GAME_WIDTH;
+    const attackDisplayH = GAME_WIDTH * aspectRatio;
+
     let attackY = savedY;
-    if (attackY - attackHeight / 2 < 0) {
-      attackY = attackHeight / 2;
+    if (attackY - attackDisplayH / 2 < 0) {
+      attackY = attackDisplayH / 2;
     }
 
-    this.bossImage.setScale(attackScale);
+    this.bossImage.setDisplaySize(attackDisplayW, attackDisplayH);
     this.bossImage.setY(attackY);
-    this.bossImageGlow?.setScale(attackScale);
+    this.bossImageGlow?.setDisplaySize(attackDisplayW, attackDisplayH);
     this.bossImageGlow?.setY(attackY);
 
     // Dissolve in
