@@ -1982,32 +1982,61 @@ export class GameScene extends Phaser.Scene {
     this.flashPlayerAvatar();
     this.updateHud();
 
-    // Dissolve out → смена текстуры на attack → dissolve in
+    if (!this.bossImage) return;
+
+    // Сохранить текущий масштаб и позицию
+    const savedScale = this.bossImage.scaleX;
+    const savedY = this.bossImage.y;
+
+    // Dissolve out
     await Promise.all([
-      this.bossImage ? tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }) : Promise.resolve(),
+      tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
     ]);
 
-    this.bossImage?.setTexture(ASSET_KEYS.boss.attack);
+    // Сменить текстуру на attack
+    this.bossImage.setTexture(ASSET_KEYS.boss.attack);
     this.bossImageGlow?.setTexture(ASSET_KEYS.boss.attackBack);
 
+    // Растянуть пропорционально на ширину экрана
+    const texW = this.bossImage.texture.source[0].width;
+    const texH = this.bossImage.texture.source[0].height;
+    const attackScale = GAME_WIDTH / texW;
+    const attackHeight = texH * attackScale;
+    let attackY = savedY;
+    if (attackY - attackHeight / 2 < 0) {
+      attackY = attackHeight / 2;
+    }
+
+    this.bossImage.setScale(attackScale);
+    this.bossImage.setY(attackY);
+    this.bossImageGlow?.setScale(attackScale);
+    this.bossImageGlow?.setY(attackY);
+
+    // Dissolve in
     await Promise.all([
-      this.bossImage ? tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }) : Promise.resolve(),
+      tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
     ]);
 
     await wait(this, 3000);
 
-    // Dissolve out attack → вернуть основной спрайт → dissolve in
+    // Dissolve out attack
     await Promise.all([
-      this.bossImage ? tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }) : Promise.resolve(),
+      tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
     ]);
 
+    // Восстановить нормальный спрайт, масштаб и позицию
     this.updateBossArt();
+    this.bossImage.setScale(savedScale);
+    this.bossImage.setY(savedY);
+    this.bossImageGlow?.setScale(savedScale);
+    this.bossImageGlow?.setY(savedY);
 
+    // Dissolve in
     await Promise.all([
-      this.bossImage ? tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }) : Promise.resolve(),
+      tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
     ]);
   }
