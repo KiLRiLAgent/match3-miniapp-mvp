@@ -904,17 +904,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private bossFlashActive = false;
+  private bossFlashGeneration = 0;
 
   private async flashBoss() {
     if (!this.bossImage || this.bossFlashActive) return;
     this.bossFlashActive = true;
+    const gen = ++this.bossFlashGeneration;
+    const cancelled = () => gen !== this.bossFlashGeneration;
 
     // Dissolve out
     await Promise.all([
       tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
     ]);
-    if (!this.bossImage) { this.bossFlashActive = false; return; }
+    if (!this.bossImage || cancelled()) { this.bossFlashActive = false; return; }
 
     // Switch to damage texture
     this.bossImage.setTexture(ASSET_KEYS.boss.damage);
@@ -925,16 +928,18 @@ export class GameScene extends Phaser.Scene {
       tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
     ]);
+    if (cancelled()) return;
 
     // Hold damage sprite for 2 seconds
     await wait(this, 2000);
-    if (!this.bossImage) { this.bossFlashActive = false; return; }
+    if (!this.bossImage || cancelled()) { this.bossFlashActive = false; return; }
 
     // Dissolve out
     await Promise.all([
       tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
     ]);
+    if (cancelled()) return;
 
     // Restore normal art
     this.bossFlashActive = false;
@@ -1989,6 +1994,7 @@ export class GameScene extends Phaser.Scene {
 
   private cancelFlashBoss() {
     if (!this.bossFlashActive) return;
+    this.bossFlashGeneration++;
     if (this.bossImage) this.tweens.killTweensOf(this.bossImage);
     if (this.bossImageGlow) this.tweens.killTweensOf(this.bossImageGlow);
     this.bossFlashActive = false;

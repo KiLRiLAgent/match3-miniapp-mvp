@@ -129,6 +129,30 @@ export function loadGameParams() {
       GAME_PARAMS.boss.physAttack = clamp(GAME_PARAMS.boss.physAttack, 0, 1000);
       GAME_PARAMS.tiles.hpPerTile = clamp(GAME_PARAMS.tiles.hpPerTile, 0, 1000);
       GAME_PARAMS.tiles.mpPerTile = clamp(GAME_PARAMS.tiles.mpPerTile, 0, 1000);
+      GAME_PARAMS.tiles.swordDamage = clamp(GAME_PARAMS.tiles.swordDamage, 0, 1000);
+      GAME_PARAMS.tiles.starDamage = clamp(GAME_PARAMS.tiles.starDamage, 0, 1000);
+      // Boss abilities
+      const ba = GAME_PARAMS.bossAbilities;
+      ba.attackDamage = clamp(ba.attackDamage, 0, 10000);
+      ba.attackCooldown = clamp(ba.attackCooldown, 1, 100);
+      ba.bombCount = clamp(ba.bombCount, 0, 20);
+      ba.bombCooldown = clamp(ba.bombCooldown, 1, 100);
+      ba.bombDamage = clamp(ba.bombDamage, 0, 10000);
+      ba.bombsAbilityCooldown = clamp(ba.bombsAbilityCooldown, 1, 100);
+      ba.shieldDuration = clamp(ba.shieldDuration, 1, 100);
+      ba.shieldCooldown = clamp(ba.shieldCooldown, 1, 100);
+      ba.powerStrikeDamage = clamp(ba.powerStrikeDamage, 0, 10000);
+      ba.powerStrikeManaDrain = clamp(ba.powerStrikeManaDrain, 0, 10000);
+      ba.powerStrikeCooldown = clamp(ba.powerStrikeCooldown, 1, 100);
+      // Skill costs
+      SKILL_CONFIG.powerStrike.cost = clamp(SKILL_CONFIG.powerStrike.cost, 0, 10000);
+      SKILL_CONFIG.stun.cost = clamp(SKILL_CONFIG.stun.cost, 0, 10000);
+      SKILL_CONFIG.heal.cost = clamp(SKILL_CONFIG.heal.cost, 0, 10000);
+      SKILL_CONFIG.hammer.cost = clamp(SKILL_CONFIG.hammer.cost, 0, 10000);
+      // Boss pattern must be non-empty
+      if (!GAME_PARAMS.bossPattern.length) {
+        GAME_PARAMS.bossPattern = [1, 2, 1, 3, 1, 4];
+      }
     }
   } catch {
     // Игнорируем ошибки
