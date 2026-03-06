@@ -753,7 +753,7 @@ export class GameScene extends Phaser.Scene {
       await this.animateClear(outcome, actor);
 
       // Применяем эффекты СРАЗУ после полёта фишек (не в конце!)
-      await this.applyMatchResults(outcome.counts, actor);
+      this.applyMatchResults(outcome.counts, actor);
 
       // Если игра закончилась - прекращаем цикл
       if (this.gameOver) break;
@@ -787,7 +787,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private async applyMatchResults(totals: CountTotals, actor: "player" | "boss") {
+  private applyMatchResults(totals: CountTotals, actor: "player" | "boss") {
     const physDamage = totals[TileKind.Sword] * GAME_PARAMS.tiles.swordDamage;
     const magDamage = totals[TileKind.Star] * GAME_PARAMS.tiles.starDamage;
     const damage = physDamage + Math.floor(magDamage * PLAYER_MAG_DAMAGE_MULTIPLIER);
@@ -795,7 +795,7 @@ export class GameScene extends Phaser.Scene {
     const healGain = totals[TileKind.Heal] * GAME_PARAMS.tiles.hpPerTile;
 
     if (actor === "player") {
-      await this.applyDamageToBoss(damage);
+      this.applyDamageToBoss(damage);
       this.applyManaToPlayer(manaGain);
       this.applyHealToPlayer(healGain);
     } else {
@@ -807,7 +807,7 @@ export class GameScene extends Phaser.Scene {
     this.checkGameOver();
   }
 
-  private async applyDamageToBoss(damage: number) {
+  private applyDamageToBoss(damage: number) {
     if (damage <= 0) return;
 
     // Проверка щита
@@ -830,7 +830,7 @@ export class GameScene extends Phaser.Scene {
       const dmgTarget = this.bossTarget;
       showDamageNumber(this, dmgTarget.x, dmgTarget.y, damage, "damage");
       this.shakeTarget([this.bossImage, this.bossImageGlow], VISUAL_EFFECTS.damageShakeOffset);
-      await this.flashBoss();
+      this.flashBoss(); // fire-and-forget, bossFlashActive guard protects updateBossArt
     }
   }
 
@@ -1322,7 +1322,7 @@ export class GameScene extends Phaser.Scene {
     this.bossImageGlow?.setTexture(isBattle ? ASSET_KEYS.boss.mainBack : ASSET_KEYS.boss.lowhpBack);
   }
 
-  private async activateSkill(id: SkillId) {
+  private activateSkill(id: SkillId) {
     if (!this.canPlayerAct()) return;
     const idx = SKILL_IDS.indexOf(id);
     if (idx >= this.unlockedSkillCount) return;
@@ -1345,7 +1345,7 @@ export class GameScene extends Phaser.Scene {
 
     // Обработка разных скиллов
     if (id === "powerStrike") {
-      await this.applyDamageToBoss(cfg.damage);
+      this.applyDamageToBoss(cfg.damage);
     } else if (id === "stun" && cfg.stunTurns) {
       // Добавляем ходы к кулдауну босса
       this.bossAbilityManager.addCooldown(cfg.stunTurns);
