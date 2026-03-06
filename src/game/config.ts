@@ -1,5 +1,6 @@
 import { TileKind } from "../match3/types";
 import type { BaseTileKind } from "../match3/types";
+import { clamp } from "../utils/helpers";
 
 // Динамические размеры экрана (устанавливаются в main.ts)
 export let GAME_WIDTH = 480;
@@ -118,6 +119,16 @@ export function loadGameParams() {
         if (parsed.skillCosts.hammer !== undefined) SKILL_CONFIG.hammer.cost = parsed.skillCosts.hammer;
       }
       // background параметры не загружаем из localStorage — они контролируются кодом
+
+      // Валидация критических значений
+      GAME_PARAMS.player.hpMax = clamp(GAME_PARAMS.player.hpMax, 1, 10000);
+      GAME_PARAMS.player.manaMax = clamp(GAME_PARAMS.player.manaMax, 1, 10000);
+      GAME_PARAMS.player.physAttack = clamp(GAME_PARAMS.player.physAttack, 0, 1000);
+      GAME_PARAMS.player.magAttack = clamp(GAME_PARAMS.player.magAttack, 0, 1000);
+      GAME_PARAMS.boss.hpMax = clamp(GAME_PARAMS.boss.hpMax, 1, 100000);
+      GAME_PARAMS.boss.physAttack = clamp(GAME_PARAMS.boss.physAttack, 0, 1000);
+      GAME_PARAMS.tiles.hpPerTile = clamp(GAME_PARAMS.tiles.hpPerTile, 0, 1000);
+      GAME_PARAMS.tiles.mpPerTile = clamp(GAME_PARAMS.tiles.mpPerTile, 0, 1000);
     }
   } catch {
     // Игнорируем ошибки

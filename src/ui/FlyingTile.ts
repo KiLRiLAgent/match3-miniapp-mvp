@@ -108,14 +108,16 @@ export function flyTileToTarget(
 
       if (progress >= 1) {
         scene.events.off("update", updateHandler);
-        scene.events.off("shutdown", cleanup);
         tile.destroy();
 
         scene.tweens.add({
           targets: trailGraphics,
           alpha: 0,
           duration: 150,
-          onComplete: () => trailGraphics.destroy(),
+          onComplete: () => {
+            scene.events.off("shutdown", cleanup);
+            trailGraphics.destroy();
+          },
         });
 
         resolve();

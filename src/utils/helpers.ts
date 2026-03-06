@@ -74,10 +74,16 @@ export function tweenPromise(
   scene: Phaser.Scene,
   config: Phaser.Types.Tweens.TweenBuilderConfig
 ): Promise<void> {
+  const originalOnComplete = config.onComplete;
   return new Promise<void>((resolve) => {
     scene.tweens.add({
       ...config,
-      onComplete: () => resolve(),
+      onComplete: (tween, targets, ...args) => {
+        if (originalOnComplete) {
+          (originalOnComplete as Function)(tween, targets, ...args);
+        }
+        resolve();
+      },
     });
   });
 }

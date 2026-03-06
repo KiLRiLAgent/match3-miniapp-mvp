@@ -4,6 +4,7 @@ import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, DPR } from "../game/config";
 import { INTRO_ANIMATION, INTRO_EASING } from "../game/animations";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { wait, waitOrTap, tweenPromise } from "../utils/helpers";
+import { isMuted, getVolume } from "../utils/audioSettings";
 import { GameScene } from "./GameScene";
 
 // Диалоги с намеренными переносами строк для акцента
@@ -239,11 +240,14 @@ export class IntroScene extends Phaser.Scene {
 
     // VS контейнер появляется во время зума
     this.vsContainer = this.createVSScreen();
-    const mgr = this.sound as Phaser.Sound.WebAudioSoundManager;
-    if (mgr.context?.state === "suspended") {
-      mgr.context.resume().then(() => this.sound.play(ASSET_KEYS.sfx.vs, { volume: 0.6 }));
-    } else {
-      this.sound.play(ASSET_KEYS.sfx.vs, { volume: 0.6 });
+    if (!isMuted()) {
+      const vsVolume = 0.6 * getVolume();
+      const mgr = this.sound as Phaser.Sound.WebAudioSoundManager;
+      if (mgr.context?.state === "suspended") {
+        mgr.context.resume().then(() => this.sound.play(ASSET_KEYS.sfx.vs, { volume: vsVolume }));
+      } else {
+        this.sound.play(ASSET_KEYS.sfx.vs, { volume: vsVolume });
+      }
     }
     const vsPromise = tweenPromise(this, {
       targets: this.vsContainer,

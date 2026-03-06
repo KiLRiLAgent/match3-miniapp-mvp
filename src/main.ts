@@ -51,10 +51,21 @@ function detectRenderer(): number {
 }
 
 let gameInstance: Phaser.Game | null = null;
+let currentUnlockAudio: (() => void) | null = null;
+
+function removeAudioUnlockListeners() {
+  if (currentUnlockAudio) {
+    document.removeEventListener("touchstart", currentUnlockAudio, true);
+    document.removeEventListener("touchend", currentUnlockAudio, true);
+    document.removeEventListener("click", currentUnlockAudio, true);
+    currentUnlockAudio = null;
+  }
+}
 
 function startGame(rendererType: number) {
   // Destroy previous instance if retrying with Canvas
   if (gameInstance) {
+    removeAudioUnlockListeners();
     try { gameInstance.destroy(true); } catch { /* ignore */ }
     const appEl = document.getElementById("app");
     if (appEl) appEl.innerHTML = "";
@@ -122,10 +133,9 @@ function startGame(rendererType: number) {
         src.start(0);
       } catch (_) { /* ignore */ }
 
-      document.removeEventListener("touchstart", unlockAudio, true);
-      document.removeEventListener("touchend", unlockAudio, true);
-      document.removeEventListener("click", unlockAudio, true);
+      removeAudioUnlockListeners();
     };
+    currentUnlockAudio = unlockAudio;
     document.addEventListener("touchstart", unlockAudio, { capture: true });
     document.addEventListener("touchend", unlockAudio, { capture: true });
     document.addEventListener("click", unlockAudio, { capture: true });

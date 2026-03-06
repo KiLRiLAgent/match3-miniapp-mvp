@@ -1987,7 +1987,18 @@ export class GameScene extends Phaser.Scene {
     return Promise.all(promises).then(() => {});
   }
 
+  private cancelFlashBoss() {
+    if (!this.bossFlashActive) return;
+    if (this.bossImage) this.tweens.killTweensOf(this.bossImage);
+    if (this.bossImageGlow) this.tweens.killTweensOf(this.bossImageGlow);
+    this.bossFlashActive = false;
+    this.updateBossArt();
+    this.bossImage?.setAlpha(1);
+    this.bossImageGlow?.setAlpha(1);
+  }
+
   private async executeBossAbility() {
+    this.cancelFlashBoss();
     const abilityType = this.bossAbilityManager.currentType;
 
     switch (abilityType) {
@@ -2013,6 +2024,7 @@ export class GameScene extends Phaser.Scene {
 
     // Сохранить текущий масштаб и позицию
     const savedScale = this.bossImage.scaleX;
+    const savedX = this.bossImage.x;
     const savedY = this.bossImage.y;
 
     // 1. Dissolve out current boss sprite
@@ -2066,9 +2078,9 @@ export class GameScene extends Phaser.Scene {
     // Восстановить нормальный спрайт, масштаб и позицию
     this.updateBossArt();
     this.bossImage.setScale(savedScale);
-    this.bossImage.setY(savedY);
+    this.bossImage.setPosition(savedX, savedY);
     this.bossImageGlow?.setScale(savedScale);
-    this.bossImageGlow?.setY(savedY);
+    this.bossImageGlow?.setPosition(savedX, savedY);
 
     // Dissolve in
     await Promise.all([
@@ -2426,7 +2438,7 @@ export class GameScene extends Phaser.Scene {
 
     this.playerAvatar.setFillStyle(0xffffff, 1);
     this.time.delayedCall(ANIMATION_DURATIONS.flashDuration, () => {
-      this.playerAvatar?.setFillStyle(UI_COLORS.playerHp, 0.8);
+      this.playerAvatar?.setFillStyle(0x000000, 0);
     });
   }
 

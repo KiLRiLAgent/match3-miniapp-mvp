@@ -216,10 +216,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   private buildParticleTexture() {
+    const d = DPR;
     const g = this.add.graphics();
     g.fillStyle(0xffffff, 1);
-    g.fillCircle(4, 4, 4);
-    g.generateTexture(ASSET_KEYS.particle, 8, 8);
+    g.fillCircle(4 * d, 4 * d, 4 * d);
+    g.generateTexture(ASSET_KEYS.particle, 8 * d, 8 * d);
     g.destroy();
   }
 }
