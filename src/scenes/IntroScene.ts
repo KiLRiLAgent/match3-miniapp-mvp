@@ -4,6 +4,7 @@ import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, DPR } from "../game/config";
 import { INTRO_ANIMATION, INTRO_EASING } from "../game/animations";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { wait, waitOrTap, tweenPromise } from "../utils/helpers";
+import { isMuted, getVolume } from "../utils/audioSettings";
 import { GameScene } from "./GameScene";
 
 // Диалоги с намеренными переносами строк для акцента
@@ -31,6 +32,14 @@ export class IntroScene extends Phaser.Scene {
 
     this.cameras.main.setZoom(DPR);
     this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
+
+    // Start background music from the intro
+    if (this.cache.audio.exists(ASSET_KEYS.music.bgm)) {
+      try {
+        const bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
+        if (!isMuted()) bgm.play();
+      } catch { /* audio not available */ }
+    }
 
     this.runIntroSequence();
   }

@@ -185,10 +185,6 @@ export class GameScene extends Phaser.Scene {
     this.bossShieldText = undefined;
     this.skillButtons = {};
     this.muteButton = undefined;
-    if (this.bgm) {
-      this.bgm.stop();
-      this.bgm.destroy();
-    }
     this.bgm = undefined;
 
     this.cameras.main.setZoom(DPR);
@@ -208,12 +204,17 @@ export class GameScene extends Phaser.Scene {
     this.setupInputHandlers();
     this.updateHud();
 
-    // Background music (guard against missing cache — large file may fail to load)
-    if (!this.bgm && this.cache.audio.exists(ASSET_KEYS.music.bgm)) {
-      try {
-        this.bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
-        if (!isMuted()) this.bgm.play();
-      } catch { /* audio not available */ }
+    // BGM starts in IntroScene; on restart, resume if it exists in the global sound manager
+    if (!this.bgm) {
+      const existing = this.sound.get(ASSET_KEYS.music.bgm);
+      if (existing) {
+        this.bgm = existing;
+      } else if (this.cache.audio.exists(ASSET_KEYS.music.bgm)) {
+        try {
+          this.bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
+          if (!isMuted()) this.bgm.play();
+        } catch { /* audio not available */ }
+      }
     }
 
     // Если не скрыто и есть финальный диалог - показываем сразу
