@@ -99,6 +99,7 @@ export class GameScene extends Phaser.Scene {
   private bossShieldText?: Phaser.GameObjects.Text;
   private bombCooldownTexts = new Map<number, Phaser.GameObjects.Text>();
   private tileGlows = new Map<number, Phaser.GameObjects.Image>();
+  private bgm?: Phaser.Sound.BaseSound;
 
   private boardOrigin = { x: 0, y: 0 };
   private currentTurn: "player" | "boss" = "player";
@@ -200,6 +201,12 @@ export class GameScene extends Phaser.Scene {
     this.buildSkills(startHidden);
     this.setupInputHandlers();
     this.updateHud();
+
+    // Background music
+    if (!this.bgm) {
+      this.bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
+      if (!isMuted()) this.bgm.play();
+    }
 
     // Если не скрыто и есть финальный диалог - показываем сразу
     // При startHidden диалог будет показан после triggerFadeIn()
@@ -451,6 +458,10 @@ export class GameScene extends Phaser.Scene {
       .on("pointerdown", () => {
         const nowMuted = toggleMute();
         this.muteButton?.setText(nowMuted ? "🔇" : "🔊");
+        if (this.bgm) {
+          if (nowMuted) this.bgm.pause();
+          else this.bgm.resume();
+        }
       });
 
     // === КНОПКА НАСТРОЕК ===
@@ -662,7 +673,7 @@ export class GameScene extends Phaser.Scene {
     const tile = this.board.getTile(pos);
     if (!tile || !this.board.isSpecial(tile.kind)) return;
 
-    this.sfx(ASSET_KEYS.sfx.specialActivate);
+    this.sfx(ASSET_KEYS.sfx.gemTap);
     this.stopHintTimer();
     this.busy = true;
     this.resolveBoard([], [pos], [], true, "player").finally(() => {
@@ -701,7 +712,7 @@ export class GameScene extends Phaser.Scene {
         const matches = this.board.findMatches();
         if (!matches.length && !specials.length) {
           // invalid swap, revert
-          this.sfx(ASSET_KEYS.sfx.swapFail);
+          this.sfx(ASSET_KEYS.sfx.gemSwipe);
           this.board.swap(a, b);
           this.rebuildPositionMap();
           return this.animateSwap(tileA.id, tileB.id);
@@ -735,7 +746,7 @@ export class GameScene extends Phaser.Scene {
       );
       if (!outcome.cleared.length && !outcome.transforms.length) break;
 
-      this.sfx(this.cascadeCount === 0 ? ASSET_KEYS.sfx.match : ASSET_KEYS.sfx.cascade);
+      this.sfx(ASSET_KEYS.sfx.gemDestroy);
       this.cascadeCount++;
 
       // Haptic for first match / cascades
@@ -812,7 +823,7 @@ export class GameScene extends Phaser.Scene {
 
     // Проверка щита
     if (this.bossShieldDuration > 0) {
-      this.sfx(ASSET_KEYS.sfx.shieldBlock);
+      this.sfx(ASSET_KEYS.sfx.enemyShield);
       if (this.bossShieldOverlay) {
         showDamageNumber(this, this.bossShieldOverlay.x, this.bossShieldOverlay.y, 0, "shield");
       }
@@ -824,7 +835,7 @@ export class GameScene extends Phaser.Scene {
 
     this.bossHp = Math.max(0, this.bossHp - damage);
     this.stats.totalDamageDealt += damage;
-    this.sfx(ASSET_KEYS.sfx.bossHit);
+    this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticMedium();
     if (this.bossImage) {
       const dmgTarget = this.bossTarget;
@@ -837,7 +848,7 @@ export class GameScene extends Phaser.Scene {
   private applyDamageToPlayer(damage: number) {
     if (damage <= 0) return;
 
-    this.sfx(ASSET_KEYS.sfx.playerHit);
+    this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticHeavy();
     this.stats.totalDamageReceived += damage;
     this.playerHp = clamp(this.playerHp - damage, 0, GAME_PARAMS.player.hpMax);
@@ -854,7 +865,7 @@ export class GameScene extends Phaser.Scene {
     const actualGain = this.mana - oldMana;
 
     if (actualGain > 0) {
-      this.sfx(ASSET_KEYS.sfx.mana, 0.3);
+      this.sfx(ASSET_KEYS.sfx.gemDestroy, 0.3);
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 20, actualGain, "mana");
       }
@@ -880,7 +891,7 @@ export class GameScene extends Phaser.Scene {
 
     if (actualHeal > 0) {
       this.stats.totalHealDone += actualHeal;
-      this.sfx(ASSET_KEYS.sfx.heal);
+      this.sfx(ASSET_KEYS.sfx.gemDestroy);
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 40, actualHeal, "heal");
       }
@@ -1059,7 +1070,7 @@ export class GameScene extends Phaser.Scene {
       return Promise.resolve();
     }
 
-    this.sfx(ASSET_KEYS.sfx.swap);
+    this.sfx(ASSET_KEYS.sfx.gemSwipe);
     hapticLight();
     const targetA = this.toWorld(posA);
     const targetB = this.toWorld(posB);
@@ -1107,7 +1118,7 @@ export class GameScene extends Phaser.Scene {
 
   private animateTransforms(transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position; multiplier?: number }>) {
     if (transforms.length > 0) {
-      this.sfx(ASSET_KEYS.sfx.specialCreate);
+      this.sfx(ASSET_KEYS.sfx.gemDestroy);
     }
     transforms.forEach((transform) => {
       // Получаем тайл на позиции (ещё не трансформирован в Board)
@@ -1224,7 +1235,7 @@ export class GameScene extends Phaser.Scene {
     newTiles: Array<{ tile: Tile; pos: Position }>;
   }) {
     if (collapse.moves.length > 0 || collapse.newTiles.length > 0) {
-      this.sfx(ASSET_KEYS.sfx.tileCollapse, 0.3);
+      this.sfx(ASSET_KEYS.sfx.gemFalldown, 0.3);
     }
     const tweens: Promise<void>[] = [];
 
@@ -1345,7 +1356,7 @@ export class GameScene extends Phaser.Scene {
     this.stats.skillsUsed++;
 
     // Звук общий для всех скиллов
-    this.sfx(ASSET_KEYS.sfx.skill);
+    this.sfx(ASSET_KEYS.sfx.gemTap);
     hapticMedium();
 
     // Обработка разных скиллов
@@ -1415,7 +1426,7 @@ export class GameScene extends Phaser.Scene {
     if (!tile) return;
 
     // Удалить фишку без эффекта
-    this.sfx(ASSET_KEYS.sfx.hammer);
+    this.sfx(ASSET_KEYS.sfx.gemTap);
     this.board.removeTile(pos);
     const sprite = this.tileSprites.get(tile.id);
     sprite?.destroy();
@@ -1464,7 +1475,7 @@ export class GameScene extends Phaser.Scene {
     this.stopHintTimer();
     this.gameOver = true;
     this.busy = true;
-    this.sfx(ASSET_KEYS.sfx.victory);
+    this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticVictory();
     this.showGameEndModal("Victory!", "#44ff66", "Restart", true);
   }
@@ -2064,7 +2075,7 @@ export class GameScene extends Phaser.Scene {
     ]);
 
     // 4. NOW apply damage (after attack sprite is visible)
-    this.sfx(ASSET_KEYS.sfx.bossAttack);
+    this.sfx(ASSET_KEYS.sfx.enemyAttack);
     this.cameras.main.shake(200, 0.015 / DPR);
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
@@ -2135,7 +2146,7 @@ export class GameScene extends Phaser.Scene {
   private async executeShield() {
     const config = BOSS_ABILITIES.shield;
     await this.withCutscene(config.name, async () => {
-      this.sfx(ASSET_KEYS.sfx.shieldActivate);
+      this.sfx(ASSET_KEYS.sfx.enemyShield);
       this.bossShieldDuration = config.shieldDuration;
 
       // Show shield image appearing during cutscene
@@ -2151,14 +2162,14 @@ export class GameScene extends Phaser.Scene {
   private async executePowerStrike() {
     const config = BOSS_ABILITIES.powerStrike;
     await this.withCutscene(config.name, async () => {
-      this.sfx(ASSET_KEYS.sfx.bossAttack);
+      this.sfx(ASSET_KEYS.sfx.enemyAttack);
       this.cameras.main.shake(300, 0.02 / DPR);
       this.applyDamageToPlayer(config.damage);
       this.flashPlayerAvatar();
 
       const manaDrain = Math.min(this.mana, config.manaDrain);
       if (manaDrain > 0) {
-        this.sfx(ASSET_KEYS.sfx.manaDrain);
+        this.sfx(ASSET_KEYS.sfx.enemyAttack);
         this.mana -= manaDrain;
         if (this.playerAvatar) {
           showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 10, manaDrain, "mana_loss");
@@ -2169,7 +2180,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async animateBombsAppear(bombs: Array<{ pos: Position; tile: Tile }>) {
-    this.sfx(ASSET_KEYS.sfx.bombPlace);
+    this.sfx(ASSET_KEYS.sfx.enemyBombs);
     const tweens: Promise<void>[] = [];
 
     bombs.forEach(({ pos, tile }) => {
@@ -2223,7 +2234,7 @@ export class GameScene extends Phaser.Scene {
         duration: 350,
         ease: "Quad.easeIn",
         onComplete: () => {
-          this.sfx(ASSET_KEYS.sfx.bombExplode);
+          this.sfx(ASSET_KEYS.sfx.enemyBombs);
           this.cameras.main.shake(120, 0.012 / DPR);
           this.flashPlayerAvatar();
           resolve();
@@ -2261,7 +2272,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private animateBombDefused(pos: Position) {
-    this.sfx(ASSET_KEYS.sfx.bombDefuse);
+    this.sfx(ASSET_KEYS.sfx.gemDestroy);
     const worldPos = this.toWorld(pos);
     const flash = this.add.circle(worldPos.x, worldPos.y, CELL_SIZE / 2, UI_COLORS.defusedFlash, 0.8)
       .setDepth(100);
@@ -2324,7 +2335,7 @@ export class GameScene extends Phaser.Scene {
     fullscreenBoss: Phaser.GameObjects.Image,
     abilityText: Phaser.GameObjects.Text
   ): Promise<void> {
-    this.sfx(ASSET_KEYS.sfx.abilityAnnounce);
+    this.sfx(ASSET_KEYS.sfx.enemyAttack);
     return new Promise<void>((resolve) => {
       this.tweens.add({
         targets: overlay,
@@ -2453,7 +2464,7 @@ export class GameScene extends Phaser.Scene {
     this.stopHintTimer();
     this.gameOver = true;
     this.busy = true;
-    this.sfx(ASSET_KEYS.sfx.defeat);
+    this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticDefeat();
     this.showGameEndModal("Defeat", "#ff6666", "Retry", false);
   }

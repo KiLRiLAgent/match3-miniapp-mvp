@@ -96,8 +96,11 @@ export class BootScene extends Phaser.Scene {
 
     // Load SFX
     Object.values(ASSET_KEYS.sfx).forEach(key => {
-      this.load.audio(key, [`assets/sfx/${key}.ogg`, `assets/sfx/${key}.mp3`]);
+      this.load.audio(key, `assets/sfx/${key}.mp3`);
     });
+
+    // Load background music
+    this.load.audio(ASSET_KEYS.music.bgm, `assets/sfx/${ASSET_KEYS.music.bgm}.mp3`);
   }
 
   create() {
