@@ -150,6 +150,7 @@ export class GameScene extends Phaser.Scene {
 
   private sfx(key: string, volume = 0.5) {
     if (isMuted()) return;
+    if (!this.cache.audio.exists(key)) return;
     const finalVolume = volume * getVolume();
     const mgr = this.sound as Phaser.Sound.WebAudioSoundManager;
     if (mgr.context?.state === "suspended") {
@@ -184,6 +185,11 @@ export class GameScene extends Phaser.Scene {
     this.bossShieldText = undefined;
     this.skillButtons = {};
     this.muteButton = undefined;
+    if (this.bgm) {
+      this.bgm.stop();
+      this.bgm.destroy();
+    }
+    this.bgm = undefined;
 
     this.cameras.main.setZoom(DPR);
     this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
@@ -202,10 +208,12 @@ export class GameScene extends Phaser.Scene {
     this.setupInputHandlers();
     this.updateHud();
 
-    // Background music
-    if (!this.bgm) {
-      this.bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
-      if (!isMuted()) this.bgm.play();
+    // Background music (guard against missing cache — large file may fail to load)
+    if (!this.bgm && this.cache.audio.exists(ASSET_KEYS.music.bgm)) {
+      try {
+        this.bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
+        if (!isMuted()) this.bgm.play();
+      } catch { /* audio not available */ }
     }
 
     // Если не скрыто и есть финальный диалог - показываем сразу

@@ -101,6 +101,11 @@ export class BootScene extends Phaser.Scene {
 
     // Load background music
     this.load.audio(ASSET_KEYS.music.bgm, `assets/sfx/${ASSET_KEYS.music.bgm}.mp3`);
+
+    // Ignore individual file load failures (audio may fail on some devices)
+    this.load.on("loaderror", (file: Phaser.Loader.File) => {
+      console.warn(`Failed to load: ${file.key} (${file.url})`);
+    });
   }
 
   create() {
