@@ -2417,7 +2417,7 @@ export class GameScene extends Phaser.Scene {
     return new Promise<void>((resolve) => {
       this.tweens.add({
         targets: overlay,
-        alpha: 0.7,
+        alpha: 0.85,
         duration: ANIMATION_DURATIONS.abilityOverlay,
         ease: ANIMATION_EASING.ability,
       });
