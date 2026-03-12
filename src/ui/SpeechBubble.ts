@@ -71,10 +71,9 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
     const wrapWidth = this.config.maxWidth - this.config.padding * 2;
 
     for (const { word, color } of highlights) {
-      const idx = fullText.indexOf(word);
-      if (idx < 0) continue;
+      if (!fullText.includes(word)) continue;
 
-      // Create a hidden measuring text with same style to find word position
+      // Measure with same wrapping to find word position in rendered lines
       const measure = this.scene.add.text(0, 0, fullText, {
         fontSize: style.fontSize,
         fontFamily: style.fontFamily,
@@ -83,25 +82,23 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
         align: "center",
       }).setOrigin(0.5);
 
-      // Find the character position by measuring wrapped text line by line
+      // Search for the word directly in wrapped lines (avoids \n offset issues)
       const wrapped = measure.getWrappedText(fullText);
-      let charCount = 0;
       let targetLine = 0;
       let charInLine = 0;
       for (let l = 0; l < wrapped.length; l++) {
-        const lineLen = wrapped[l].length;
-        if (charCount + lineLen >= idx) {
+        const pos = wrapped[l].indexOf(word);
+        if (pos >= 0) {
           targetLine = l;
-          charInLine = idx - charCount;
+          charInLine = pos;
           break;
         }
-        charCount += lineLen;
       }
 
       const lineHeight = measure.height / wrapped.length;
       const lineY = (targetLine - (wrapped.length - 1) / 2) * lineHeight;
 
-      // Measure x offset: text before word on this line
+      // Measure x offset
       const lineText = wrapped[targetLine];
       const beforeOnLine = lineText.substring(0, charInLine);
       const tempBefore = this.scene.add.text(0, 0, beforeOnLine, {
@@ -114,19 +111,13 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
         fontFamily: style.fontFamily,
         fontStyle: style.fontStyle,
       });
-      const beforeW = tempBefore.width;
-      const wordW = tempWord.width;
-
-      // Center-aligned: line offset from center
       const tempLine = this.scene.add.text(0, 0, lineText, {
         fontSize: style.fontSize,
         fontFamily: style.fontFamily,
         fontStyle: style.fontStyle,
       });
-      const lineW = tempLine.width;
-      const wordX = -lineW / 2 + beforeW + wordW / 2;
+      const wordX = -tempLine.width / 2 + tempBefore.width + tempWord.width / 2;
 
-      // Create colored overlay
       const overlay = this.scene.add.text(wordX, lineY, word, {
         fontSize: style.fontSize as string,
         fontFamily: style.fontFamily as string,
@@ -135,7 +126,6 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
       }).setOrigin(0.5);
       this.add(overlay);
 
-      // Cleanup measuring texts
       measure.destroy();
       tempBefore.destroy();
       tempWord.destroy();

@@ -735,6 +735,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleTap(pos: Position) {
+    if (this.tutorialActive) return;
     const tile = this.board.getTile(pos);
     if (!tile || !this.board.isSpecial(tile.kind)) return;
 
