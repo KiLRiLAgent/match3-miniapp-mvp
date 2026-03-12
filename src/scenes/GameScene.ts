@@ -987,7 +987,7 @@ export class GameScene extends Phaser.Scene {
       .setScale(this.bossImage.scaleX, this.bossImage.scaleY)
       .setTintFill(0xffffff)
       .setAlpha(0.8)
-      .setDepth(0.5);
+      .setDepth(-0.02);
     this.tweens.add({
       targets: flash,
       alpha: 0,
