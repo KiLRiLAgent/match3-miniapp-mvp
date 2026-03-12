@@ -206,21 +206,31 @@ export class BootScene extends Phaser.Scene {
 
   private buildEnhancedGlowTextures() {
     const d = DPR;
-    const size = CELL_SIZE * d;
+    const size = Math.ceil(CELL_SIZE * 1.6 * d);
+
+    const buildGradient = (key: string, r: number, g: number, b: number) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d")!;
+      const cx = size / 2;
+      const cy = size / 2;
+      const radius = size / 2;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+      grad.addColorStop(0.45, `rgba(${r},${g},${b},0)`);
+      grad.addColorStop(0.55, `rgba(${r},${g},${b},0.6)`);
+      grad.addColorStop(0.65, `rgba(${r},${g},${b},0.8)`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+      this.textures.addCanvas(key, canvas);
+    };
 
     // Gold glow (4-match)
-    const gold = this.add.graphics();
-    gold.fillStyle(0xffd700, 0.6);
-    gold.fillRoundedRect(0, 0, size, size, 10 * d);
-    gold.generateTexture(ASSET_KEYS.glow.gold, size, size);
-    gold.destroy();
-
+    buildGradient(ASSET_KEYS.glow.gold, 255, 215, 0);
     // Red glow (5+ match)
-    const red = this.add.graphics();
-    red.fillStyle(0xff4444, 0.6);
-    red.fillRoundedRect(0, 0, size, size, 10 * d);
-    red.generateTexture(ASSET_KEYS.glow.red, size, size);
-    red.destroy();
+    buildGradient(ASSET_KEYS.glow.red, 255, 68, 68);
   }
 
   private buildParticleTexture() {

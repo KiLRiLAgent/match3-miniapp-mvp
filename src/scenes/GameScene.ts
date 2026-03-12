@@ -71,6 +71,7 @@ export class GameScene extends Phaser.Scene {
 
   private bossImage?: Phaser.GameObjects.Image;
   private bossImageGlow?: Phaser.GameObjects.Image;
+  private bossGlowBrightness?: Phaser.GameObjects.Image;
   private bgImage?: Phaser.GameObjects.Image;
   private bgDebugMode = false; // Режим настройки фона
   private bossHpBar?: Meter;
@@ -172,6 +173,7 @@ export class GameScene extends Phaser.Scene {
     // Очистить старые ссылки (важно при restart - Phaser переиспользует экземпляр)
     this.bossImage = undefined;
     this.bossImageGlow = undefined;
+    this.bossGlowBrightness = undefined;
     this.bossHpBar = undefined;
     this.playerHpBar = undefined;
     this.manaBar = undefined;
@@ -344,14 +346,25 @@ export class GameScene extends Phaser.Scene {
     this.bossImageGlow = this.add
       .image(0, 0, ASSET_KEYS.boss.mainBack)
       .setOrigin(0.5, 0.5)
-      .setDepth(-0.1);
+      .setDepth(-0.1)
+      .setAlpha(1);
     this.bossImageGlow.setPosition(GAME_WIDTH / 2, bossY);
     this.bossImageGlow.setScale(bossScale);
 
-    // Пульсация яркости прозрачного слоя
+    // Additive brightness overlay — only increases brightness, never dims base
+    this.bossGlowBrightness = this.add
+      .image(0, 0, ASSET_KEYS.boss.mainBack)
+      .setOrigin(0.5, 0.5)
+      .setDepth(-0.05)
+      .setTintFill(0xffffff)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0);
+    this.bossGlowBrightness.setPosition(GAME_WIDTH / 2, bossY);
+    this.bossGlowBrightness.setScale(bossScale);
+
     this.tweens.add({
-      targets: this.bossImageGlow,
-      alpha: { from: 0.7, to: 1.0 },
+      targets: this.bossGlowBrightness,
+      alpha: { from: 0, to: VISUAL_EFFECTS.bossGlowPulseMax },
       duration: 1500,
       ease: "Sine.easeInOut",
       yoyo: true,
@@ -837,7 +850,7 @@ export class GameScene extends Phaser.Scene {
         showDamageNumber(this, this.bossShieldOverlay.x, this.bossShieldOverlay.y, 0, "shield");
       }
       if (this.bossImage) {
-        this.shakeTarget([this.bossImage, this.bossImageGlow], VISUAL_EFFECTS.damageShakeOffset * 0.3);
+        this.shakeTarget([this.bossImage, this.bossImageGlow, this.bossGlowBrightness], VISUAL_EFFECTS.damageShakeOffset * 0.3);
       }
       return;
     }
@@ -849,8 +862,7 @@ export class GameScene extends Phaser.Scene {
     if (this.bossImage) {
       const dmgTarget = this.bossTarget;
       showDamageNumber(this, dmgTarget.x, dmgTarget.y, damage, "damage");
-      this.shakeTarget([this.bossImage, this.bossImageGlow], VISUAL_EFFECTS.damageShakeOffset);
-      this.flashBoss(); // fire-and-forget, bossFlashActive guard protects updateBossArt
+      this.flashBoss(); // fire-and-forget: instant texture swap + white flash + shake
     }
   }
 
@@ -932,44 +944,50 @@ export class GameScene extends Phaser.Scene {
     const gen = ++this.bossFlashGeneration;
     const cancelled = () => gen !== this.bossFlashGeneration;
 
-    // Dissolve out
-    await Promise.all([
-      tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
-      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
-    ]);
-    if (!this.bossImage || cancelled()) { this.bossFlashActive = false; return; }
-
-    // Switch to damage texture
+    // Instantly switch to damage texture
     this.bossImage.setTexture(ASSET_KEYS.boss.damage);
     this.bossImageGlow?.setTexture(ASSET_KEYS.boss.damageBack);
+    this.bossGlowBrightness?.setTexture(ASSET_KEYS.boss.damageBack);
 
-    // Dissolve in
-    await Promise.all([
-      tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
-      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
-    ]);
-    if (cancelled()) return;
+    // White flash overlay
+    this.flashBossWhite();
 
-    // Hold damage sprite for 2 seconds
-    await wait(this, 2000);
-    if (!this.bossImage || cancelled()) { this.bossFlashActive = false; return; }
+    // Shake (~300ms) — save positions, shake, restore
+    const targets = [this.bossImage, this.bossImageGlow, this.bossGlowBrightness].filter(Boolean) as Phaser.GameObjects.Image[];
+    const savedPositions = targets.map(t => ({ x: t.x, y: t.y }));
+    await tweenPromise(this, {
+      targets,
+      x: `+=${VISUAL_EFFECTS.damageShakeOffset}`,
+      duration: ANIMATION_DURATIONS.shakeDuration,
+      yoyo: true,
+      repeat: 2,
+    });
 
-    // Dissolve out
-    await Promise.all([
-      tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
-      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 0, duration: 200 }) : Promise.resolve(),
-    ]);
-    if (cancelled()) return;
+    if (cancelled()) { this.bossFlashActive = false; return; }
 
-    // Restore normal art
+    // Restore exact positions (shake may leave offset)
+    targets.forEach((t, i) => t.setPosition(savedPositions[i].x, savedPositions[i].y));
+
+    // Instantly restore normal art
     this.bossFlashActive = false;
     this.updateBossArt();
+  }
 
-    // Dissolve in
-    await Promise.all([
-      tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
-      this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
-    ]);
+  private flashBossWhite() {
+    if (!this.bossImage) return;
+    const flash = this.add.image(this.bossImage.x, this.bossImage.y, this.bossImage.texture.key)
+      .setOrigin(this.bossImage.originX, this.bossImage.originY)
+      .setScale(this.bossImage.scaleX, this.bossImage.scaleY)
+      .setTintFill(0xffffff)
+      .setAlpha(0.8)
+      .setDepth(0.5);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 150,
+      ease: "Quad.easeOut",
+      onComplete: () => flash.destroy(),
+    });
   }
 
   private checkGameOver() {
@@ -1040,7 +1058,7 @@ export class GameScene extends Phaser.Scene {
 
   private createTileGlowSprite(tileId: number, x: number, y: number, multiplier: number): Phaser.GameObjects.Image {
     const glowKey = multiplier >= 5 ? ASSET_KEYS.glow.red : ASSET_KEYS.glow.gold;
-    const glowSize = (CELL_SIZE + 4) * 0.8;
+    const glowSize = CELL_SIZE * VISUAL_EFFECTS.glowScale;
     const glow = this.add.image(x, y, glowKey)
       .setDisplaySize(glowSize, glowSize)
       .setDepth(0.99);
@@ -1343,8 +1361,24 @@ export class GameScene extends Phaser.Scene {
     if (!this.bossImage || this.bossFlashActive) return;
     const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
     const isBattle = ratio >= BOSS_DAMAGED_HP_THRESHOLD;
+    const backKey = isBattle ? ASSET_KEYS.boss.mainBack : ASSET_KEYS.boss.lowhpBack;
     this.bossImage.setTexture(isBattle ? ASSET_KEYS.boss.main : ASSET_KEYS.boss.lowhp);
-    this.bossImageGlow?.setTexture(isBattle ? ASSET_KEYS.boss.mainBack : ASSET_KEYS.boss.lowhpBack);
+    this.bossImageGlow?.setTexture(backKey);
+    this.bossGlowBrightness?.setTexture(backKey);
+  }
+
+  private startBossGlowPulse() {
+    if (!this.bossGlowBrightness) return;
+    this.tweens.killTweensOf(this.bossGlowBrightness);
+    this.bossGlowBrightness.setAlpha(0);
+    this.tweens.add({
+      targets: this.bossGlowBrightness,
+      alpha: { from: 0, to: VISUAL_EFFECTS.bossGlowPulseMax },
+      duration: 1500,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
   }
 
   private activateSkill(id: SkillId) {
@@ -1548,7 +1582,7 @@ export class GameScene extends Phaser.Scene {
 
   private clearHintVisuals() {
     for (const tween of this.hintTweens) {
-      if (tween.isPlaying()) tween.stop();
+      tween.stop();
     }
     this.hintTweens = [];
 
@@ -1558,15 +1592,29 @@ export class GameScene extends Phaser.Scene {
       this.hintSyncFn = undefined;
     }
 
+    // Kill any tweens still running on hinted sprites before resetting position
+    for (const id of this.hintedSpriteIds) {
+      const sprite = this.tileSprites.get(id);
+      if (sprite?.scene) {
+        this.tweens.killTweensOf(sprite);
+      }
+    }
+
     // Destroy glow sprites immediately (no fade) to prevent race with chain onComplete
     for (const glow of this.hintOverlays) {
-      if (glow.scene) glow.destroy();
+      if (glow.scene) {
+        this.tweens.killTweensOf(glow);
+        glow.destroy();
+      }
     }
     this.hintOverlays = [];
 
     // Destroy hint bounding rectangles immediately
     for (const r of this.hintRects) {
-      if (r.scene) r.destroy();
+      if (r.scene) {
+        this.tweens.killTweensOf(r);
+        r.destroy();
+      }
     }
     this.hintRects = [];
 
@@ -1646,12 +1694,13 @@ export class GameScene extends Phaser.Scene {
           .setAlpha(0)
           .setDepth(0.7);
         // Fade in the rectangle independently
-        this.tweens.add({
+        const rectTween = this.tweens.add({
           targets: rect,
           alpha: 0.8,
           duration: 250,
           ease: "Quad.easeOut",
         });
+        this.hintTweens.push(rectTween);
         this.hintRects.push(rect);
       }
     }
@@ -1667,6 +1716,7 @@ export class GameScene extends Phaser.Scene {
     // Sync glow position + alpha to shake progress every frame
     if (fromGlow) {
       const syncFn = () => {
+        if (this.hintOverlays.length === 0) return;
         if (!fromGlow.scene || !fromSprite.scene) return;
 
         // Sync from-glow position to sprite
@@ -2015,12 +2065,20 @@ export class GameScene extends Phaser.Scene {
   private cancelFlashBoss() {
     if (!this.bossFlashActive) return;
     this.bossFlashGeneration++;
-    if (this.bossImage) this.tweens.killTweensOf(this.bossImage);
-    if (this.bossImageGlow) this.tweens.killTweensOf(this.bossImageGlow);
+
+    // Kill shake tweens and restore positions
+    const targets = [this.bossImage, this.bossImageGlow, this.bossGlowBrightness].filter(Boolean) as Phaser.GameObjects.Image[];
+    for (const t of targets) this.tweens.killTweensOf(t);
+
+    // Restore canonical position (shake may have offset them)
+    const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * (this.bgImage?.displayHeight ?? 0);
+    for (const t of targets) t.setPosition(GAME_WIDTH / 2, bossY);
+
     this.bossFlashActive = false;
     this.updateBossArt();
     this.bossImage?.setAlpha(1);
     this.bossImageGlow?.setAlpha(1);
+    this.startBossGlowPulse();
   }
 
   private async executeBossAbility() {
@@ -2053,6 +2111,12 @@ export class GameScene extends Phaser.Scene {
     const savedX = this.bossImage.x;
     const savedY = this.bossImage.y;
 
+    // Hide brightness overlay during attack transition
+    if (this.bossGlowBrightness) {
+      this.tweens.killTweensOf(this.bossGlowBrightness);
+      this.bossGlowBrightness.setAlpha(0);
+    }
+
     // 1. Dissolve out current boss sprite
     await Promise.all([
       tweenPromise(this, { targets: this.bossImage, alpha: 0, duration: 200 }),
@@ -2062,6 +2126,7 @@ export class GameScene extends Phaser.Scene {
     // 2. Switch to attack texture + scale to screen width
     this.bossImage.setTexture(ASSET_KEYS.boss.attack);
     this.bossImageGlow?.setTexture(ASSET_KEYS.boss.attackBack);
+    this.bossGlowBrightness?.setTexture(ASSET_KEYS.boss.attackBack);
 
     const aspectRatio = this.bossImage.height / this.bossImage.width;
     const attackDisplayW = GAME_WIDTH;
@@ -2076,6 +2141,8 @@ export class GameScene extends Phaser.Scene {
     this.bossImage.setY(attackY);
     this.bossImageGlow?.setDisplaySize(attackDisplayW, attackDisplayH);
     this.bossImageGlow?.setY(attackY);
+    this.bossGlowBrightness?.setDisplaySize(attackDisplayW, attackDisplayH);
+    this.bossGlowBrightness?.setY(attackY);
 
     // 3. Dissolve in attack sprite
     await Promise.all([
@@ -2107,12 +2174,15 @@ export class GameScene extends Phaser.Scene {
     this.bossImage.setPosition(savedX, savedY);
     this.bossImageGlow?.setScale(savedScale);
     this.bossImageGlow?.setPosition(savedX, savedY);
+    this.bossGlowBrightness?.setScale(savedScale);
+    this.bossGlowBrightness?.setPosition(savedX, savedY);
 
-    // Dissolve in
+    // Dissolve in + restart brightness pulse
     await Promise.all([
       tweenPromise(this, { targets: this.bossImage, alpha: 1, duration: 200 }),
       this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha: 1, duration: 200 }) : Promise.resolve(),
     ]);
+    this.startBossGlowPulse();
   }
 
   private async withCutscene(abilityName: string, logic: () => Promise<void>, bossTextureKey?: string, bossBackTextureKey?: string) {

@@ -588,9 +588,10 @@ export class Match3Board {
               }
             }
             const lineMatches = matches.filter(m => !this.isSquareShape(m.positions));
+            const squareMatches = matches.filter(m => this.isSquareShape(m.positions));
             const maxMatchLength = lineMatches.length > 0
               ? Math.max(...lineMatches.map(m => m.positions.length))
-              : 0;
+              : squareMatches.length > 0 ? 4 : 0;
             moves.push({
               from: moveFrom,
               to: moveTo,
