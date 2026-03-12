@@ -1599,7 +1599,7 @@ export class GameScene extends Phaser.Scene {
       this.hintSyncFn = undefined;
     }
 
-    // Kill tweens and restore positions for hinted sprites in a single pass
+    // Kill tweens and restore positions for hinted sprites + their glows
     for (const id of this.hintedSpriteIds) {
       const sprite = this.tileSprites.get(id);
       if (sprite?.scene) {
@@ -1608,6 +1608,9 @@ export class GameScene extends Phaser.Scene {
         if (pos) {
           const world = this.toWorld(pos);
           sprite.setPosition(world.x, world.y);
+          // Restore enhanced tile glow position too
+          const glow = this.tileGlows.get(id);
+          if (glow?.scene) glow.setPosition(world.x, world.y);
         }
       }
     }
@@ -1725,6 +1728,15 @@ export class GameScene extends Phaser.Scene {
           progress * (HINT_ANIMATION.glowPeakAlpha - HINT_ANIMATION.glowBaseAlpha);
         for (const g of this.hintOverlays) {
           g.setAlpha(glowAlpha);
+        }
+
+        // Sync enhanced tile glow sprites with shaking tile positions
+        for (const id of this.hintedSpriteIds) {
+          const s = this.tileSprites.get(id);
+          const tg = this.tileGlows.get(id);
+          if (s?.scene && tg?.scene) {
+            tg.setPosition(s.x, s.y);
+          }
         }
       };
       this.events.on("update", syncFn);
@@ -2116,7 +2128,14 @@ export class GameScene extends Phaser.Scene {
         this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha, duration: 200 }) : Promise.resolve(),
       ]);
 
-    // 1. Dissolve out current boss sprite
+    // Darkening overlay behind attack art
+    const overlay = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH * 2, GAME_HEIGHT * 2, 0x000000, 0)
+      .setOrigin(0.5)
+      .setDepth(499);
+
+    // 1. Dissolve out current boss sprite + fade in overlay
+    tweenPromise(this, { targets: overlay, alpha: 0.85, duration: 200 });
     await dissolveBoss(0);
 
     // 2. Switch to attack texture + scale to screen width
@@ -2146,9 +2165,10 @@ export class GameScene extends Phaser.Scene {
     this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
     this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
 
-    await wait(this, 3000);
+    await wait(this, 1500);
 
-    // Dissolve out attack
+    // Dissolve out attack + fade out overlay
+    tweenPromise(this, { targets: overlay, alpha: 0, duration: 200, onComplete: () => overlay.destroy() });
     await dissolveBoss(0);
 
     // Restore normal sprite, scale, and position
@@ -2167,9 +2187,11 @@ export class GameScene extends Phaser.Scene {
     const { overlay, fullscreenBack, fullscreenBoss, abilityText } = this.createAbilityCutscene(abilityName, bossTextureKey, bossBackTextureKey);
     await this.showAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
     await wait(this, 600);
+    // Start fade-out, then run logic once art is mostly gone
+    const hidePromise = this.hideAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
+    await wait(this, 200);
     await logic();
-    await wait(this, 400);
-    await this.hideAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
+    await hidePromise;
   }
 
   private async executeBombs() {

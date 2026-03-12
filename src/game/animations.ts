@@ -37,7 +37,7 @@ export const VISUAL_EFFECTS = {
   bossShakeOffset: 8,
   damageShakeOffset: 5,
   transformScaleFactor: 1.2,
-  glowScale: 1.6,
+  glowScale: 1.0,
   bossGlowPulseMax: 0.25,
 } as const;
 

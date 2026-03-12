@@ -206,7 +206,7 @@ export class BootScene extends Phaser.Scene {
 
   private buildEnhancedGlowTextures() {
     const d = DPR;
-    const size = Math.ceil(CELL_SIZE * 1.6 * d);
+    const size = Math.ceil(CELL_SIZE * d);
 
     const buildGradient = (key: string, r: number, g: number, b: number) => {
       const canvas = document.createElement("canvas");
@@ -217,10 +217,8 @@ export class BootScene extends Phaser.Scene {
       const center = size / 2;
       const grad = ctx.createRadialGradient(center, center, 0, center, center, center);
       const rgba = (a: number) => `rgba(${r},${g},${b},${a})`;
-      grad.addColorStop(0, rgba(0));
-      grad.addColorStop(0.45, rgba(0));
-      grad.addColorStop(0.55, rgba(0.6));
-      grad.addColorStop(0.65, rgba(0.8));
+      grad.addColorStop(0, rgba(0.9));
+      grad.addColorStop(0.6, rgba(0.5));
       grad.addColorStop(1, rgba(0));
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, size, size);
