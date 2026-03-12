@@ -64,13 +64,13 @@ const H = TileKind.Heal as BaseTileKind;
 
 const TUTORIAL_BOARD: BaseTileKind[][] = [
   //  0  1  2  3  4  5  6  7
-  [M, T, H, M, T, H, M, T],  // row 0
-  [H, M, T, H, M, T, H, M],  // row 1
-  [T, H, M, T, H, M, T, H],  // row 2
-  [M, T, S, S, M, H, T, M],  // row 3: swords at (2,3) and (3,3), need one more at (4,3)
-  [H, M, T, H, S, T, M, H],  // row 4: sword at (4,4) — swipe UP
-  [T, H, M, T, H, M, H, T],  // row 5
-  [M, T, H, M, T, H, T, M],  // row 6
+  [S, H, T, H, M, T, M, H],  // row 0
+  [T, M, H, M, H, S, H, T],  // row 1
+  [H, T, M, T, M, H, T, M],  // row 2
+  [T, M, S, S, H, T, H, T],  // row 3: swords at (2,3) and (3,3)
+  [M, H, T, M, S, M, T, H],  // row 4: sword at (4,4) — swipe UP
+  [H, S, M, H, T, H, M, T],  // row 5
+  [T, M, H, T, M, T, H, S],  // row 6
 ];
 
 // The tile that must be swiped and where it goes
@@ -293,7 +293,11 @@ export class GameScene extends Phaser.Scene {
     if (finalDialogue) {
       await this.showFinalIntroBubble(finalDialogue);
     }
-    this.startHintTimer();
+    if (this.tutorialActive) {
+      this.showFirstMoveTutorial();
+    } else {
+      this.startHintTimer();
+    }
   }
 
   private async showFinalIntroBubble(text: string) {
