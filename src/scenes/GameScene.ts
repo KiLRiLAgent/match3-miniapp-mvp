@@ -930,13 +930,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private shakeTarget(target: Phaser.GameObjects.Image | (Phaser.GameObjects.Image | undefined)[], offset: number) {
-    const targets = Array.isArray(target) ? target.filter(Boolean) : [target];
+    const targets = (Array.isArray(target) ? target.filter(Boolean) : [target]) as Phaser.GameObjects.Image[];
+    const saved = targets.map(t => t.x);
     this.tweens.add({
       targets,
       x: `+=${offset}`,
       duration: ANIMATION_DURATIONS.shakeDuration,
       yoyo: true,
       repeat: 2,
+      onComplete: () => targets.forEach((t, i) => { if (t.scene) t.x = saved[i]; }),
     });
   }
 
@@ -944,7 +946,10 @@ export class GameScene extends Phaser.Scene {
   private bossFlashGeneration = 0;
 
   private async flashBoss() {
-    if (!this.bossImage || this.bossFlashActive) return;
+    if (!this.bossImage) return;
+    // Always show white flash even during active shake (rapid cascade hits)
+    this.flashBossWhite();
+    if (this.bossFlashActive) return;
     this.bossFlashActive = true;
     const gen = ++this.bossFlashGeneration;
     const cancelled = () => gen !== this.bossFlashGeneration;
@@ -953,9 +958,6 @@ export class GameScene extends Phaser.Scene {
     this.bossImage.setTexture(ASSET_KEYS.boss.damage);
     this.bossImageGlow?.setTexture(ASSET_KEYS.boss.damageBack);
     this.bossGlowBrightness?.setTexture(ASSET_KEYS.boss.damageBack);
-
-    // White flash overlay
-    this.flashBossWhite();
 
     // Shake (~300ms) — save positions, shake, restore
     const layers = this.bossLayers;

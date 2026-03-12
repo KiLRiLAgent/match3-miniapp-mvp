@@ -530,12 +530,6 @@ export class Match3Board {
     }
   }
 
-  private isSquareShape(positions: Position[]): boolean {
-    if (positions.length !== 4) return false;
-    const xs = positions.map(p => p.x);
-    const ys = positions.map(p => p.y);
-    return Math.max(...xs) - Math.min(...xs) === 1 && Math.max(...ys) - Math.min(...ys) === 1;
-  }
 
   findPotentialMoves(): PotentialMove[] {
     const moves: PotentialMove[] = [];
@@ -587,13 +581,10 @@ export class Match3Board {
                 if (!isSwapped(p)) partnerKeys.add(this.key(p));
               }
             }
-            const lineLengths = matches
-              .filter(m => !this.isSquareShape(m.positions))
-              .map(m => m.positions.length);
-            const hasSquare = matches.some(m => this.isSquareShape(m.positions));
-            const maxMatchLength = lineLengths.length > 0
-              ? Math.max(...lineLengths)
-              : hasSquare ? 4 : 0;
+            const allLengths = matches.map(m => m.positions.length);
+            const maxMatchLength = allLengths.length > 0
+              ? Math.max(...allLengths)
+              : 0;
             moves.push({
               from: moveFrom,
               to: moveTo,
