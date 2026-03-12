@@ -909,6 +909,41 @@ Build output goes to `docs/` for GitHub Pages hosting.
 
 ---
 
+## Depth Layer Map (GameScene)
+
+All Phaser `setDepth()` values used in the game, from back to front:
+
+| Depth | Element | Notes |
+|-------|---------|-------|
+| **-2** | Background image (`bgImage`) | Fullscreen game background |
+| **-0.1** | Boss glow layer (`bossImageGlow`) | Fire/aura behind boss |
+| **-0.05** | Boss brightness overlay (`bossGlowBrightness`) | Additive pulse, ADD blend |
+| **0** | Boss main sprite (`bossImage`) | Solid boss art |
+| **0.4** | Shield overlay image | Boss shield sprite |
+| **0.5** | Board background / shield glow | Dark board rect, shield pulse |
+| **0.6** | Grid lines (`gridGfx`) | Cell grid overlay |
+| **0.7** | Hint yellow rectangles | 4+ match border hint |
+| **0.99** | Enhanced tile glows (`tileGlows`) | Gold/red radial gradient |
+| **1** | Tile sprites | Main game tiles |
+| **1.5** | Hint white overlays (`hintOverlays`) | White tintFill clones |
+| **2** | Bomb cooldown text / skill buttons | Text on tiles, skill UI |
+| **3** | Player avatar frame + background | Gold border, dark bg |
+| **4** | HUD elements | HP/MP bars, boss name, cooldown icon |
+| **5** | Mute/settings buttons | Top-right controls |
+| **8–12** | Shuffle animation | Temporary elevated tiles |
+| **100** | Tips, bomb flash, floating text | SpeechBubble, effects |
+| **200–202** | Skill unlock tutorial | Overlay + button + bubble |
+| **499** | Attack ability overlay | Black rect behind attack art |
+| **500** | Cutscene overlay | Black rect behind ability art (alpha 0.6) |
+| **500.5** | Cutscene boss glow layer | Fullscreen back texture |
+| **501** | Cutscene boss main layer | Fullscreen solid texture |
+| **502** | Cutscene ability text | Red ability name |
+| **998–999** | Game end overlay + flash | Victory/defeat screen |
+| **1000** | Game end UI / settings panel | Buttons, stats, modal |
+| **1001** | Confetti/particles | Victory/defeat particles |
+
+---
+
 ## Git Workflow
 
 **После каждого изменения кода обязательно выполнять:**

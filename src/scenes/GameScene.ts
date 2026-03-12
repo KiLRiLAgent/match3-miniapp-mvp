@@ -2135,7 +2135,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(499);
 
     // 1. Dissolve out current boss sprite + fade in overlay
-    tweenPromise(this, { targets: overlay, alpha: 0.85, duration: 200 });
+    tweenPromise(this, { targets: overlay, alpha: 0.6, duration: 200 });
     await dissolveBoss(0);
 
     // 2. Switch to attack texture + scale to screen width
@@ -2419,7 +2419,7 @@ export class GameScene extends Phaser.Scene {
     return new Promise<void>((resolve) => {
       this.tweens.add({
         targets: overlay,
-        alpha: 0.85,
+        alpha: 0.6,
         duration: ANIMATION_DURATIONS.abilityOverlay,
         ease: ANIMATION_EASING.ability,
       });
