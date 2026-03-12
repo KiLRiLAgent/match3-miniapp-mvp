@@ -2129,8 +2129,9 @@ export class GameScene extends Phaser.Scene {
 
     // Darkening overlay behind attack art
     const overlay = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH * 2, GAME_HEIGHT * 2, 0x000000, 0)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH * 2, GAME_HEIGHT * 2, 0x000000, 1)
       .setOrigin(0.5)
+      .setAlpha(0)
       .setDepth(499);
 
     // 1. Dissolve out current boss sprite + fade in overlay
@@ -2367,8 +2368,9 @@ export class GameScene extends Phaser.Scene {
 
   private createAbilityCutscene(abilityName: string, bossTextureKey?: string, bossBackTextureKey?: string) {
     const overlay = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH * 2, GAME_HEIGHT * 2, 0x000000, 0)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH * 2, GAME_HEIGHT * 2, 0x000000, 1)
       .setOrigin(0.5)
+      .setAlpha(0)
       .setDepth(500);
 
     const mainKey = bossTextureKey ?? ASSET_KEYS.boss.attack;
