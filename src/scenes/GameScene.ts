@@ -2122,11 +2122,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Helper: dissolve boss + glow to target alpha
-    const dissolveBoss = (alpha: number) =>
-      Promise.all([
-        tweenPromise(this, { targets: this.bossImage, alpha, duration: 200 }),
-        this.bossImageGlow ? tweenPromise(this, { targets: this.bossImageGlow, alpha, duration: 200 }) : Promise.resolve(),
-      ]);
+    const dissolveBoss = (alpha: number) => {
+      const targets = [this.bossImage, this.bossImageGlow].filter(Boolean);
+      return tweenPromise(this, { targets, alpha, duration: 200 });
+    };
 
     // Darkening overlay behind attack art
     const overlay = this.add
@@ -2382,7 +2381,7 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0)
       .setDepth(500.5);
     const fitScale = GAME_WIDTH / fullscreenBack.width;
-    fullscreenBack.setDisplaySize(fullscreenBack.width * fitScale, fullscreenBack.height * fitScale);
+    fullscreenBack.setScale(fitScale);
 
     // Main (solid) layer
     const fullscreenBoss = this.add
@@ -2390,7 +2389,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0)
       .setDepth(501);
-    fullscreenBoss.setDisplaySize(fullscreenBoss.width * fitScale, fullscreenBoss.height * fitScale);
+    fullscreenBoss.setScale(fitScale);
 
     const abilityText = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, abilityName, {
@@ -2439,17 +2438,15 @@ export class GameScene extends Phaser.Scene {
     fullscreenBoss: Phaser.GameObjects.Image,
     abilityText: Phaser.GameObjects.Text
   ): Promise<void> {
+    const elements = [overlay, fullscreenBack, fullscreenBoss, abilityText];
     return new Promise<void>((resolve) => {
       this.tweens.add({
-        targets: [overlay, fullscreenBack, fullscreenBoss, abilityText],
+        targets: elements,
         alpha: 0,
         duration: ANIMATION_DURATIONS.abilityFadeOut,
         ease: ANIMATION_EASING.fade,
         onComplete: () => {
-          if (overlay.scene) overlay.destroy();
-          if (fullscreenBack.scene) fullscreenBack.destroy();
-          if (fullscreenBoss.scene) fullscreenBoss.destroy();
-          if (abilityText.scene) abilityText.destroy();
+          for (const el of elements) if (el.scene) el.destroy();
           resolve();
         },
       });
