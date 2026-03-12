@@ -587,11 +587,13 @@ export class Match3Board {
                 if (!isSwapped(p)) partnerKeys.add(this.key(p));
               }
             }
-            const lineMatches = matches.filter(m => !this.isSquareShape(m.positions));
-            const squareMatches = matches.filter(m => this.isSquareShape(m.positions));
-            const maxMatchLength = lineMatches.length > 0
-              ? Math.max(...lineMatches.map(m => m.positions.length))
-              : squareMatches.length > 0 ? 4 : 0;
+            const lineLengths = matches
+              .filter(m => !this.isSquareShape(m.positions))
+              .map(m => m.positions.length);
+            const hasSquare = matches.some(m => this.isSquareShape(m.positions));
+            const maxMatchLength = lineLengths.length > 0
+              ? Math.max(...lineLengths)
+              : hasSquare ? 4 : 0;
             moves.push({
               from: moveFrom,
               to: moveTo,
