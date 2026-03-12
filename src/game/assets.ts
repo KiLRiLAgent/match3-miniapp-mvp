@@ -55,6 +55,9 @@ export const ASSET_KEYS = {
     enemyBombs: "enemy_bombs",
     enemyShield: "enemy_shield",
   },
+  ui: {
+    handArrow: "hand_arrow",
+  },
   music: {
     bgm: "music_bgm",
   },

@@ -2,6 +2,11 @@ import Phaser from "phaser";
 import { INTRO_ANIMATION } from "../game/animations";
 import { tweenPromise } from "../utils/helpers";
 
+export interface TextHighlight {
+  word: string;
+  color: string;
+}
+
 export interface SpeechBubbleConfig {
   text: string;
   maxWidth?: number;
@@ -12,6 +17,7 @@ export interface SpeechBubbleConfig {
   fontFamily?: string;
   fontStyle?: string;
   padding?: number;
+  highlights?: TextHighlight[];
 }
 
 const DEFAULT_CONFIG = {
@@ -31,7 +37,7 @@ const TAIL_SIZE = 12;
 export class SpeechBubble extends Phaser.GameObjects.Container {
   private bubble: Phaser.GameObjects.Graphics;
   private textObj: Phaser.GameObjects.Text;
-  private config: Required<SpeechBubbleConfig>;
+  private config: Required<Omit<SpeechBubbleConfig, "highlights">> & Pick<SpeechBubbleConfig, "highlights">;
 
   constructor(scene: Phaser.Scene, x: number, y: number, config: SpeechBubbleConfig) {
     super(scene, x, y);
@@ -51,8 +57,90 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
     this.drawBubble();
     this.add([this.bubble, this.textObj]);
 
+    if (config.highlights) {
+      this.applyHighlights(config.highlights);
+    }
+
     scene.add.existing(this);
     this.setAlpha(0);
+  }
+
+  private applyHighlights(highlights: TextHighlight[]): void {
+    const fullText = this.config.text;
+    const style = this.textObj.style;
+    const wrapWidth = this.config.maxWidth - this.config.padding * 2;
+
+    for (const { word, color } of highlights) {
+      const idx = fullText.indexOf(word);
+      if (idx < 0) continue;
+
+      // Create a hidden measuring text with same style to find word position
+      const measure = this.scene.add.text(0, 0, fullText, {
+        fontSize: style.fontSize,
+        fontFamily: style.fontFamily,
+        fontStyle: style.fontStyle,
+        wordWrap: { width: wrapWidth },
+        align: "center",
+      }).setOrigin(0.5);
+
+      // Find the character position by measuring wrapped text line by line
+      const wrapped = measure.getWrappedText(fullText);
+      let charCount = 0;
+      let targetLine = 0;
+      let charInLine = 0;
+      for (let l = 0; l < wrapped.length; l++) {
+        const lineLen = wrapped[l].length;
+        if (charCount + lineLen >= idx) {
+          targetLine = l;
+          charInLine = idx - charCount;
+          break;
+        }
+        charCount += lineLen;
+      }
+
+      const lineHeight = measure.height / wrapped.length;
+      const lineY = (targetLine - (wrapped.length - 1) / 2) * lineHeight;
+
+      // Measure x offset: text before word on this line
+      const lineText = wrapped[targetLine];
+      const beforeOnLine = lineText.substring(0, charInLine);
+      const tempBefore = this.scene.add.text(0, 0, beforeOnLine, {
+        fontSize: style.fontSize,
+        fontFamily: style.fontFamily,
+        fontStyle: style.fontStyle,
+      });
+      const tempWord = this.scene.add.text(0, 0, word, {
+        fontSize: style.fontSize,
+        fontFamily: style.fontFamily,
+        fontStyle: style.fontStyle,
+      });
+      const beforeW = tempBefore.width;
+      const wordW = tempWord.width;
+
+      // Center-aligned: line offset from center
+      const tempLine = this.scene.add.text(0, 0, lineText, {
+        fontSize: style.fontSize,
+        fontFamily: style.fontFamily,
+        fontStyle: style.fontStyle,
+      });
+      const lineW = tempLine.width;
+      const wordX = -lineW / 2 + beforeW + wordW / 2;
+
+      // Create colored overlay
+      const overlay = this.scene.add.text(wordX, lineY, word, {
+        fontSize: style.fontSize as string,
+        fontFamily: style.fontFamily as string,
+        fontStyle: style.fontStyle as string,
+        color,
+      }).setOrigin(0.5);
+      this.add(overlay);
+
+      // Cleanup measuring texts
+      measure.destroy();
+      tempBefore.destroy();
+      tempWord.destroy();
+      tempLine.destroy();
+    }
   }
 
   private drawBubble(): void {

@@ -88,6 +88,9 @@ export class BootScene extends Phaser.Scene {
     // Load player avatar
     this.load.image(ASSET_KEYS.player.avatar, "assets/player/player.png");
 
+    // Load UI assets
+    this.load.image(ASSET_KEYS.ui.handArrow, "hand_arrow.png");
+
     // Load base tile sprites
     BASE_TYPES.forEach((kind) => {
       const key = ASSET_KEYS.tiles[kind];

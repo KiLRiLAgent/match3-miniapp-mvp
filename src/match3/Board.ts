@@ -54,6 +54,18 @@ export class Match3Board {
     this.fillInitial();
   }
 
+  static fromGrid(width: number, height: number, kinds: BaseTileKind[][]): Match3Board {
+    const board = Object.create(Match3Board.prototype) as Match3Board;
+    board.width = width;
+    board.height = height;
+    board.rng = Math.random;
+    board.nextId = 1;
+    board.grid = kinds.map(row =>
+      row.map(kind => ({ id: board.nextId++, kind, base: kind }))
+    );
+    return board;
+  }
+
   private randomBase(): BaseTileKind {
     const index = Math.floor(this.rng() * BASE_TYPES.length);
     return BASE_TYPES[index];

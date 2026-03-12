@@ -29,7 +29,7 @@ import {
 import type { SkillId } from "../game/config";
 import { Match3Board } from "../match3/Board";
 import { TileKind } from "../match3/types";
-import type { Match, Position, PotentialMove, Tile, CountTotals } from "../match3/types";
+import type { BaseTileKind, Match, Position, PotentialMove, Tile, CountTotals } from "../match3/types";
 import { Meter } from "../ui/Meter";
 import { SkillButton } from "../ui/SkillButton";
 import { SettingsPanel } from "../ui/SettingsPanel";
@@ -55,6 +55,33 @@ const SKILL_TUTORIAL = [
   { id: "hammer" as SkillId,      text: "🔨 Молоток\nУдали любую фишку с поля\n— полезно в трудный момент" },
 ];
 
+// Tutorial: fixed 8x7 board for the first move
+// Player must swipe tile at (4,4) UP to (4,3) to complete 3 swords in a row at (2,3),(3,3),(4,3)
+const S = TileKind.Sword as BaseTileKind;
+const T = TileKind.Star as BaseTileKind;
+const M = TileKind.Mana as BaseTileKind;
+const H = TileKind.Heal as BaseTileKind;
+
+const TUTORIAL_BOARD: BaseTileKind[][] = [
+  //  0  1  2  3  4  5  6  7
+  [M, T, H, M, T, H, M, T],  // row 0
+  [H, M, T, H, M, T, H, M],  // row 1
+  [T, H, M, T, H, M, T, H],  // row 2
+  [M, T, S, S, M, H, T, M],  // row 3: swords at (2,3) and (3,3), need one more at (4,3)
+  [H, M, T, H, S, T, M, H],  // row 4: sword at (4,4) — swipe UP
+  [T, H, M, T, H, M, H, T],  // row 5
+  [M, T, H, M, T, H, T, M],  // row 6
+];
+
+// The tile that must be swiped and where it goes
+const TUTORIAL_FROM: Position = { x: 4, y: 4 };
+const TUTORIAL_TO: Position = { x: 4, y: 3 };
+// All sword positions that form the match (after swap)
+const TUTORIAL_HIGHLIGHT: Position[] = [
+  { x: 2, y: 3 },
+  { x: 3, y: 3 },
+  { x: 4, y: 4 }, // this one will be swiped to (4,3)
+];
 
 export class GameScene extends Phaser.Scene {
   private board!: Match3Board;
@@ -124,6 +151,10 @@ export class GameScene extends Phaser.Scene {
   private shieldTipShown = false;
   private manaTipShown = false;
   private activeTip?: SpeechBubble;
+  private tutorialActive = false;
+  private tutorialOverlay?: Phaser.GameObjects.Rectangle;
+  private tutorialBubble?: SpeechBubble;
+  private tutorialHand?: Phaser.GameObjects.Image;
 
   private cascadeCount = 0;
 
@@ -229,8 +260,14 @@ export class GameScene extends Phaser.Scene {
     if (!startHidden) {
       if (data?.finalDialogue) {
         this.showFinalIntroBubble(data.finalDialogue).then(() => {
-          this.startHintTimer();
+          if (this.tutorialActive) {
+            this.showFirstMoveTutorial();
+          } else {
+            this.startHintTimer();
+          }
         });
+      } else if (this.tutorialActive) {
+        this.showFirstMoveTutorial();
       } else {
         this.startHintTimer();
       }
@@ -295,7 +332,8 @@ export class GameScene extends Phaser.Scene {
       totalDamageDealt: 0, totalDamageReceived: 0, totalHealDone: 0,
       maxCascade: 0, turnsPlayed: 0, skillsUsed: 0, bombsDefused: 0,
     };
-    this.board = new Match3Board(BOARD_WIDTH, BOARD_HEIGHT);
+    this.tutorialActive = true;
+    this.board = Match3Board.fromGrid(BOARD_WIDTH, BOARD_HEIGHT, TUTORIAL_BOARD);
     this.bossAbilityManager = new BossAbilityManager();
     this.tileSprites.clear();
     this.tilePositions.clear();
@@ -720,8 +758,21 @@ export class GameScene extends Phaser.Scene {
     // Бомбы нельзя перемещать
     if (tileA.kind === TileKind.Bomb || tileB.kind === TileKind.Bomb) return;
 
+    // Tutorial: only allow the specific swap
+    if (this.tutorialActive) {
+      const correctFwd = a.x === TUTORIAL_FROM.x && a.y === TUTORIAL_FROM.y &&
+                          b.x === TUTORIAL_TO.x && b.y === TUTORIAL_TO.y;
+      const correctBwd = b.x === TUTORIAL_FROM.x && b.y === TUTORIAL_FROM.y &&
+                          a.x === TUTORIAL_TO.x && a.y === TUTORIAL_TO.y;
+      if (!correctFwd && !correctBwd) return;
+    }
+
     this.stopHintTimer();
     this.busy = true;
+
+    // Clear tutorial before swap animation so tiles restore depth
+    const wasTutorial = this.tutorialActive;
+    if (wasTutorial) this.clearTutorial();
 
     this.board.swap(a, b);
     this.rebuildPositionMap();
@@ -1043,6 +1094,11 @@ export class GameScene extends Phaser.Scene {
       if (tile.kind === TileKind.Bomb) return;
 
       const current = this.tilePositions.get(tile.id) ?? pos;
+
+      // Tutorial: only allow dragging the specific tile
+      if (this.tutorialActive) {
+        if (current.x !== TUTORIAL_FROM.x || current.y !== TUTORIAL_FROM.y) return;
+      }
       this.dragStart = {
         pos: { ...current },
         point: new Phaser.Math.Vector2(pointer.x, pointer.y),
@@ -1772,15 +1828,96 @@ export class GameScene extends Phaser.Scene {
           this.events.off("update", this.hintSyncFn);
           this.hintSyncFn = undefined;
         }
-        // Only set alpha if glows are still in the active hintOverlays array (not cleared)
+        // Fade out glows after animation completes
         for (const g of chainGlows) {
           if (g.scene && this.hintOverlays.includes(g)) {
-            g.setAlpha(HINT_ANIMATION.glowSustainAlpha);
+            this.tweens.add({
+              targets: g,
+              alpha: 0,
+              duration: HINT_ANIMATION.glowFadeOut,
+              ease: "Quad.easeOut",
+              onComplete: () => { if (g.scene) g.destroy(); },
+            });
           }
         }
       },
     });
     this.hintTweens.push(chain);
+  }
+
+  // ===== First-Move Tutorial =====
+
+  private showFirstMoveTutorial() {
+    this.tutorialActive = true;
+
+    // Dark overlay over the board
+    const boardW = BOARD_WIDTH * CELL_SIZE + BOARD_PADDING * 2;
+    const boardH = BOARD_HEIGHT * CELL_SIZE + BOARD_PADDING * 2;
+    this.tutorialOverlay = this.add
+      .rectangle(
+        this.boardOrigin.x - BOARD_PADDING + boardW / 2,
+        this.boardOrigin.y - BOARD_PADDING + boardH / 2,
+        boardW, boardH, 0x000000, 0.6,
+      )
+      .setDepth(0.95);
+
+    // Bump highlighted sword tiles above the overlay
+    for (const pos of TUTORIAL_HIGHLIGHT) {
+      const tile = this.board.getTile(pos);
+      if (tile) {
+        const sprite = this.tileSprites.get(tile.id);
+        if (sprite) sprite.setDepth(1.1);
+      }
+    }
+
+    // Speech bubble above the board
+    const bubbleY = this.boardOrigin.y - 25;
+    this.tutorialBubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
+      text: "Составь комбинацию из МЕЧЕЙ,\nчтобы атаковать!",
+      tailDirection: "down",
+      maxWidth: 280,
+      fontSize: "15px",
+      highlights: [{ word: "МЕЧЕЙ", color: "#ff4444" }],
+    });
+    this.tutorialBubble.setDepth(100);
+    this.tutorialBubble.fadeIn(200);
+
+    // Hand arrow pointing at the tile to swipe
+    const handPos = this.toWorld(TUTORIAL_FROM);
+    this.tutorialHand = this.add
+      .image(handPos.x + 14, handPos.y + 14, ASSET_KEYS.ui.handArrow)
+      .setDisplaySize(48, 52)
+      .setDepth(100);
+    // Bobbing animation
+    this.tweens.add({
+      targets: this.tutorialHand,
+      y: this.tutorialHand.y - 8,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  }
+
+  private clearTutorial() {
+    if (this.tutorialOverlay?.scene) {
+      this.tutorialOverlay.destroy();
+      this.tutorialOverlay = undefined;
+    }
+    if (this.tutorialBubble?.scene) {
+      this.tutorialBubble.fadeOut(150);
+      this.tutorialBubble = undefined;
+    }
+    if (this.tutorialHand?.scene) {
+      this.tweens.killTweensOf(this.tutorialHand);
+      this.tutorialHand.destroy();
+      this.tutorialHand = undefined;
+    }
+    // Restore all tile depths to normal
+    for (const [, sprite] of this.tileSprites) {
+      if (sprite.scene) sprite.setDepth(1);
+    }
+    this.tutorialActive = false;
   }
 
   // ===== Tutorial & Tips =====
