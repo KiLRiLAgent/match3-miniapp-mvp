@@ -2127,15 +2127,7 @@ export class GameScene extends Phaser.Scene {
       return tweenPromise(this, { targets, alpha, duration: 200 });
     };
 
-    // Darkening overlay behind attack art
-    const overlay = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH * 2, GAME_HEIGHT * 2, 0x000000, 1)
-      .setOrigin(0.5)
-      .setAlpha(0)
-      .setDepth(499);
-
-    // 1. Dissolve out current boss sprite + fade in overlay
-    tweenPromise(this, { targets: overlay, alpha: 0.6, duration: 200 });
+    // 1. Dissolve out current boss sprite
     await dissolveBoss(0);
 
     // 2. Switch to attack texture + scale to screen width
@@ -2167,8 +2159,7 @@ export class GameScene extends Phaser.Scene {
 
     await wait(this, 1500);
 
-    // Dissolve out attack + fade out overlay
-    tweenPromise(this, { targets: overlay, alpha: 0, duration: 200, onComplete: () => overlay.destroy() });
+    // Dissolve out attack sprite
     await dissolveBoss(0);
 
     // Restore normal sprite, scale, and position
@@ -2189,7 +2180,7 @@ export class GameScene extends Phaser.Scene {
     await wait(this, 600);
     // Start fade-out, then run logic once art is mostly gone
     const hidePromise = this.hideAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
-    await wait(this, 200);
+    await wait(this, 270);
     await logic();
     await hidePromise;
   }
