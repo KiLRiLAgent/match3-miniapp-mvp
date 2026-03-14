@@ -155,6 +155,7 @@ export class GameScene extends Phaser.Scene {
   private tutorialOverlay?: Phaser.GameObjects.Rectangle;
   private tutorialBubble?: SpeechBubble;
   private tutorialHand?: Phaser.GameObjects.Image;
+  private tutorialHandChain?: Phaser.Tweens.TweenChain;
   private tutorialHintOverlays: Phaser.GameObjects.Image[] = [];
   private tutorialHintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
   private tutorialHintSyncFn?: () => void;
@@ -340,6 +341,7 @@ export class GameScene extends Phaser.Scene {
       maxCascade: 0, turnsPlayed: 0, skillsUsed: 0, bombsDefused: 0,
     };
     this.tutorialActive = true;
+    this.tutorialHandChain = undefined;
     this.tutorialHintOverlays = [];
     this.tutorialHintTweens = [];
     this.tutorialHintSyncFn = undefined;
@@ -1880,6 +1882,7 @@ export class GameScene extends Phaser.Scene {
 
     // Hint glow overlays on highlighted tiles
     const allGlows: Phaser.GameObjects.Image[] = [];
+    let fromGlow: Phaser.GameObjects.Image | undefined;
     for (const pos of TUTORIAL_HIGHLIGHT) {
       const tile = this.board.getTile(pos);
       if (!tile) continue;
@@ -1889,6 +1892,7 @@ export class GameScene extends Phaser.Scene {
       glow.setDepth(1.5);
       allGlows.push(glow);
       this.tutorialHintOverlays.push(glow);
+      if (pos.x === TUTORIAL_FROM.x && pos.y === TUTORIAL_FROM.y) fromGlow = glow;
     }
 
     // Asymmetric shake on the FROM tile (swipe direction)
@@ -1900,12 +1904,12 @@ export class GameScene extends Phaser.Scene {
         const dy = TUTORIAL_TO.y - TUTORIAL_FROM.y;
         const dist = HINT_ANIMATION.shakeDistance;
         const world = this.toWorld(TUTORIAL_FROM);
+        const capturedFromGlow = fromGlow;
 
         // Sync glow position + alpha to shake progress
         const syncFn = () => {
           if (!fromSprite.scene) return;
-          const fromGlow = allGlows.find((_, i) => TUTORIAL_HIGHLIGHT[i].x === TUTORIAL_FROM.x && TUTORIAL_HIGHLIGHT[i].y === TUTORIAL_FROM.y);
-          if (fromGlow?.scene) fromGlow.setPosition(fromSprite.x, fromSprite.y);
+          if (capturedFromGlow?.scene) capturedFromGlow.setPosition(fromSprite.x, fromSprite.y);
           const offsetX = fromSprite.x - world.x;
           const offsetY = fromSprite.y - world.y;
           const currentDist = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
@@ -1974,7 +1978,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100)
       .setAlpha(0);
 
-    this.tweens.chain({
+    this.tutorialHandChain = this.tweens.chain({
       targets: this.tutorialHand,
       loop: -1,
       tweens: [
@@ -1997,8 +2001,11 @@ export class GameScene extends Phaser.Scene {
       this.tutorialBubble.fadeOut(150);
       this.tutorialBubble = undefined;
     }
+    if (this.tutorialHandChain) {
+      this.tutorialHandChain.stop();
+      this.tutorialHandChain = undefined;
+    }
     if (this.tutorialHand?.scene) {
-      this.tweens.killTweensOf(this.tutorialHand);
       this.tutorialHand.destroy();
       this.tutorialHand = undefined;
     }
