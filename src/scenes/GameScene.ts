@@ -56,7 +56,7 @@ const SKILL_TUTORIAL = [
 ];
 
 // Tutorial: fixed 8x7 board for the first move
-// Player must swipe tile at (4,2) DOWN to (4,3) to complete 3 swords in a row at (3,3),(4,3),(5,3)
+// Player must swipe tile at (4,2) DOWN to (4,3) to complete 5 swords in a row at (2..6,3)
 const S = TileKind.Sword as BaseTileKind;
 const T = TileKind.Star as BaseTileKind;
 const M = TileKind.Mana as BaseTileKind;
@@ -67,10 +67,10 @@ const TUTORIAL_BOARD: BaseTileKind[][] = [
   [H, T, M, H, T, M, H, T],  // row 0
   [T, M, H, T, H, T, M, H],  // row 1
   [M, H, T, M, S, H, T, M],  // row 2: sword at (4,2) — swipe DOWN
-  [H, T, M, S, H, S, M, T],  // row 3: swords at (3,3) and (5,3)
-  [T, M, H, T, M, T, H, T],  // row 4
-  [M, H, T, H, T, M, M, H],  // row 5
-  [H, T, M, T, H, M, T, M],  // row 6
+  [H, T, S, S, M, S, S, T],  // row 3: swords at (2,3),(3,3),(5,3),(6,3)
+  [T, M, H, T, H, T, M, T],  // row 4
+  [M, H, T, H, T, M, H, M],  // row 5
+  [H, T, M, T, M, H, T, H],  // row 6
 ];
 
 // The tile that must be swiped and where it goes
@@ -78,8 +78,10 @@ const TUTORIAL_FROM: Position = { x: 4, y: 2 };
 const TUTORIAL_TO: Position = { x: 4, y: 3 };
 // All sword positions that form the match (after swap)
 const TUTORIAL_HIGHLIGHT: Position[] = [
+  { x: 2, y: 3 },
   { x: 3, y: 3 },
   { x: 5, y: 3 },
+  { x: 6, y: 3 },
   { x: 4, y: 2 }, // this one will be swiped to (4,3)
 ];
 
@@ -1073,7 +1075,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createTileGlow(sprite: Phaser.GameObjects.Image, alpha: number) {
-    const tileSize = Math.floor(CELL_SIZE * 0.95);
+    const tileSize = CELL_SIZE;
     return this.add
       .image(sprite.x, sprite.y, sprite.texture.key)
       .setDisplaySize(tileSize, tileSize)
@@ -1088,7 +1090,7 @@ export class GameScene extends Phaser.Scene {
     const startY = (startYOrAlpha !== undefined && startYOrAlpha > 1) ? startYOrAlpha : undefined;
     const alpha = initialAlpha ?? ((startYOrAlpha !== undefined && startYOrAlpha <= 1) ? startYOrAlpha : 1);
 
-    const tileSize = Math.floor(CELL_SIZE * 0.95);
+    const tileSize = CELL_SIZE;
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
       .setDisplaySize(tileSize, tileSize)
@@ -1239,7 +1241,7 @@ export class GameScene extends Phaser.Scene {
         const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
         sprite.setTexture(textureKey);
         // ВАЖНО: пересчитываем размер после смены текстуры
-        sprite.setDisplaySize(Math.floor(CELL_SIZE * 0.95), Math.floor(CELL_SIZE * 0.95));
+        sprite.setDisplaySize(CELL_SIZE, CELL_SIZE);
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
