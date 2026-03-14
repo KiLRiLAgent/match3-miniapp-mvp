@@ -56,7 +56,7 @@ const SKILL_TUTORIAL = [
 ];
 
 // Tutorial: fixed 8x7 board for the first move
-// Player must swipe tile at (4,4) UP to (4,3) to complete 3 swords in a row at (3,3),(4,3),(5,3)
+// Player must swipe tile at (4,2) DOWN to (4,3) to complete 3 swords in a row at (3,3),(4,3),(5,3)
 const S = TileKind.Sword as BaseTileKind;
 const T = TileKind.Star as BaseTileKind;
 const M = TileKind.Mana as BaseTileKind;
@@ -66,21 +66,21 @@ const TUTORIAL_BOARD: BaseTileKind[][] = [
   //  0  1  2  3  4  5  6  7
   [H, T, M, H, T, M, H, T],  // row 0
   [T, M, H, T, H, T, M, H],  // row 1
-  [M, H, T, M, T, H, T, M],  // row 2
+  [M, H, T, M, S, H, T, M],  // row 2: sword at (4,2) — swipe DOWN
   [H, T, M, S, H, S, M, T],  // row 3: swords at (3,3) and (5,3)
-  [T, M, H, T, S, M, H, T],  // row 4: sword at (4,4) — swipe UP
-  [M, H, T, H, M, T, M, H],  // row 5
+  [T, M, H, T, M, T, H, T],  // row 4
+  [M, H, T, H, T, M, M, H],  // row 5
   [H, T, M, T, H, M, T, M],  // row 6
 ];
 
 // The tile that must be swiped and where it goes
-const TUTORIAL_FROM: Position = { x: 4, y: 4 };
+const TUTORIAL_FROM: Position = { x: 4, y: 2 };
 const TUTORIAL_TO: Position = { x: 4, y: 3 };
 // All sword positions that form the match (after swap)
 const TUTORIAL_HIGHLIGHT: Position[] = [
   { x: 3, y: 3 },
   { x: 5, y: 3 },
-  { x: 4, y: 4 }, // this one will be swiped to (4,3)
+  { x: 4, y: 2 }, // this one will be swiped to (4,3)
 ];
 
 export class GameScene extends Phaser.Scene {
@@ -1877,11 +1877,11 @@ export class GameScene extends Phaser.Scene {
   private showFirstMoveTutorial() {
     this.tutorialActive = true;
 
-    // Full-screen dark overlay
+    // Full-screen dark overlay (above tiles at 1.0, below highlighted at 1.1)
     this.tutorialOverlay = this.add
       .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
       .setOrigin(0.5)
-      .setDepth(0.95);
+      .setDepth(1.05);
 
     // Ensure grid is visible (may be alpha 0 from startHidden intro)
     if (this.gridGfx) this.gridGfx.setAlpha(1);
@@ -1969,12 +1969,12 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Speech bubble above the match area
+    // Speech bubble below the match area
     const matchCenterY = this.boardOrigin.y + 3 * CELL_SIZE + CELL_SIZE / 2;
-    const bubbleY = matchCenterY - CELL_SIZE * 2.5;
+    const bubbleY = matchCenterY + CELL_SIZE * 2.5;
     this.tutorialBubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text: "Составь комбинацию из МЕЧЕЙ,\nчтобы атаковать!",
-      tailDirection: "down",
+      tailDirection: "up",
       maxWidth: 280,
       fontSize: "15px",
       highlights: [{ word: "МЕЧЕЙ", color: "#ff4444" }],
