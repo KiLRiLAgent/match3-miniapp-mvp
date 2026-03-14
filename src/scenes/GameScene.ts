@@ -403,7 +403,6 @@ export class GameScene extends Phaser.Scene {
       .image(0, 0, ASSET_KEYS.boss.mainBack)
       .setOrigin(0.5, 0.5)
       .setDepth(-0.05)
-      .setTintFill(0xffffff)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setAlpha(0);
     this.bossGlowBrightness.setPosition(GAME_WIDTH / 2, bossY);
