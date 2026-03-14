@@ -16,7 +16,7 @@ const ANIMATION = {
   xSpread: 20,
 } as const;
 
-export class DamageNumber extends Phaser.GameObjects.Container {
+class DamageNumber extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, value: number, type: DamageNumberType = "damage") {
     super(scene, x, y);
 

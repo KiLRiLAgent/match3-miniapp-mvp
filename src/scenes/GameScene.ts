@@ -16,7 +16,6 @@ import {
   DAMAGE_TILES,
   RESOURCE_TILES,
   SAFE_AREA,
-  saveGameParams,
   GAME_PARAMS,
   DPR,
 } from "../game/config";
@@ -107,7 +106,6 @@ export class GameScene extends Phaser.Scene {
     return [this.bossImage, this.bossImageGlow, this.bossGlowBrightness].filter(Boolean) as Phaser.GameObjects.Image[];
   }
   private bgImage?: Phaser.GameObjects.Image;
-  private bgDebugMode = false; // Режим настройки фона
   private bossHpBar?: Meter;
   private playerHpBar?: Meter;
   private manaBar?: Meter;
@@ -139,8 +137,6 @@ export class GameScene extends Phaser.Scene {
   private boardOrigin = { x: 0, y: 0 };
   private currentTurn: "player" | "boss" = "player";
   private gameOver = false;
-  private turnText?: Phaser.GameObjects.Text;
-
   // Hint system
   private hintTimer?: Phaser.Time.TimerEvent;
   private hintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
@@ -221,7 +217,6 @@ export class GameScene extends Phaser.Scene {
     this.manaBar = undefined;
     this.cooldownIcon = undefined;
     this.playerAvatar = undefined;
-    this.turnText = undefined;
     this.hammerOverlay = undefined;
     this.hammerHint = undefined;
     this.bossShieldOverlay = undefined;
@@ -516,13 +511,6 @@ export class GameScene extends Phaser.Scene {
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerMana
     ).setDepth(4).setAlpha(initialAlpha);
 
-    // Текст хода (скрыт, не нужен по референсу)
-    this.turnText = this.add
-      .text(GAME_WIDTH - 16, L.bossNameY, "", { fontSize: "14px", color: "#ffffff", fontFamily: "'Exo 2', Arial, sans-serif" })
-      .setOrigin(1, 0.5)
-      .setDepth(4)
-      .setVisible(false);
-
     // === КНОПКА MUTE ===
     this.muteButton = this.add
       .text(GAME_WIDTH - 70, 65 + SAFE_AREA.top, isMuted() ? "🔇" : "🔊", {
@@ -553,77 +541,6 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(initialAlpha)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.openSettings());
-
-    // Режим настройки фона
-    if (this.bgDebugMode) {
-      this.buildBgDebugUI();
-    }
-  }
-
-  private buildBgDebugUI() {
-    const container = this.add.container(0, 0);
-    container.setDepth(100);
-
-    // Панель с кнопками
-    const panelY = 120;
-    const panelBg = this.add.rectangle(GAME_WIDTH / 2, panelY, 280, 100, 0x000000, 0.8);
-    panelBg.setStrokeStyle(2, 0xffffff, 0.5);
-    container.add(panelBg);
-
-    // Текст с текущим значением
-    const offsetText = this.add.text(GAME_WIDTH / 2, panelY - 30, `Смещение: ${GAME_PARAMS.background.offsetY}`, {
-      fontSize: "18px",
-      color: "#ffffff",
-      fontFamily: "'Exo 2', Arial, sans-serif",
-    }).setOrigin(0.5);
-    container.add(offsetText);
-
-    // Кнопка ВВЕРХ
-    const btnUp = this.add.text(GAME_WIDTH / 2 - 80, panelY + 5, "▲ Вверх", {
-      fontSize: "16px",
-      color: "#ffffff",
-      backgroundColor: "#333333",
-      padding: { x: 12, y: 8 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    btnUp.on("pointerdown", () => {
-      GAME_PARAMS.background.offsetY -= 20;
-      this.updateBgPosition();
-      offsetText.setText(`Смещение: ${GAME_PARAMS.background.offsetY}`);
-    });
-    container.add(btnUp);
-
-    // Кнопка ВНИЗ
-    const btnDown = this.add.text(GAME_WIDTH / 2 + 80, panelY + 5, "▼ Вниз", {
-      fontSize: "16px",
-      color: "#ffffff",
-      backgroundColor: "#333333",
-      padding: { x: 12, y: 8 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    btnDown.on("pointerdown", () => {
-      GAME_PARAMS.background.offsetY += 20;
-      this.updateBgPosition();
-      offsetText.setText(`Смещение: ${GAME_PARAMS.background.offsetY}`);
-    });
-    container.add(btnDown);
-
-    // Кнопка СОХРАНИТЬ
-    const btnSave = this.add.text(GAME_WIDTH / 2, panelY + 35, "💾 Сохранить", {
-      fontSize: "16px",
-      color: "#00ff00",
-      backgroundColor: "#004400",
-      padding: { x: 16, y: 8 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    btnSave.on("pointerdown", () => {
-      saveGameParams();
-      offsetText.setText(`Смещение: ${GAME_PARAMS.background.offsetY} ✓`);
-    });
-    container.add(btnSave);
-  }
-
-  private updateBgPosition() {
-    if (this.bgImage) {
-      this.bgImage.setY(GAME_PARAMS.background.offsetY);
-    }
   }
 
   private openSettings() {
@@ -1413,12 +1330,6 @@ export class GameScene extends Phaser.Scene {
     // Обновляем иконку кулдауна босса (показываем тип следующей атаки)
     const abilityState = this.bossAbilityManager.state;
     this.cooldownIcon?.setAbility(abilityState.type, abilityState.currentCooldown);
-
-    if (this.turnText) {
-      const isPlayerTurn = this.currentTurn === "player";
-      this.turnText.setText(isPlayerTurn ? "Ваш ход" : "Ход босса");
-      this.turnText.setColor(isPlayerTurn ? UI_COLORS.playerTurnText : UI_COLORS.bossTurnText);
-    }
 
     // Обновляем состояние всех 4 кнопок способностей
     SKILL_IDS.forEach((id, idx) => {

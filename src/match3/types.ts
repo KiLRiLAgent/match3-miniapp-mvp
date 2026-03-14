@@ -28,7 +28,7 @@ export type Tile = {
   multiplier?: number;
 };
 
-export type MatchDirection = "row" | "col";
+type MatchDirection = "row" | "col";
 
 export type Match = {
   positions: Position[];
@@ -45,8 +45,3 @@ export type PotentialMove = {
   maxMatchLength: number;
 };
 
-export type MatchBonus = {
-  kind: BaseTileKind;
-  count: number;
-  multiplier: number;
-};

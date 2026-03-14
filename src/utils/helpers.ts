@@ -28,7 +28,7 @@ export const waitOrTap = (scene: Phaser.Scene, ms: number, depth = 100): Promise
 /**
  * Creates a pulse animation on a game object.
  */
-export function createPulseAnimation(
+function createPulseAnimation(
   scene: Phaser.Scene,
   target: Phaser.GameObjects.GameObject,
   scale = 1.15,

@@ -32,7 +32,7 @@ function calculateBezierPoint(
   };
 }
 
-export function flyTileToTarget(
+function flyTileToTarget(
   scene: Phaser.Scene,
   startX: number,
   startY: number,

@@ -40,18 +40,8 @@ export function updateScaledValues() {
   UI_LAYOUT = getUILayout();
 }
 
-// Параметры игрока (legacy, используем GAME_PARAMS)
-export const PLAYER_HP_MAX = 200;
-export const PLAYER_MANA_MAX = 100;
-export const PLAYER_PHYS_ATTACK = 10;
-export const PLAYER_MAG_ATTACK = 10;
 export const PLAYER_MAG_DAMAGE_MULTIPLIER = 0.5;
-export const HP_PER_TILE = 10;
-export const MP_PER_TILE = 10;
 
-// Параметры противника (legacy)
-export const BOSS_HP_MAX = 500;
-export const BOSS_PHYS_ATTACK = 10;
 export const BOSS_DAMAGED_HP_THRESHOLD = 0.5;
 
 // === МУТАБЕЛЬНЫЕ ПАРАМЕТРЫ ДЛЯ НАСТРОЕК ===
@@ -247,23 +237,6 @@ export const BASE_TYPES: BaseTileKind[] = [
   TileKind.Heal,
 ];
 
-// Урон за фишку = атака игрока (физ/маг) * 1
-export const DAMAGE_PER_TILE: Record<BaseTileKind, number> = {
-  [TileKind.Sword]: PLAYER_PHYS_ATTACK,
-  [TileKind.Star]: PLAYER_MAG_ATTACK,
-  [TileKind.Mana]: 0,
-  [TileKind.Heal]: 0,
-};
-
-export const MATCH_GAINS = {
-  mana: MP_PER_TILE,
-  heal: HP_PER_TILE,
-};
-
-// Способность игрока "Мощный удар"
-export const POWER_STRIKE_COST = 50;
-export const POWER_STRIKE_MULTIPLIER = 10;
-
 // UI Layout - строится СНИЗУ ВВЕРХ с фиксированными размерами
 export const getUILayout = () => {
   const boardWidth = BOARD_WIDTH * CELL_SIZE;
@@ -379,8 +352,6 @@ export let UI_LAYOUT = getUILayout();
 // UI Colors - centralized color palette
 export const UI_COLORS = {
   background: 0x0d0f1a,
-  panelBg: 0x131a2d,
-  panelBgAlt: 0x111726,
   boardBg: 0x161820,
   bossHp: 0xde3e3e,
   playerHp: 0x4caf50,
@@ -388,7 +359,6 @@ export const UI_COLORS = {
   playerTurnText: "#9ef7a5",
   bossTurnText: "#ffb347",
   defusedFlash: 0x44ff66,
-  overlay: 0x000000,
 } as const;
 
 // Input thresholds

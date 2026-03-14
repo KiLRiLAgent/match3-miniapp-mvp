@@ -1,11 +1,11 @@
-export type SafeAreaInset = {
+type SafeAreaInset = {
   top: number;
   bottom: number;
   left: number;
   right: number;
 };
 
-export type TelegramWebApp = {
+type TelegramWebApp = {
   ready: () => void;
   expand?: () => void;
   requestFullscreen?: () => void;
@@ -26,7 +26,7 @@ declare global {
   }
 }
 
-export const getTelegram = (): TelegramWebApp | null => {
+const getTelegram = (): TelegramWebApp | null => {
   if (typeof window === "undefined") return null;
   return window.Telegram?.WebApp ?? null;
 };

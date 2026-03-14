@@ -2,12 +2,12 @@ import Phaser from "phaser";
 import { INTRO_ANIMATION } from "../game/animations";
 import { tweenPromise } from "../utils/helpers";
 
-export interface TextHighlight {
+interface TextHighlight {
   word: string;
   color: string;
 }
 
-export interface SpeechBubbleConfig {
+interface SpeechBubbleConfig {
   text: string;
   maxWidth?: number;
   tailDirection?: "down" | "up" | "none";
@@ -185,9 +185,4 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
     this.destroy();
   }
 
-  setText(text: string): void {
-    this.config.text = text;
-    this.textObj.setText(text);
-    this.drawBubble();
-  }
 }
