@@ -142,7 +142,7 @@ export class GameScene extends Phaser.Scene {
   private hintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
   private hintedSpriteIds: number[] = [];
   private potentialMoves: PotentialMove[] = [];
-  private hintIndex = 0;
+  private lastHintIndex = -1;
 
   // Tutorial & tips
   private bombTipShown = false;
@@ -1547,7 +1547,7 @@ export class GameScene extends Phaser.Scene {
     this.stopHintTimer();
     this.potentialMoves = this.board.findPotentialMoves();
     if (this.potentialMoves.length === 0) return;
-    this.hintIndex = 0;
+    this.lastHintIndex = -1;
 
     // First hint after 3s, then every 5s
     this.hintTimer = this.time.addEvent({
@@ -1615,8 +1615,13 @@ export class GameScene extends Phaser.Scene {
     this.clearHintVisuals();
     if (this.potentialMoves.length === 0) return;
 
-    const move = this.potentialMoves[this.hintIndex % this.potentialMoves.length];
-    this.hintIndex++;
+    // Pick random move, avoiding repeat
+    let idx = Math.floor(Math.random() * this.potentialMoves.length);
+    if (this.potentialMoves.length > 1 && idx === this.lastHintIndex) {
+      idx = (idx + 1) % this.potentialMoves.length;
+    }
+    this.lastHintIndex = idx;
+    const move = this.potentialMoves[idx];
 
     // Highlight only tiles of the same kind as the moving tile
     const fromTile = this.board.getTile(move.from);
@@ -1651,7 +1656,10 @@ export class GameScene extends Phaser.Scene {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const pos of matchResultPositions) {
         const t = this.board.getTile(pos);
-        if (!t || t.base !== hintKind) continue;
+        if (!t) continue;
+        // move.to will contain the correct tile after swap — don't filter by kind
+        const isDestination = pos.x === move.to.x && pos.y === move.to.y;
+        if (!isDestination && t.base !== hintKind) continue;
         const w = this.toWorld(pos);
         minX = Math.min(minX, w.x - CELL_SIZE / 2);
         minY = Math.min(minY, w.y - CELL_SIZE / 2);
