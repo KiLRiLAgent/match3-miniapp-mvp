@@ -1050,7 +1050,7 @@ export class GameScene extends Phaser.Scene {
       .setScale(this.bossImage.scaleX, this.bossImage.scaleY)
       .setTintFill(0xffffff)
       .setAlpha(0.8)
-      .setDepth(-0.02);
+      .setDepth(0.05);
     this.tweens.add({
       targets: flash,
       alpha: 0,
@@ -1073,9 +1073,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createTileGlow(sprite: Phaser.GameObjects.Image, alpha: number) {
+    const tileSize = Math.floor(CELL_SIZE * 0.95);
     return this.add
       .image(sprite.x, sprite.y, sprite.texture.key)
-      .setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2)
+      .setDisplaySize(tileSize, tileSize)
       .setTintFill(0xffffff)
       .setAlpha(alpha)
       .setDepth(1.5);
@@ -1087,9 +1088,10 @@ export class GameScene extends Phaser.Scene {
     const startY = (startYOrAlpha !== undefined && startYOrAlpha > 1) ? startYOrAlpha : undefined;
     const alpha = initialAlpha ?? ((startYOrAlpha !== undefined && startYOrAlpha <= 1) ? startYOrAlpha : 1);
 
+    const tileSize = Math.floor(CELL_SIZE * 0.95);
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
-      .setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2)
+      .setDisplaySize(tileSize, tileSize)
       .setAlpha(alpha)
       .setInteractive({ useHandCursor: true });
     sprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -1444,7 +1446,8 @@ export class GameScene extends Phaser.Scene {
 
   private startBossGlowPulse() {
     if (!this.bossGlowBrightness) return;
-    this.tweens.killTweensOf(this.bossGlowBrightness);
+    // Don't restart if already pulsing — avoids visible brightness jump
+    if (this.tweens.getTweensOf(this.bossGlowBrightness).length > 0) return;
     this.bossGlowBrightness.setAlpha(0);
     this.tweens.add({
       targets: this.bossGlowBrightness,
@@ -1601,7 +1604,7 @@ export class GameScene extends Phaser.Scene {
   private toWorld(pos: Position) {
     return {
       x: this.boardOrigin.x + pos.x * CELL_SIZE + CELL_SIZE / 2,
-      y: this.boardOrigin.y + pos.y * CELL_SIZE + CELL_SIZE / 2,
+      y: this.boardOrigin.y + pos.y * CELL_SIZE + CELL_SIZE / 2 + 2,
     };
   }
 
@@ -1833,6 +1836,7 @@ export class GameScene extends Phaser.Scene {
       chainTweens.push({ ...fwd }, { ...bwd });
     }
     const chainGlows = [...this.hintOverlays];
+    const chainRects = [...this.hintRects];
     const chain = this.tweens.chain({
       tweens: chainTweens,
       onComplete: () => {
@@ -1840,7 +1844,7 @@ export class GameScene extends Phaser.Scene {
           this.events.off("update", this.hintSyncFn);
           this.hintSyncFn = undefined;
         }
-        // Fade out glows after animation completes
+        // Fade out glows and rects after animation completes
         for (const g of chainGlows) {
           if (g.scene && this.hintOverlays.includes(g)) {
             this.tweens.add({
@@ -1849,6 +1853,17 @@ export class GameScene extends Phaser.Scene {
               duration: HINT_ANIMATION.glowFadeOut,
               ease: "Quad.easeOut",
               onComplete: () => { if (g.scene) g.destroy(); },
+            });
+          }
+        }
+        for (const r of chainRects) {
+          if (r.scene && this.hintRects.includes(r)) {
+            this.tweens.add({
+              targets: r,
+              alpha: 0,
+              duration: HINT_ANIMATION.glowFadeOut,
+              ease: "Quad.easeOut",
+              onComplete: () => { if (r.scene) r.destroy(); },
             });
           }
         }
