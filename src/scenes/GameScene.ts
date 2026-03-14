@@ -1844,10 +1844,16 @@ export class GameScene extends Phaser.Scene {
         const world = this.toWorld(TUTORIAL_FROM);
         const capturedFromGlow = fromGlow;
 
-        // Sync glow position + alpha to shake progress
+        // Sync glow + hand position + alpha to shake progress
+        const handOffX = 24;
+        const handOffY = 24;
         const syncFn = () => {
           if (!fromSprite.scene) return;
           if (capturedFromGlow?.scene) capturedFromGlow.setPosition(fromSprite.x, fromSprite.y);
+          // Hand follows the shaking tile
+          if (this.tutorialHand?.scene) {
+            this.tutorialHand.setPosition(fromSprite.x + handOffX, fromSprite.y + handOffY);
+          }
           const offsetX = fromSprite.x - world.x;
           const offsetY = fromSprite.y - world.y;
           const currentDist = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
@@ -1905,29 +1911,15 @@ export class GameScene extends Phaser.Scene {
     this.tutorialBubble.setDepth(100);
     this.tutorialBubble.fadeIn(200);
 
-    // Hand arrow: fade in → slide in swipe direction → fade out → loop
+    // Hand arrow: follows the shaking tile via update sync
     const fromWorld = this.toWorld(TUTORIAL_FROM);
-    const toWorld = this.toWorld(TUTORIAL_TO);
     const handOffX = 24;
     const handOffY = 24;
     this.tutorialHand = this.add
       .image(fromWorld.x + handOffX, fromWorld.y + handOffY, ASSET_KEYS.ui.handArrow)
       .setDisplaySize(48, 52)
       .setDepth(100)
-      .setAlpha(0);
-
-    this.tutorialHandChain = this.tweens.chain({
-      targets: this.tutorialHand,
-      loop: -1,
-      tweens: [
-        { alpha: 1, duration: 300, ease: "Quad.easeOut" },
-        { alpha: 1, duration: 150 },
-        { x: toWorld.x + handOffX, y: toWorld.y + handOffY, duration: 400, ease: "Quad.easeInOut" },
-        { alpha: 0, duration: 250, ease: "Quad.easeIn" },
-        { x: fromWorld.x + handOffX, y: fromWorld.y + handOffY, duration: 0 },
-        { alpha: 0, duration: 300 },
-      ],
-    });
+      .setAlpha(1);
   }
 
   private clearTutorial() {
