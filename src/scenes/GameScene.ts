@@ -1879,8 +1879,8 @@ export class GameScene extends Phaser.Scene {
 
     // Full-screen dark overlay (above tiles at 1.0, below highlighted at 1.1)
     this.tutorialOverlay = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
-      .setOrigin(0.5)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH * 2, GAME_HEIGHT * 2, 0x000000, 1)
+      .setAlpha(0.6)
       .setDepth(1.05);
 
     // Ensure grid is visible (may be alpha 0 from startHidden intro)
