@@ -56,7 +56,7 @@ const SKILL_TUTORIAL = [
 ];
 
 // Tutorial: fixed 8x7 board for the first move
-// Player must swipe tile at (4,4) UP to (4,3) to complete 3 swords in a row at (2,3),(3,3),(4,3)
+// Player must swipe tile at (4,4) UP to (4,3) to complete 3 swords in a row at (3,3),(4,3),(5,3)
 const S = TileKind.Sword as BaseTileKind;
 const T = TileKind.Star as BaseTileKind;
 const M = TileKind.Mana as BaseTileKind;
@@ -64,13 +64,13 @@ const H = TileKind.Heal as BaseTileKind;
 
 const TUTORIAL_BOARD: BaseTileKind[][] = [
   //  0  1  2  3  4  5  6  7
-  [S, H, T, H, M, T, M, H],  // row 0
-  [T, M, H, M, H, S, H, T],  // row 1
-  [H, T, M, T, M, H, T, M],  // row 2
-  [T, M, S, S, H, T, H, T],  // row 3: swords at (2,3) and (3,3)
-  [M, H, T, M, S, M, T, H],  // row 4: sword at (4,4) — swipe UP
-  [H, S, M, H, T, H, M, T],  // row 5
-  [T, M, H, T, M, T, H, S],  // row 6
+  [H, T, M, H, T, M, H, T],  // row 0
+  [T, M, H, T, H, T, M, H],  // row 1
+  [M, H, T, M, T, H, T, M],  // row 2
+  [H, T, M, S, H, S, M, T],  // row 3: swords at (3,3) and (5,3)
+  [T, M, H, T, S, M, H, T],  // row 4: sword at (4,4) — swipe UP
+  [M, H, T, H, M, T, M, H],  // row 5
+  [H, T, M, T, H, M, T, M],  // row 6
 ];
 
 // The tile that must be swiped and where it goes
@@ -78,8 +78,8 @@ const TUTORIAL_FROM: Position = { x: 4, y: 4 };
 const TUTORIAL_TO: Position = { x: 4, y: 3 };
 // All sword positions that form the match (after swap)
 const TUTORIAL_HIGHLIGHT: Position[] = [
-  { x: 2, y: 3 },
   { x: 3, y: 3 },
+  { x: 5, y: 3 },
   { x: 4, y: 4 }, // this one will be swiped to (4,3)
 ];
 
@@ -155,6 +155,9 @@ export class GameScene extends Phaser.Scene {
   private tutorialOverlay?: Phaser.GameObjects.Rectangle;
   private tutorialBubble?: SpeechBubble;
   private tutorialHand?: Phaser.GameObjects.Image;
+  private tutorialHintOverlays: Phaser.GameObjects.Image[] = [];
+  private tutorialHintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
+  private tutorialHintSyncFn?: () => void;
 
   private cascadeCount = 0;
 
@@ -337,6 +340,9 @@ export class GameScene extends Phaser.Scene {
       maxCascade: 0, turnsPlayed: 0, skillsUsed: 0, bombsDefused: 0,
     };
     this.tutorialActive = true;
+    this.tutorialHintOverlays = [];
+    this.tutorialHintTweens = [];
+    this.tutorialHintSyncFn = undefined;
     this.board = Match3Board.fromGrid(BOARD_WIDTH, BOARD_HEIGHT, TUTORIAL_BOARD);
     this.bossAbilityManager = new BossAbilityManager();
     this.tileSprites.clear();
@@ -1854,16 +1860,14 @@ export class GameScene extends Phaser.Scene {
   private showFirstMoveTutorial() {
     this.tutorialActive = true;
 
-    // Dark overlay over the board
-    const boardW = BOARD_WIDTH * CELL_SIZE + BOARD_PADDING * 2;
-    const boardH = BOARD_HEIGHT * CELL_SIZE + BOARD_PADDING * 2;
+    // Full-screen dark overlay
     this.tutorialOverlay = this.add
-      .rectangle(
-        this.boardOrigin.x - BOARD_PADDING + boardW / 2,
-        this.boardOrigin.y - BOARD_PADDING + boardH / 2,
-        boardW, boardH, 0x000000, 0.6,
-      )
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
+      .setOrigin(0.5)
       .setDepth(0.95);
+
+    // Ensure grid is visible (may be alpha 0 from startHidden intro)
+    if (this.gridGfx) this.gridGfx.setAlpha(1);
 
     // Bump highlighted sword tiles above the overlay
     for (const pos of TUTORIAL_HIGHLIGHT) {
@@ -1874,8 +1878,81 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Speech bubble above the board
-    const bubbleY = this.boardOrigin.y - 25;
+    // Hint glow overlays on highlighted tiles
+    const allGlows: Phaser.GameObjects.Image[] = [];
+    for (const pos of TUTORIAL_HIGHLIGHT) {
+      const tile = this.board.getTile(pos);
+      if (!tile) continue;
+      const sprite = this.tileSprites.get(tile.id);
+      if (!sprite) continue;
+      const glow = this.createTileGlow(sprite, HINT_ANIMATION.glowBaseAlpha);
+      glow.setDepth(1.5);
+      allGlows.push(glow);
+      this.tutorialHintOverlays.push(glow);
+    }
+
+    // Asymmetric shake on the FROM tile (swipe direction)
+    const fromTile = this.board.getTile(TUTORIAL_FROM);
+    if (fromTile) {
+      const fromSprite = this.tileSprites.get(fromTile.id);
+      if (fromSprite) {
+        const dx = TUTORIAL_TO.x - TUTORIAL_FROM.x;
+        const dy = TUTORIAL_TO.y - TUTORIAL_FROM.y;
+        const dist = HINT_ANIMATION.shakeDistance;
+        const world = this.toWorld(TUTORIAL_FROM);
+
+        // Sync glow position + alpha to shake progress
+        const syncFn = () => {
+          if (!fromSprite.scene) return;
+          const fromGlow = allGlows.find((_, i) => TUTORIAL_HIGHLIGHT[i].x === TUTORIAL_FROM.x && TUTORIAL_HIGHLIGHT[i].y === TUTORIAL_FROM.y);
+          if (fromGlow?.scene) fromGlow.setPosition(fromSprite.x, fromSprite.y);
+          const offsetX = fromSprite.x - world.x;
+          const offsetY = fromSprite.y - world.y;
+          const currentDist = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+          const progress = Math.min(currentDist / dist, 1);
+          const glowAlpha = HINT_ANIMATION.glowBaseAlpha +
+            progress * (HINT_ANIMATION.glowPeakAlpha - HINT_ANIMATION.glowBaseAlpha);
+          for (const g of allGlows) {
+            if (g.scene) g.setAlpha(glowAlpha);
+          }
+        };
+        this.events.on("update", syncFn);
+        this.tutorialHintSyncFn = syncFn;
+
+        // Build shake chain (looping for tutorial)
+        const fwdDuration = HINT_ANIMATION.shakeDuration * 0.35;
+        const bwdDuration = HINT_ANIMATION.shakeDuration * 0.65;
+        const fwd = {
+          targets: fromSprite,
+          x: world.x + dx * dist,
+          y: world.y + dy * dist,
+          duration: fwdDuration,
+          ease: "Quart.easeIn",
+        };
+        const bwd = {
+          targets: fromSprite,
+          x: world.x,
+          y: world.y,
+          duration: bwdDuration,
+          ease: "Sine.easeOut",
+        };
+        const chainTweens = [];
+        for (let i = 0; i < HINT_ANIMATION.shakeRepeat; i++) {
+          chainTweens.push({ ...fwd }, { ...bwd });
+        }
+        // Pause between shake cycles
+        chainTweens.push({ targets: fromSprite, alpha: 1, duration: 400 });
+        const chain = this.tweens.chain({
+          tweens: chainTweens,
+          loop: -1,
+        });
+        this.tutorialHintTweens.push(chain);
+      }
+    }
+
+    // Speech bubble above the match area
+    const matchCenterY = this.boardOrigin.y + 3 * CELL_SIZE + CELL_SIZE / 2;
+    const bubbleY = matchCenterY - CELL_SIZE * 2.5;
     this.tutorialBubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text: "Составь комбинацию из МЕЧЕЙ,\nчтобы атаковать!",
       tailDirection: "down",
@@ -1886,20 +1963,28 @@ export class GameScene extends Phaser.Scene {
     this.tutorialBubble.setDepth(100);
     this.tutorialBubble.fadeIn(200);
 
-    // Hand arrow pointing at the tile to swipe
-    const handPos = this.toWorld(TUTORIAL_FROM);
+    // Hand arrow: fade in → slide in swipe direction → fade out → loop
+    const fromWorld = this.toWorld(TUTORIAL_FROM);
+    const toWorld = this.toWorld(TUTORIAL_TO);
+    const handOffX = 14;
+    const handOffY = 14;
     this.tutorialHand = this.add
-      .image(handPos.x + 14, handPos.y + 14, ASSET_KEYS.ui.handArrow)
+      .image(fromWorld.x + handOffX, fromWorld.y + handOffY, ASSET_KEYS.ui.handArrow)
       .setDisplaySize(48, 52)
-      .setDepth(100);
-    // Bobbing animation
-    this.tweens.add({
+      .setDepth(100)
+      .setAlpha(0);
+
+    this.tweens.chain({
       targets: this.tutorialHand,
-      y: this.tutorialHand.y - 8,
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.easeInOut",
+      loop: -1,
+      tweens: [
+        { alpha: 1, duration: 300, ease: "Quad.easeOut" },
+        { alpha: 1, duration: 150 },
+        { x: toWorld.x + handOffX, y: toWorld.y + handOffY, duration: 400, ease: "Quad.easeInOut" },
+        { alpha: 0, duration: 250, ease: "Quad.easeIn" },
+        { x: fromWorld.x + handOffX, y: fromWorld.y + handOffY, duration: 0 },
+        { alpha: 0, duration: 300 },
+      ],
     });
   }
 
@@ -1917,9 +2002,35 @@ export class GameScene extends Phaser.Scene {
       this.tutorialHand.destroy();
       this.tutorialHand = undefined;
     }
-    // Restore all tile depths to normal
+    // Clean up hint shake/glow animations
+    if (this.tutorialHintSyncFn) {
+      this.events.off("update", this.tutorialHintSyncFn);
+      this.tutorialHintSyncFn = undefined;
+    }
+    for (const tween of this.tutorialHintTweens) {
+      tween.stop();
+    }
+    this.tutorialHintTweens = [];
+    for (const glow of this.tutorialHintOverlays) {
+      if (glow.scene) {
+        this.tweens.killTweensOf(glow);
+        glow.destroy();
+      }
+    }
+    this.tutorialHintOverlays = [];
+    // Restore all tile depths and positions to normal
     for (const [, sprite] of this.tileSprites) {
       if (sprite.scene) sprite.setDepth(1);
+    }
+    for (const pos of TUTORIAL_HIGHLIGHT) {
+      const tile = this.board.getTile(pos);
+      if (tile) {
+        const sprite = this.tileSprites.get(tile.id);
+        if (sprite?.scene) {
+          const world = this.toWorld(pos);
+          sprite.setPosition(world.x, world.y);
+        }
+      }
     }
     this.tutorialActive = false;
   }
