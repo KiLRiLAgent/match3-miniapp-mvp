@@ -1007,7 +1007,7 @@ export class GameScene extends Phaser.Scene {
     const startY = (startYOrAlpha !== undefined && startYOrAlpha > 1) ? startYOrAlpha : undefined;
     const alpha = initialAlpha ?? ((startYOrAlpha !== undefined && startYOrAlpha <= 1) ? startYOrAlpha : 1);
 
-    const tileSize = Math.round(CELL_SIZE * 1.2);
+    const tileSize = Math.round(CELL_SIZE * 1.1);
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
       .setDisplaySize(tileSize, tileSize)
@@ -1158,7 +1158,7 @@ export class GameScene extends Phaser.Scene {
         const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
         sprite.setTexture(textureKey);
         // ВАЖНО: пересчитываем размер после смены текстуры
-        sprite.setDisplaySize(Math.round(CELL_SIZE * 1.2), Math.round(CELL_SIZE * 1.2));
+        sprite.setDisplaySize(Math.round(CELL_SIZE * 1.1), Math.round(CELL_SIZE * 1.1));
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
