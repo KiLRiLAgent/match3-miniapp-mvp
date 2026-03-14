@@ -1090,7 +1090,7 @@ export class GameScene extends Phaser.Scene {
     const startY = (startYOrAlpha !== undefined && startYOrAlpha > 1) ? startYOrAlpha : undefined;
     const alpha = initialAlpha ?? ((startYOrAlpha !== undefined && startYOrAlpha <= 1) ? startYOrAlpha : 1);
 
-    const tileSize = CELL_SIZE;
+    const tileSize = Math.round(CELL_SIZE * 1.2);
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
       .setDisplaySize(tileSize, tileSize)
@@ -1241,7 +1241,7 @@ export class GameScene extends Phaser.Scene {
         const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
         sprite.setTexture(textureKey);
         // ВАЖНО: пересчитываем размер после смены текстуры
-        sprite.setDisplaySize(CELL_SIZE, CELL_SIZE);
+        sprite.setDisplaySize(Math.round(CELL_SIZE * 1.2), Math.round(CELL_SIZE * 1.2));
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
@@ -1989,8 +1989,8 @@ export class GameScene extends Phaser.Scene {
     // Hand arrow: fade in → slide in swipe direction → fade out → loop
     const fromWorld = this.toWorld(TUTORIAL_FROM);
     const toWorld = this.toWorld(TUTORIAL_TO);
-    const handOffX = 14;
-    const handOffY = 14;
+    const handOffX = 24;
+    const handOffY = 24;
     this.tutorialHand = this.add
       .image(fromWorld.x + handOffX, fromWorld.y + handOffY, ASSET_KEYS.ui.handArrow)
       .setDisplaySize(48, 52)

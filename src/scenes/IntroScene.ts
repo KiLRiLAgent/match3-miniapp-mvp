@@ -33,9 +33,11 @@ export class IntroScene extends Phaser.Scene {
     this.cameras.main.setZoom(DPR);
     this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
 
-    // Start background music from the intro
+    // Start background music from the intro (destroy existing on retry)
     if (this.cache.audio.exists(ASSET_KEYS.music.bgm)) {
       try {
+        const existing = this.sound.get(ASSET_KEYS.music.bgm);
+        if (existing) existing.destroy();
         const bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
         if (!isMuted()) bgm.play();
       } catch { /* audio not available */ }
