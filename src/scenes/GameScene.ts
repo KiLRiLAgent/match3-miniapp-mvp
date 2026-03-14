@@ -1239,7 +1239,7 @@ export class GameScene extends Phaser.Scene {
         const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
         sprite.setTexture(textureKey);
         // ВАЖНО: пересчитываем размер после смены текстуры
-        sprite.setDisplaySize(CELL_SIZE + 2, CELL_SIZE + 2);
+        sprite.setDisplaySize(Math.floor(CELL_SIZE * 0.95), Math.floor(CELL_SIZE * 0.95));
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
