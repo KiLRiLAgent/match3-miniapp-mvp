@@ -1884,8 +1884,8 @@ export class GameScene extends Phaser.Scene {
     // Hand arrow: slides from source tile to target tile in a loop
     const fromWorld = this.toWorld(TUTORIAL_FROM);
     const toWorld = this.toWorld(TUTORIAL_TO);
-    const handOffX = 32;
-    const handOffY = 34;
+    const handOffX = 38;
+    const handOffY = 40;
     this.tutorialHand = this.add
       .image(fromWorld.x + handOffX, fromWorld.y + handOffY, ASSET_KEYS.ui.handArrow)
       .setDisplaySize(72, 78)
