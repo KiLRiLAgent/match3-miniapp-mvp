@@ -56,7 +56,7 @@ const SKILL_TUTORIAL = [
 ];
 
 // Tutorial: fixed 8x7 board for the first move
-// Player must swipe tile at (3,2) DOWN to (3,3) to complete 3 swords in a row at (3..5,3)
+// Player must swipe tile at (5,2) DOWN to (5,3) to complete 3 swords in a row at (3..5,3)
 const S = TileKind.Sword as BaseTileKind;
 const T = TileKind.Star as BaseTileKind;
 const M = TileKind.Mana as BaseTileKind;
@@ -66,21 +66,21 @@ const TUTORIAL_BOARD: BaseTileKind[][] = [
   //  0  1  2  3  4  5  6  7
   [H, T, M, H, T, M, H, T],  // row 0
   [T, M, H, T, H, T, M, H],  // row 1
-  [M, H, T, S, H, T, M, H],  // row 2: sword at (3,2) — swipe DOWN
-  [H, T, M, T, S, S, H, T],  // row 3: swords at (4,3),(5,3)
+  [M, H, T, H, H, S, M, H],  // row 2: sword at (5,2) — swipe DOWN
+  [H, T, M, S, S, T, H, T],  // row 3: swords at (3,3),(4,3)
   [T, M, H, T, H, T, M, T],  // row 4
   [M, H, T, H, T, M, H, M],  // row 5
   [H, T, M, T, M, H, T, H],  // row 6
 ];
 
-// The tile that must be swiped and where it goes
-const TUTORIAL_FROM: Position = { x: 3, y: 2 };
-const TUTORIAL_TO: Position = { x: 3, y: 3 };
+// The tile that must be swiped (3rd sword) and where it goes
+const TUTORIAL_FROM: Position = { x: 5, y: 2 };
+const TUTORIAL_TO: Position = { x: 5, y: 3 };
 // All tiles involved in the tutorial match (highlighted above overlay)
 const TUTORIAL_HIGHLIGHT: Position[] = [
+  { x: 3, y: 3 },
   { x: 4, y: 3 },
-  { x: 5, y: 3 },
-  { x: 3, y: 2 }, // this one will be swiped to (3,3)
+  { x: 5, y: 2 }, // this one will be swiped to (5,3)
 ];
 
 export class GameScene extends Phaser.Scene {
@@ -91,6 +91,7 @@ export class GameScene extends Phaser.Scene {
     | { pos: Position; point: Phaser.Math.Vector2 }
     | null = null;
   private busy = false;
+  private pendingFinalDialogue?: string;
 
   private bossHp = 0;
   private playerHp = 0;
@@ -257,16 +258,13 @@ export class GameScene extends Phaser.Scene {
     // Если не скрыто и есть финальный диалог - показываем сразу
     // При startHidden диалог будет показан после triggerFadeIn()
     if (!startHidden) {
-      if (data?.finalDialogue) {
-        this.showFinalIntroBubble(data.finalDialogue).then(() => {
-          if (this.tutorialActive) {
-            this.showFirstMoveTutorial();
-          } else {
-            this.startHintTimer();
-          }
-        });
-      } else if (this.tutorialActive) {
+      if (this.tutorialActive) {
+        this.pendingFinalDialogue = data?.finalDialogue;
         this.showFirstMoveTutorial();
+      } else if (data?.finalDialogue) {
+        this.showFinalIntroBubble(data.finalDialogue).then(() => {
+          this.startHintTimer();
+        });
       } else {
         this.startHintTimer();
       }
@@ -289,12 +287,14 @@ export class GameScene extends Phaser.Scene {
 
   public async triggerFadeIn(finalDialogue?: string): Promise<void> {
     await this.fadeInUI();
-    if (finalDialogue) {
-      await this.showFinalIntroBubble(finalDialogue);
-    }
     if (this.tutorialActive) {
+      // Save dialogue for after tutorial completes
+      this.pendingFinalDialogue = finalDialogue;
       this.showFirstMoveTutorial();
     } else {
+      if (finalDialogue) {
+        await this.showFinalIntroBubble(finalDialogue);
+      }
       this.startHintTimer();
     }
   }
@@ -410,6 +410,14 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
     this.bossGlowBrightness.setPosition(GAME_WIDTH / 2, bossY);
     this.bossGlowBrightness.setScale(bossScale);
+
+    // Crop the brightness overlay so it doesn't bleed below boss name area
+    const glowTexH = this.bossGlowBrightness.texture.getSourceImage().height;
+    const maxBottomY = L.bossNameY - bossY + (glowTexH * bossScale) / 2;
+    const cropH = Math.max(0, Math.min(glowTexH, maxBottomY / bossScale));
+    if (cropH < glowTexH) {
+      this.bossGlowBrightness.setCrop(0, 0, this.bossGlowBrightness.texture.getSourceImage().width, cropH);
+    }
 
     this.tweens.add({
       targets: this.bossGlowBrightness,
@@ -704,7 +712,15 @@ export class GameScene extends Phaser.Scene {
 
     // Clear tutorial before swap animation so tiles restore depth
     const wasTutorial = this.tutorialActive;
-    if (wasTutorial) this.clearTutorial();
+    if (wasTutorial) {
+      this.clearTutorial();
+      // Show pending dialogue after tutorial
+      if (this.pendingFinalDialogue) {
+        const dialogue = this.pendingFinalDialogue;
+        this.pendingFinalDialogue = undefined;
+        this.showFinalIntroBubble(dialogue);
+      }
+    }
 
     this.board.swap(a, b);
     this.rebuildPositionMap();
@@ -1818,24 +1834,24 @@ export class GameScene extends Phaser.Scene {
   private showFirstMoveTutorial() {
     this.tutorialActive = true;
 
-    // Dark overlay over entire board (above tiles, below highlighted)
+    // Dark overlay over entire screen (above all UI, below highlighted tiles)
     this.tutorialOverlay = this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 1)
       .setOrigin(0, 0)
       .setAlpha(0.7)
-      .setDepth(1.05)
+      .setDepth(99)
       .setInteractive();
 
     // Ensure grid is visible (may be alpha 0 from startHidden intro)
     if (this.gridGfx) this.gridGfx.setAlpha(1);
 
-    // Bump highlighted sword tiles + swap target above the overlay
+    // Bump highlighted sword tiles + swap target above the overlay (depth 99)
     const highlightedPositions = [...TUTORIAL_HIGHLIGHT, TUTORIAL_TO];
     for (const pos of highlightedPositions) {
       const tile = this.board.getTile(pos);
       if (tile) {
         const sprite = this.tileSprites.get(tile.id);
-        if (sprite) sprite.setDepth(1.1);
+        if (sprite) sprite.setDepth(99.1);
       }
     }
 
@@ -1847,19 +1863,20 @@ export class GameScene extends Phaser.Scene {
       const sprite = this.tileSprites.get(tile.id);
       if (!sprite) continue;
       const glow = this.createTileGlow(sprite, HINT_ANIMATION.glowBaseAlpha);
-      glow.setDepth(1.5);
+      glow.setDepth(99.2);
       allGlows.push(glow);
       this.tutorialHintOverlays.push(glow);
     }
 
-    // Speech bubble above the board area
+    // Speech bubble above the board area — adaptive width, 2 lines
     const bubbleY = this.boardOrigin.y - 20;
+    const bubbleMaxW = Math.min(GAME_WIDTH - 40, 360);
     this.tutorialBubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text: "Составь комбинацию из МЕЧЕЙ,\nчтобы атаковать!",
       tailDirection: "down",
-      maxWidth: 320,
-      fontSize: "22px",
-      highlights: [{ word: "МЕЧЕЙ", color: "#ff4444" }],
+      maxWidth: bubbleMaxW,
+      fontSize: `${Math.min(22, Math.floor(GAME_WIDTH / 22))}px`,
+      highlights: [{ word: "МЕЧЕЙ,", color: "#ff4444" }],
     });
     this.tutorialBubble.setDepth(100);
     this.tutorialBubble.fadeIn(200);
@@ -1867,8 +1884,10 @@ export class GameScene extends Phaser.Scene {
     // Hand arrow: slides from source tile to target tile in a loop
     const fromWorld = this.toWorld(TUTORIAL_FROM);
     const toWorld = this.toWorld(TUTORIAL_TO);
+    const handOffX = 26;
+    const handOffY = 28;
     this.tutorialHand = this.add
-      .image(fromWorld.x + 20, fromWorld.y + 20, ASSET_KEYS.ui.handArrow)
+      .image(fromWorld.x + handOffX, fromWorld.y + handOffY, ASSET_KEYS.ui.handArrow)
       .setDisplaySize(72, 78)
       .setDepth(100)
       .setAlpha(0);
@@ -1879,11 +1898,11 @@ export class GameScene extends Phaser.Scene {
       tweens: [
         // Fade in at source
         { targets: hand, alpha: 1, duration: 200, ease: "Quad.easeOut",
-          onStart: () => { if (hand.scene) hand.setPosition(fromWorld.x + 20, fromWorld.y + 20); } },
+          onStart: () => { if (hand.scene) hand.setPosition(fromWorld.x + handOffX, fromWorld.y + handOffY); } },
         // Hold briefly
         { targets: hand, alpha: 1, duration: 200 },
         // Slide to target
-        { targets: hand, x: toWorld.x + 20, y: toWorld.y + 20, duration: 400, ease: "Quad.easeInOut" },
+        { targets: hand, x: toWorld.x + handOffX, y: toWorld.y + handOffY, duration: 400, ease: "Quad.easeInOut" },
         // Hold at target
         { targets: hand, alpha: 1, duration: 150 },
         // Fade out
