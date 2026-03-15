@@ -814,8 +814,10 @@ export class GameScene extends Phaser.Scene {
       swapTargets = [];
     }
 
-    // Crossfade damage art back to idle after all cascades finish
-    await this.restoreBossArtFromDamage();
+    // Crossfade damage art back to idle after all cascades finish (skip if game over)
+    if (!this.gameOver) {
+      await this.restoreBossArtFromDamage();
+    }
 
     // Drain accumulated boss HP delta after all cascades
     this.bossHpBar?.drainDelta();
@@ -2867,33 +2869,37 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: panelBg, alpha: 1, duration: 300, delay: 400 });
 
     const statsBaseY = panelY + 18;
+    // Defer stat row creation to avoid frame spike from 14+ text objects at once
     statRows.forEach(([label, value, color], i) => {
-      const labelText = this.add
-        .text(panelPadX + 16, statsBaseY + i * rowSpacing, label, {
-          fontSize: "17px",
-          color: "#cccccc",
-          fontFamily: font,
-        })
-        .setOrigin(0, 0.5)
-        .setDepth(1000)
-        .setAlpha(0);
+      const rowDelay = 500 + i * 80;
+      this.time.delayedCall(Math.max(0, rowDelay - 50), () => {
+        const labelText = this.add
+          .text(panelPadX + 16, statsBaseY + i * rowSpacing, label, {
+            fontSize: "17px",
+            color: "#cccccc",
+            fontFamily: font,
+          })
+          .setOrigin(0, 0.5)
+          .setDepth(1000)
+          .setAlpha(0);
 
-      const valueText = this.add
-        .text(panelPadX + panelWidth - 16, statsBaseY + i * rowSpacing, value, {
-          fontSize: "17px",
-          color,
-          fontFamily: font,
-          fontStyle: "700",
-        })
-        .setOrigin(1, 0.5)
-        .setDepth(1000)
-        .setAlpha(0);
+        const valueText = this.add
+          .text(panelPadX + panelWidth - 16, statsBaseY + i * rowSpacing, value, {
+            fontSize: "17px",
+            color,
+            fontFamily: font,
+            fontStyle: "700",
+          })
+          .setOrigin(1, 0.5)
+          .setDepth(1000)
+          .setAlpha(0);
 
-      this.tweens.add({
-        targets: [labelText, valueText],
-        alpha: 1,
-        duration: 200,
-        delay: 500 + i * 80,
+        this.tweens.add({
+          targets: [labelText, valueText],
+          alpha: 1,
+          duration: 200,
+          delay: 50,
+        });
       });
     });
 
