@@ -18,6 +18,7 @@ import {
   SAFE_AREA,
   GAME_PARAMS,
   DPR,
+  TILE_DISPLAY_SCALE,
 } from "../game/config";
 import {
   ANIMATION_DURATIONS,
@@ -55,7 +56,7 @@ const SKILL_TUTORIAL = [
 ];
 
 // Tutorial: fixed 8x7 board for the first move
-// Player must swipe tile at (4,2) DOWN to (4,3) to complete 5 swords in a row at (2..6,3)
+// Player must swipe tile at (3,2) DOWN to (3,3) to complete 3 swords in a row at (3..5,3)
 const S = TileKind.Sword as BaseTileKind;
 const T = TileKind.Star as BaseTileKind;
 const M = TileKind.Mana as BaseTileKind;
@@ -65,23 +66,21 @@ const TUTORIAL_BOARD: BaseTileKind[][] = [
   //  0  1  2  3  4  5  6  7
   [H, T, M, H, T, M, H, T],  // row 0
   [T, M, H, T, H, T, M, H],  // row 1
-  [M, H, T, M, S, H, T, M],  // row 2: sword at (4,2) — swipe DOWN
-  [H, T, S, S, M, S, S, T],  // row 3: swords at (2,3),(3,3),(5,3),(6,3)
+  [M, H, T, S, H, T, M, H],  // row 2: sword at (3,2) — swipe DOWN
+  [H, T, M, T, S, S, H, T],  // row 3: swords at (4,3),(5,3)
   [T, M, H, T, H, T, M, T],  // row 4
   [M, H, T, H, T, M, H, M],  // row 5
   [H, T, M, T, M, H, T, H],  // row 6
 ];
 
 // The tile that must be swiped and where it goes
-const TUTORIAL_FROM: Position = { x: 4, y: 2 };
-const TUTORIAL_TO: Position = { x: 4, y: 3 };
-// All sword positions that form the match (after swap)
+const TUTORIAL_FROM: Position = { x: 3, y: 2 };
+const TUTORIAL_TO: Position = { x: 3, y: 3 };
+// All tiles involved in the tutorial match (highlighted above overlay)
 const TUTORIAL_HIGHLIGHT: Position[] = [
-  { x: 2, y: 3 },
-  { x: 3, y: 3 },
+  { x: 4, y: 3 },
   { x: 5, y: 3 },
-  { x: 6, y: 3 },
-  { x: 4, y: 2 }, // this one will be swiped to (4,3)
+  { x: 3, y: 2 }, // this one will be swiped to (3,3)
 ];
 
 export class GameScene extends Phaser.Scene {
@@ -156,7 +155,6 @@ export class GameScene extends Phaser.Scene {
   private tutorialHandChain?: Phaser.Tweens.TweenChain;
   private tutorialHintOverlays: Phaser.GameObjects.Image[] = [];
   private tutorialHintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
-  private tutorialHintSyncFn?: () => void;
 
   private cascadeCount = 0;
 
@@ -327,6 +325,7 @@ export class GameScene extends Phaser.Scene {
     this.settingsOpen = false;
     this.hammerMode = false;
     this.bossShieldDuration = 0;
+    this.bossDamageArtActive = false;
     this.skillCooldowns = { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
     this.unlockedSkillCount = 0;
     this.bombTipShown = false;
@@ -341,7 +340,6 @@ export class GameScene extends Phaser.Scene {
     this.tutorialHandChain = undefined;
     this.tutorialHintOverlays = [];
     this.tutorialHintTweens = [];
-    this.tutorialHintSyncFn = undefined;
     this.board = Match3Board.fromGrid(BOARD_WIDTH, BOARD_HEIGHT, TUTORIAL_BOARD);
     this.bossAbilityManager = new BossAbilityManager();
     this.tileSprites.clear();
@@ -442,10 +440,11 @@ export class GameScene extends Phaser.Scene {
       .setDepth(4)
       .setAlpha(initialAlpha);
 
-    // === HP БАР БОССА ===
+    // === HP БАР БОССА (с trailing delta) ===
     this.bossHpBar = new Meter(
       this, L.bossHpBarX, L.bossHpBarY,
-      L.hpBarWidth, L.hpBarHeight, "", UI_COLORS.bossHp, true
+      L.hpBarWidth, L.hpBarHeight, "", UI_COLORS.bossHp, true,
+      { trailingDelta: true }
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА КУЛДАУНА ===
@@ -499,16 +498,18 @@ export class GameScene extends Phaser.Scene {
       .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, 0x000000, 0)
       .setDepth(3);
 
-    // === HP БАР ИГРОКА ===
+    // === HP БАР ИГРОКА (always green + heal icon) ===
     this.playerHpBar = new Meter(
       this, L.playerHpBarX, L.playerHpBarY,
-      L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp, true
+      L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp, true,
+      { alwaysGreen: true, iconKey: ASSET_KEYS.tiles[TileKind.Heal], iconSize: L.playerBarHeight }
     ).setDepth(4).setAlpha(initialAlpha);
 
-    // === MANA БАР ИГРОКА ===
+    // === MANA БАР ИГРОКА (mana icon) ===
     this.manaBar = new Meter(
       this, L.playerHpBarX, L.playerMpBarY,
-      L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerMana
+      L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerMana, false,
+      { iconKey: ASSET_KEYS.tiles[TileKind.Mana], iconSize: L.playerBarHeight }
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === КНОПКА MUTE ===
@@ -797,6 +798,12 @@ export class GameScene extends Phaser.Scene {
       swapTargets = [];
     }
 
+    // Crossfade damage art back to idle after all cascades finish
+    await this.restoreBossArtFromDamage();
+
+    // Drain accumulated boss HP delta after all cascades
+    this.bossHpBar?.drainDelta();
+
     // Check for deadlock after cascades settle
     if (!this.gameOver) {
       await this.checkAndReshuffle();
@@ -846,10 +853,12 @@ export class GameScene extends Phaser.Scene {
     this.stats.totalDamageDealt += damage;
     this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticMedium();
+    this.bossHpBar?.flash();
     if (this.bossImage) {
       const dmgTarget = this.bossTarget;
       showDamageNumber(this, dmgTarget.x, dmgTarget.y, damage, "damage");
       this.flashBoss(); // fire-and-forget: instant texture swap + white flash + shake
+      this.showSlashEffect(this.bossTarget, false);
     }
   }
 
@@ -860,6 +869,7 @@ export class GameScene extends Phaser.Scene {
     hapticHeavy();
     this.stats.totalDamageReceived += damage;
     this.playerHp = clamp(this.playerHp - damage, 0, GAME_PARAMS.player.hpMax);
+    this.playerHpBar?.flash();
     if (this.playerAvatar) {
       showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 30, damage, "damage");
     }
@@ -874,6 +884,7 @@ export class GameScene extends Phaser.Scene {
 
     if (actualGain > 0) {
       this.sfx(ASSET_KEYS.sfx.gemDestroy, 0.3);
+      this.manaBar?.flash();
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 20, actualGain, "mana");
       }
@@ -900,6 +911,7 @@ export class GameScene extends Phaser.Scene {
     if (actualHeal > 0) {
       this.stats.totalHealDone += actualHeal;
       this.sfx(ASSET_KEYS.sfx.gemDestroy);
+      this.playerHpBar?.flash();
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 40, actualHeal, "heal");
       }
@@ -924,24 +936,22 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private bossFlashActive = false;
-  private bossFlashGeneration = 0;
+  private bossDamageArtActive = false;
 
   private async flashBoss() {
     if (!this.bossImage) return;
     // Always show white flash even during active shake (rapid cascade hits)
     this.flashBossWhite();
-    if (this.bossFlashActive) return;
-    this.bossFlashActive = true;
-    const gen = ++this.bossFlashGeneration;
-    const cancelled = () => gen !== this.bossFlashGeneration;
 
-    // Instantly switch to damage texture
-    this.bossImage.setTexture(ASSET_KEYS.boss.damage);
-    this.bossImageGlow?.setTexture(ASSET_KEYS.boss.damageBack);
-    this.bossGlowBrightness?.setTexture(ASSET_KEYS.boss.damageBack);
+    // Switch to damage texture on first hit, keep it for entire cascade
+    if (!this.bossDamageArtActive) {
+      this.bossDamageArtActive = true;
+      this.bossImage.setTexture(ASSET_KEYS.boss.damage);
+      this.bossImageGlow?.setTexture(ASSET_KEYS.boss.damageBack);
+      this.bossGlowBrightness?.setTexture(ASSET_KEYS.boss.damageBack);
+    }
 
-    // Shake (~300ms) — save positions, shake, restore
+    // Always shake on every hit
     const layers = this.bossLayers;
     const savedPositions = layers.map(t => ({ x: t.x, y: t.y }));
     await tweenPromise(this, {
@@ -952,14 +962,23 @@ export class GameScene extends Phaser.Scene {
       repeat: 2,
     });
 
-    if (cancelled()) { this.bossFlashActive = false; return; }
-
     // Restore exact positions (shake may leave offset)
-    layers.forEach((t, i) => t.setPosition(savedPositions[i].x, savedPositions[i].y));
+    layers.forEach((t, i) => {
+      if (t.scene) t.setPosition(savedPositions[i].x, savedPositions[i].y);
+    });
+  }
 
-    // Instantly restore normal art
-    this.bossFlashActive = false;
+  /** Crossfade from damage art back to idle art. Called at end of resolveBoard. */
+  private async restoreBossArtFromDamage() {
+    if (!this.bossDamageArtActive || !this.bossImage) return;
+    this.bossDamageArtActive = false;
+
+    // Crossfade all 3 boss layers: fade out damage art, switch texture, fade back in
+    const layers = this.bossLayers;
+    await tweenPromise(this, { targets: layers, alpha: 0, duration: 150 });
     this.updateBossArt();
+    await tweenPromise(this, { targets: layers, alpha: 1, duration: 150 });
+    this.startBossGlowPulse();
   }
 
   private flashBossWhite() {
@@ -1007,7 +1026,7 @@ export class GameScene extends Phaser.Scene {
     const startY = (startYOrAlpha !== undefined && startYOrAlpha > 1) ? startYOrAlpha : undefined;
     const alpha = initialAlpha ?? ((startYOrAlpha !== undefined && startYOrAlpha <= 1) ? startYOrAlpha : 1);
 
-    const tileSize = Math.round(CELL_SIZE * 1.1);
+    const tileSize = Math.round(CELL_SIZE * TILE_DISPLAY_SCALE);
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
       .setDisplaySize(tileSize, tileSize)
@@ -1061,7 +1080,7 @@ export class GameScene extends Phaser.Scene {
     // Pulsating glow animation
     this.tweens.add({
       targets: glow,
-      alpha: { from: 0.5, to: 1.0 },
+      alpha: { from: VISUAL_EFFECTS.glowBaseAlpha, to: VISUAL_EFFECTS.glowPeakAlpha },
       duration: 800,
       ease: "Sine.easeInOut",
       yoyo: true,
@@ -1158,7 +1177,7 @@ export class GameScene extends Phaser.Scene {
         const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
         sprite.setTexture(textureKey);
         // ВАЖНО: пересчитываем размер после смены текстуры
-        sprite.setDisplaySize(Math.round(CELL_SIZE * 1.1), Math.round(CELL_SIZE * 1.1));
+        sprite.setDisplaySize(Math.round(CELL_SIZE * TILE_DISPLAY_SCALE), Math.round(CELL_SIZE * TILE_DISPLAY_SCALE));
         const baseScale = sprite.scaleX;
         this.tweens.add({
           targets: sprite,
@@ -1348,7 +1367,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateBossArt() {
-    if (!this.bossImage || this.bossFlashActive) return;
+    if (!this.bossImage || this.bossDamageArtActive) return;
     const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
     const isBattle = ratio >= BOSS_DAMAGED_HP_THRESHOLD;
     const backKey = isBattle ? ASSET_KEYS.boss.mainBack : ASSET_KEYS.boss.lowhpBack;
@@ -1395,6 +1414,7 @@ export class GameScene extends Phaser.Scene {
 
     // Обработка разных скиллов
     if (id === "powerStrike") {
+      this.showSlashEffect(this.bossTarget, true);
       this.applyDamageToBoss(cfg.damage);
     } else if (id === "stun" && cfg.stunTurns) {
       // Добавляем ходы к кулдауну босса
@@ -1798,19 +1818,20 @@ export class GameScene extends Phaser.Scene {
   private showFirstMoveTutorial() {
     this.tutorialActive = true;
 
-    // Full-screen dark overlay (above tiles at 1.0, below highlighted at 1.1)
+    // Dark overlay over entire board (above tiles, below highlighted)
     this.tutorialOverlay = this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 1)
       .setOrigin(0, 0)
-      .setAlpha(0.6)
+      .setAlpha(0.7)
       .setDepth(1.05)
       .setInteractive();
 
     // Ensure grid is visible (may be alpha 0 from startHidden intro)
     if (this.gridGfx) this.gridGfx.setAlpha(1);
 
-    // Bump highlighted sword tiles above the overlay
-    for (const pos of TUTORIAL_HIGHLIGHT) {
+    // Bump highlighted sword tiles + swap target above the overlay
+    const highlightedPositions = [...TUTORIAL_HIGHLIGHT, TUTORIAL_TO];
+    for (const pos of highlightedPositions) {
       const tile = this.board.getTile(pos);
       if (tile) {
         const sprite = this.tileSprites.get(tile.id);
@@ -1820,7 +1841,6 @@ export class GameScene extends Phaser.Scene {
 
     // Hint glow overlays on highlighted tiles
     const allGlows: Phaser.GameObjects.Image[] = [];
-    let fromGlow: Phaser.GameObjects.Image | undefined;
     for (const pos of TUTORIAL_HIGHLIGHT) {
       const tile = this.board.getTile(pos);
       if (!tile) continue;
@@ -1830,101 +1850,75 @@ export class GameScene extends Phaser.Scene {
       glow.setDepth(1.5);
       allGlows.push(glow);
       this.tutorialHintOverlays.push(glow);
-      if (pos.x === TUTORIAL_FROM.x && pos.y === TUTORIAL_FROM.y) fromGlow = glow;
     }
 
-    // Asymmetric shake on the FROM tile (swipe direction)
-    const fromTile = this.board.getTile(TUTORIAL_FROM);
-    if (fromTile) {
-      const fromSprite = this.tileSprites.get(fromTile.id);
-      if (fromSprite) {
-        const dx = TUTORIAL_TO.x - TUTORIAL_FROM.x;
-        const dy = TUTORIAL_TO.y - TUTORIAL_FROM.y;
-        const dist = HINT_ANIMATION.shakeDistance;
-        const world = this.toWorld(TUTORIAL_FROM);
-        const capturedFromGlow = fromGlow;
-
-        // Sync glow + hand position + alpha to shake progress
-        const handOffX = 24;
-        const handOffY = 24;
-        const syncFn = () => {
-          if (!fromSprite.scene) return;
-          if (capturedFromGlow?.scene) capturedFromGlow.setPosition(fromSprite.x, fromSprite.y);
-          // Hand follows the shaking tile
-          if (this.tutorialHand?.scene) {
-            this.tutorialHand.setPosition(fromSprite.x + handOffX, fromSprite.y + handOffY);
-          }
-          const offsetX = fromSprite.x - world.x;
-          const offsetY = fromSprite.y - world.y;
-          const currentDist = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-          const progress = Math.min(currentDist / dist, 1);
-          const glowAlpha = HINT_ANIMATION.glowBaseAlpha +
-            progress * (HINT_ANIMATION.glowPeakAlpha - HINT_ANIMATION.glowBaseAlpha);
-          for (const g of allGlows) {
-            if (g.scene) g.setAlpha(glowAlpha);
-          }
-        };
-        this.events.on("update", syncFn);
-        this.tutorialHintSyncFn = syncFn;
-
-        // Build shake chain (looping for tutorial)
-        const fwdDuration = HINT_ANIMATION.shakeDuration * 0.35;
-        const bwdDuration = HINT_ANIMATION.shakeDuration * 0.65;
-        const fwd = {
-          targets: fromSprite,
-          x: world.x + dx * dist,
-          y: world.y + dy * dist,
-          duration: fwdDuration,
-          ease: "Quart.easeIn",
-        };
-        const bwd = {
-          targets: fromSprite,
-          x: world.x,
-          y: world.y,
-          duration: bwdDuration,
-          ease: "Sine.easeOut",
-        };
-        const chainTweens = [];
-        for (let i = 0; i < HINT_ANIMATION.shakeRepeat; i++) {
-          chainTweens.push({ ...fwd }, { ...bwd });
-        }
-        // Pause between shake cycles
-        chainTweens.push({ targets: fromSprite, alpha: 1, duration: 400 });
-        const chain = this.tweens.chain({
-          tweens: chainTweens,
-          loop: -1,
-        });
-        this.tutorialHintTweens.push(chain);
-      }
-    }
-
-    // Speech bubble below the match area
-    const matchCenterY = this.boardOrigin.y + 3 * CELL_SIZE + CELL_SIZE / 2;
-    const bubbleY = matchCenterY + CELL_SIZE * 2.5;
+    // Speech bubble above the board area
+    const bubbleY = this.boardOrigin.y - 20;
     this.tutorialBubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text: "Составь комбинацию из МЕЧЕЙ,\nчтобы атаковать!",
-      tailDirection: "up",
-      maxWidth: 280,
-      fontSize: "15px",
+      tailDirection: "down",
+      maxWidth: 320,
+      fontSize: "22px",
       highlights: [{ word: "МЕЧЕЙ", color: "#ff4444" }],
     });
     this.tutorialBubble.setDepth(100);
     this.tutorialBubble.fadeIn(200);
 
-    // Hand arrow: follows the shaking tile via update sync
+    // Hand arrow: slides from source tile to target tile in a loop
     const fromWorld = this.toWorld(TUTORIAL_FROM);
-    const handOffX = 24;
-    const handOffY = 24;
+    const toWorld = this.toWorld(TUTORIAL_TO);
     this.tutorialHand = this.add
-      .image(fromWorld.x + handOffX, fromWorld.y + handOffY, ASSET_KEYS.ui.handArrow)
-      .setDisplaySize(48, 52)
+      .image(fromWorld.x + 20, fromWorld.y + 20, ASSET_KEYS.ui.handArrow)
+      .setDisplaySize(72, 78)
       .setDepth(100)
-      .setAlpha(1);
+      .setAlpha(0);
+
+    // Looping slide animation: fade in on source -> slide to target -> fade out -> reset
+    const hand = this.tutorialHand;
+    const slideChain = this.tweens.chain({
+      tweens: [
+        // Fade in at source
+        { targets: hand, alpha: 1, duration: 200, ease: "Quad.easeOut",
+          onStart: () => { if (hand.scene) hand.setPosition(fromWorld.x + 20, fromWorld.y + 20); } },
+        // Hold briefly
+        { targets: hand, alpha: 1, duration: 200 },
+        // Slide to target
+        { targets: hand, x: toWorld.x + 20, y: toWorld.y + 20, duration: 400, ease: "Quad.easeInOut" },
+        // Hold at target
+        { targets: hand, alpha: 1, duration: 150 },
+        // Fade out
+        { targets: hand, alpha: 0, duration: 200, ease: "Quad.easeIn" },
+        // Pause before next loop
+        { targets: hand, alpha: 0, duration: 300 },
+      ],
+      loop: -1,
+    });
+    this.tutorialHandChain = slideChain;
+
+    // Pulse glows in sync with hand slide
+    const glowPulse = this.tweens.chain({
+      tweens: [
+        { targets: allGlows, alpha: HINT_ANIMATION.glowBaseAlpha, duration: 400 },
+        { targets: allGlows, alpha: HINT_ANIMATION.glowPeakAlpha, duration: 400, ease: "Sine.easeInOut" },
+        { targets: allGlows, alpha: HINT_ANIMATION.glowBaseAlpha, duration: 350, ease: "Sine.easeOut" },
+        { targets: allGlows, alpha: HINT_ANIMATION.glowBaseAlpha, duration: 500 },
+      ],
+      loop: -1,
+    });
+    this.tutorialHintTweens.push(glowPulse);
   }
 
   private clearTutorial() {
+    // Fade out overlay
     if (this.tutorialOverlay?.scene) {
-      this.tutorialOverlay.destroy();
+      const overlay = this.tutorialOverlay;
+      this.tweens.add({
+        targets: overlay,
+        alpha: 0,
+        duration: 200,
+        ease: "Quad.easeOut",
+        onComplete: () => { if (overlay.scene) overlay.destroy(); },
+      });
       this.tutorialOverlay = undefined;
     }
     if (this.tutorialBubble?.scene) {
@@ -1939,11 +1933,7 @@ export class GameScene extends Phaser.Scene {
       this.tutorialHand.destroy();
       this.tutorialHand = undefined;
     }
-    // Clean up hint shake/glow animations
-    if (this.tutorialHintSyncFn) {
-      this.events.off("update", this.tutorialHintSyncFn);
-      this.tutorialHintSyncFn = undefined;
-    }
+    // Clean up hint glow animations
     for (const tween of this.tutorialHintTweens) {
       tween.stop();
     }
@@ -1955,19 +1945,9 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.tutorialHintOverlays = [];
-    // Restore all tile depths and positions to normal
+    // Restore all tile depths to normal
     for (const [, sprite] of this.tileSprites) {
       if (sprite.scene) sprite.setDepth(1);
-    }
-    for (const pos of TUTORIAL_HIGHLIGHT) {
-      const tile = this.board.getTile(pos);
-      if (tile) {
-        const sprite = this.tileSprites.get(tile.id);
-        if (sprite?.scene) {
-          const world = this.toWorld(pos);
-          sprite.setPosition(world.x, world.y);
-        }
-      }
     }
     this.tutorialActive = false;
   }
@@ -2256,8 +2236,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private cancelFlashBoss() {
-    if (!this.bossFlashActive) return;
-    this.bossFlashGeneration++;
+    if (!this.bossDamageArtActive) return;
 
     // Kill shake tweens and restore positions
     const layers = this.bossLayers;
@@ -2267,7 +2246,7 @@ export class GameScene extends Phaser.Scene {
     const bossY = GAME_PARAMS.background.offsetY + GAME_PARAMS.background.bossOnBgY * (this.bgImage?.displayHeight ?? 0);
     for (const t of layers) t.setPosition(GAME_WIDTH / 2, bossY);
 
-    this.bossFlashActive = false;
+    this.bossDamageArtActive = false;
     this.updateBossArt();
     this.bossImage?.setAlpha(1);
     this.bossImageGlow?.setAlpha(1);
@@ -2341,6 +2320,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(200, 0.015 / DPR);
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
+    this.showSlashEffect(this.playerTarget, false);
     // Update only bars, NOT updateBossArt() which would reset the attack texture
     this.bossHpBar?.setValue(this.bossHp, GAME_PARAMS.boss.hpMax);
     this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
@@ -2364,6 +2344,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async withCutscene(abilityName: string, logic: () => Promise<void>, bossTextureKey?: string, bossBackTextureKey?: string) {
+    // Fade out base boss art to avoid two copies visible simultaneously
+    const bossLayers = [this.bossImage, this.bossImageGlow, this.bossGlowBrightness].filter(Boolean) as Phaser.GameObjects.Image[];
+    if (this.bossGlowBrightness) this.tweens.killTweensOf(this.bossGlowBrightness);
+    await tweenPromise(this, { targets: bossLayers, alpha: 0, duration: 200 });
+
     const { overlay, fullscreenBack, fullscreenBoss, abilityText } = this.createAbilityCutscene(abilityName, bossTextureKey, bossBackTextureKey);
     await this.showAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
     await wait(this, 600);
@@ -2372,6 +2357,10 @@ export class GameScene extends Phaser.Scene {
     await wait(this, 270);
     await logic();
     await hidePromise;
+
+    // Fade base boss art back in
+    await tweenPromise(this, { targets: bossLayers, alpha: 1, duration: 200 });
+    this.startBossGlowPulse();
   }
 
   private async executeBombs() {
@@ -2425,6 +2414,7 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.shake(300, 0.02 / DPR);
       this.applyDamageToPlayer(config.damage);
       this.flashPlayerAvatar();
+      this.showSlashEffect(this.playerTarget, true);
 
       const manaDrain = Math.min(this.mana, config.manaDrain);
       if (manaDrain > 0) {
@@ -2714,6 +2704,33 @@ export class GameScene extends Phaser.Scene {
     this.playerAvatar.setFillStyle(0xffffff, 1);
     this.time.delayedCall(ANIMATION_DURATIONS.flashDuration, () => {
       this.playerAvatar?.setFillStyle(0x000000, 0);
+    });
+  }
+
+  /** Show slash overlay on target. strong=true uses double slash texture. */
+  private showSlashEffect(target: FlyTarget, strong: boolean) {
+    const SLASH_FADE_DURATION = 300;
+    const key = strong ? ASSET_KEYS.effects.slashDouble : ASSET_KEYS.effects.slash;
+    if (!this.textures.exists(key)) return;
+
+    const slash = this.add.image(target.x, target.y, key)
+      .setDepth(4.5)
+      .setAlpha(0)
+      .setAngle(-15 + Math.random() * 30);
+
+    // Scale to fit ~80px target area
+    const targetSize = 80;
+    const scale = targetSize / Math.max(slash.width, slash.height);
+    slash.setScale(scale);
+
+    this.tweens.add({
+      targets: slash,
+      alpha: { from: 0, to: 0.9 },
+      scale: scale * 1.2,
+      duration: SLASH_FADE_DURATION / 2,
+      ease: "Quad.easeOut",
+      yoyo: true,
+      onComplete: () => { if (slash.scene) slash.destroy(); },
     });
   }
 
