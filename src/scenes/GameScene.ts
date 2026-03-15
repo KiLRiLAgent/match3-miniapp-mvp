@@ -2384,25 +2384,37 @@ export class GameScene extends Phaser.Scene {
 
   private async executeBombs() {
     const config = BOSS_ABILITIES.bombs;
-    await this.withCutscene(config.name, async () => {
-      const { placed, replaced } = this.board.placeBombs(config.bombCount, config.bombCooldown);
 
-      // Удаляем спрайты замененных тайлов
-      replaced.forEach(({ tile }) => {
-        const sprite = this.tileSprites.get(tile.id);
-        sprite?.destroy();
-        this.tileSprites.delete(tile.id);
-        const replGlow = this.tileGlows.get(tile.id);
-        if (replGlow) {
-          this.tweens.killTweensOf(replGlow);
-          replGlow.destroy();
-          this.tileGlows.delete(tile.id);
-        }
-      });
+    // Manual cutscene: show boss art BEFORE bombs drop (not after)
+    const bossLayers = [this.bossImage, this.bossImageGlow, this.bossGlowBrightness].filter(Boolean) as Phaser.GameObjects.Image[];
+    if (this.bossGlowBrightness) this.tweens.killTweensOf(this.bossGlowBrightness);
+    await tweenPromise(this, { targets: bossLayers, alpha: 0, duration: 200 });
 
-      this.rebuildPositionMap();
-      await this.animateBombsAppear(placed);
+    const { overlay, fullscreenBack, fullscreenBoss, abilityText } = this.createAbilityCutscene(config.name);
+    await this.showAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
+    await wait(this, 600);
+
+    // Hide cutscene and restore boss art BEFORE placing bombs
+    await this.hideAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
+    await tweenPromise(this, { targets: bossLayers, alpha: 1, duration: 200 });
+    this.startBossGlowPulse();
+
+    // Now place and animate bombs with boss visible
+    const { placed, replaced } = this.board.placeBombs(config.bombCount, config.bombCooldown);
+    replaced.forEach(({ tile }) => {
+      const sprite = this.tileSprites.get(tile.id);
+      sprite?.destroy();
+      this.tileSprites.delete(tile.id);
+      const replGlow = this.tileGlows.get(tile.id);
+      if (replGlow) {
+        this.tweens.killTweensOf(replGlow);
+        replGlow.destroy();
+        this.tileGlows.delete(tile.id);
+      }
     });
+
+    this.rebuildPositionMap();
+    await this.animateBombsAppear(placed);
 
     if (!this.bombTipShown) {
       this.bombTipShown = true;
