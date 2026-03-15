@@ -1027,7 +1027,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createTileGlow(sprite: Phaser.GameObjects.Image, alpha: number) {
-    const tileSize = CELL_SIZE;
+    const tileSize = Math.round(CELL_SIZE * TILE_DISPLAY_SCALE);
     return this.add
       .image(sprite.x, sprite.y, sprite.texture.key)
       .setDisplaySize(tileSize, tileSize)

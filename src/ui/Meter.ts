@@ -102,14 +102,16 @@ export class Meter extends Phaser.GameObjects.Container {
     this.flashGfx.setAlpha(0);
     children.push(this.flashGfx);
 
-    const title = scene.add
-      .text(this.barOffsetX, -18, label, {
-        fontSize: "14px",
-        color: "#cfd8ff",
-        fontFamily: "'Exo 2', Arial, sans-serif",
-      })
-      .setOrigin(0, 0.5);
-    children.push(title);
+    if (label) {
+      const title = scene.add
+        .text(this.barOffsetX, -18, label, {
+          fontSize: "14px",
+          color: "#cfd8ff",
+          fontFamily: "'Exo 2', Arial, sans-serif",
+        })
+        .setOrigin(0, 0.5);
+      children.push(title);
+    }
 
     // Текст по центру полоски
     this.label = scene.add
@@ -145,11 +147,10 @@ export class Meter extends Phaser.GameObjects.Container {
   private drawDelta() {
     this.deltaGfx.clear();
     if (this.deltaWidth <= 0) return;
-    const deltaX = this.barOffsetX + this.currentFillWidth;
-    const clampedDeltaWidth = Math.min(this.deltaWidth, this.widthPx - this.currentFillWidth);
-    if (clampedDeltaWidth <= 0) return;
+    const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
+    if (totalWidth <= 0) return;
     this.deltaGfx.fillStyle(0xffffff, 0.7);
-    this.deltaGfx.fillRect(deltaX, 0, clampedDeltaWidth, this.heightPx);
+    this.deltaGfx.fillRoundedRect(this.barOffsetX, 0, totalWidth, this.heightPx, this.radius);
   }
 
   setValue(current: number, max: number) {
