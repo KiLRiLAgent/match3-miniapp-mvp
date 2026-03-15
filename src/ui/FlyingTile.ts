@@ -50,12 +50,12 @@ function flyTileToTarget(
     const midY = Math.min(startY, endY) - FLYING_TILE.arcHeight - Phaser.Math.Between(0, FLYING_TILE.arcVariation);
 
     const textureKey = ASSET_KEYS.tiles[tileKind] ?? tileKind;
+    const startDisplaySize = FLYING_TILE.size * FLYING_TILE.startScale;
     const tile = scene.add
       .image(startX, startY, textureKey)
-      .setDisplaySize(FLYING_TILE.size, FLYING_TILE.size)
+      .setDisplaySize(startDisplaySize, startDisplaySize)
       .setDepth(200);
 
-    const baseScale = tile.scaleX;
     const trailGraphics = scene.add.graphics().setDepth(199);
     const trailPoints: { x: number; y: number; alpha: number }[] = [];
 
@@ -89,8 +89,12 @@ function flyTileToTarget(
       );
 
       tile.setPosition(x, y);
-      tile.setScale(baseScale * (1 - progress * FLYING_TILE.flyingTileScaleReduction));
+      // Perspective scaling: interpolate from startScale to endScale along flight
+      const perspectiveScale = FLYING_TILE.startScale + (FLYING_TILE.endScale - FLYING_TILE.startScale) * progress;
+      tile.setDisplaySize(FLYING_TILE.size * perspectiveScale, FLYING_TILE.size * perspectiveScale);
 
+      // Trail size scales proportionally to current tile scale
+      const trailScale = perspectiveScale / FLYING_TILE.startScale;
       trailPoints.push({ x, y, alpha: 1 });
 
       trailGraphics.clear();
@@ -98,7 +102,7 @@ function flyTileToTarget(
         point.alpha -= FLYING_TILE.trailFade;
         if (point.alpha > 0) {
           trailGraphics.fillStyle(color, point.alpha * FLYING_TILE.trailOpacity);
-          trailGraphics.fillCircle(point.x, point.y, FLYING_TILE.trailSize * point.alpha);
+          trailGraphics.fillCircle(point.x, point.y, FLYING_TILE.trailSize * trailScale * point.alpha);
         }
       }
 

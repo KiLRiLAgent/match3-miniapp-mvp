@@ -45,6 +45,10 @@ export const ASSET_KEYS = {
     gold: "tile_glow_gold",
     red: "tile_glow_red",
   },
+  effects: {
+    slash: "effect_slash",
+    slashDouble: "effect_slash_double",
+  },
   particle: "particle",
   sfx: {
     gemSwipe: "gem_swipe",

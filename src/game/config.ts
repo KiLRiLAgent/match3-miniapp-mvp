@@ -33,6 +33,7 @@ export const BOARD_HEIGHT = 7;
 export let CELL_SIZE = 46; // Размер ячейки (пересчитывается в updateScaledValues)
 export const BOARD_PADDING = 8;
 export const SCREEN_PADDING = 2; // Отступ от краёв экрана
+export const TILE_DISPLAY_SCALE = 1.15; // Tile sprite size relative to CELL_SIZE
 
 export function updateScaledValues() {
   // Вычисляем CELL_SIZE чтобы поле занимало всю ширину экрана

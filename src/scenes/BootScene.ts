@@ -88,6 +88,10 @@ export class BootScene extends Phaser.Scene {
     // Load player avatar
     this.load.image(ASSET_KEYS.player.avatar, "assets/player/player.png");
 
+    // Load slash effect sprites
+    this.load.image(ASSET_KEYS.effects.slash, "splash_1.png");
+    this.load.image(ASSET_KEYS.effects.slashDouble, "splash_2.png");
+
     // Load UI assets
     this.load.image(ASSET_KEYS.ui.handArrow, "hand_arrow.png");
 
@@ -209,7 +213,7 @@ export class BootScene extends Phaser.Scene {
 
   private buildEnhancedGlowTextures() {
     const d = DPR;
-    const size = Math.ceil(CELL_SIZE * d);
+    const size = Math.ceil(CELL_SIZE * 1.4 * d);
 
     const buildGradient = (key: string, r: number, g: number, b: number) => {
       const canvas = document.createElement("canvas");
@@ -220,8 +224,9 @@ export class BootScene extends Phaser.Scene {
       const center = size / 2;
       const grad = ctx.createRadialGradient(center, center, 0, center, center, center);
       const rgba = (a: number) => `rgba(${r},${g},${b},${a})`;
-      grad.addColorStop(0, rgba(0.9));
-      grad.addColorStop(0.6, rgba(0.5));
+      grad.addColorStop(0, rgba(1.0));
+      grad.addColorStop(0.4, rgba(0.7));
+      grad.addColorStop(0.7, rgba(0.4));
       grad.addColorStop(1, rgba(0));
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, size, size);

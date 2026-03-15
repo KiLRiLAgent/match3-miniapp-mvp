@@ -37,7 +37,9 @@ export const VISUAL_EFFECTS = {
   bossShakeOffset: 8,
   damageShakeOffset: 5,
   transformScaleFactor: 1.2,
-  glowScale: 1.0,
+  glowScale: 1.2,
+  glowBaseAlpha: 0.7,
+  glowPeakAlpha: 1.0,
   bossGlowPulseMax: 0.25,
 } as const;
 
@@ -54,7 +56,8 @@ export const FLYING_TILE = {
   trailOpacity: 0.7,
   trailSize: 6,
   delayBetweenTiles: 30,
-  flyingTileScaleReduction: 0.6,
+  startScale: 1.25,
+  endScale: 0.85,
 } as const;
 
 /**

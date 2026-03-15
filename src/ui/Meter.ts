@@ -1,5 +1,19 @@
 import Phaser from "phaser";
 
+const FLASH_DURATION = 200;
+const DELTA_DRAIN_DURATION = 500;
+
+export interface MeterOptions {
+  /** Enable trailing delta rectangle showing lost HP */
+  trailingDelta?: boolean;
+  /** Keep bar always green regardless of ratio */
+  alwaysGreen?: boolean;
+  /** Texture key for icon displayed to the left of the bar */
+  iconKey?: string;
+  /** Icon size in pixels (default: bar height) */
+  iconSize?: number;
+}
+
 export class Meter extends Phaser.GameObjects.Container {
   private fillGfx: Phaser.GameObjects.Graphics;
   private highlightGfx: Phaser.GameObjects.Graphics;
@@ -11,6 +25,23 @@ export class Meter extends Phaser.GameObjects.Container {
   private isHp: boolean;
   private currentColor: number;
 
+  // Flash support
+  private flashGfx: Phaser.GameObjects.Graphics;
+  private flashing = false;
+
+  // Trailing delta support
+  private deltaEnabled: boolean;
+  private deltaGfx: Phaser.GameObjects.Graphics;
+  private currentFillWidth = 0;
+  private deltaWidth = 0;
+  private deltaDraining = false;
+
+  // Always-green option
+  private alwaysGreen: boolean;
+
+  // Bar offset (for icon)
+  private barOffsetX = 0;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -19,42 +50,70 @@ export class Meter extends Phaser.GameObjects.Container {
     height: number,
     label: string,
     color: number,
-    isHp = false
+    isHp = false,
+    options?: MeterOptions
   ) {
     super(scene, x, y);
-    this.widthPx = width;
     this.heightPx = height;
     this.baseColor = color;
     this.currentColor = color;
     this.isHp = isHp;
     this.radius = Math.round(height / 2);
+    this.deltaEnabled = options?.trailingDelta ?? false;
+    this.alwaysGreen = options?.alwaysGreen ?? false;
+
+    // Icon support
+    const children: Phaser.GameObjects.GameObject[] = [];
+    if (options?.iconKey) {
+      const iconSize = options.iconSize ?? height;
+      const icon = scene.add.image(iconSize / 2, height / 2, options.iconKey)
+        .setDisplaySize(iconSize, iconSize);
+      children.push(icon);
+      this.barOffsetX = iconSize + 4;
+    }
+
+    this.widthPx = width - this.barOffsetX;
 
     // Rounded border background
     const borderGfx = scene.add.graphics();
     borderGfx.fillStyle(0x0a0c16, 0.65);
-    borderGfx.fillRoundedRect(0, 0, width, height, this.radius);
+    borderGfx.fillRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
     borderGfx.lineStyle(2, 0x334466, 0.7);
-    borderGfx.strokeRoundedRect(0, 0, width, height, this.radius);
+    borderGfx.strokeRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
+    children.push(borderGfx);
+
+    // Delta rectangle (behind fill)
+    this.deltaGfx = scene.add.graphics();
+    children.push(this.deltaGfx);
 
     // Fill drawn as rounded rect (no mask needed)
     this.fillGfx = scene.add.graphics();
-    this.drawFill(width);
+    this.drawFill(this.widthPx);
+    this.currentFillWidth = this.widthPx;
+    children.push(this.fillGfx);
 
     // Highlight strip for faux gradient
     this.highlightGfx = scene.add.graphics();
-    this.drawHighlight(width);
+    this.drawHighlight(this.widthPx);
+    children.push(this.highlightGfx);
+
+    // Flash overlay (on top of fill and highlight)
+    this.flashGfx = scene.add.graphics();
+    this.flashGfx.setAlpha(0);
+    children.push(this.flashGfx);
 
     const title = scene.add
-      .text(0, -18, label, {
+      .text(this.barOffsetX, -18, label, {
         fontSize: "14px",
         color: "#cfd8ff",
         fontFamily: "'Exo 2', Arial, sans-serif",
       })
       .setOrigin(0, 0.5);
+    children.push(title);
 
     // Текст по центру полоски
     this.label = scene.add
-      .text(width / 2, height / 2, "0/0", {
+      .text(this.barOffsetX + this.widthPx / 2, height / 2, "0/0", {
         fontSize: "13px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -63,8 +122,9 @@ export class Meter extends Phaser.GameObjects.Container {
         strokeThickness: 2,
       })
       .setOrigin(0.5, 0.5);
+    children.push(this.label);
 
-    this.add([borderGfx, this.fillGfx, this.highlightGfx, title, this.label]);
+    this.add(children);
     scene.add.existing(this);
   }
 
@@ -72,27 +132,99 @@ export class Meter extends Phaser.GameObjects.Container {
     this.fillGfx.clear();
     if (fillWidth <= 0) return;
     this.fillGfx.fillStyle(this.currentColor, 0.95);
-    this.fillGfx.fillRoundedRect(0, 0, fillWidth, this.heightPx, this.radius);
+    this.fillGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, this.heightPx, this.radius);
   }
 
   private drawHighlight(fillWidth: number) {
     this.highlightGfx.clear();
     if (fillWidth <= 0) return;
     this.highlightGfx.fillStyle(0xffffff, 0.15);
-    this.highlightGfx.fillRoundedRect(0, 0, fillWidth, Math.round(this.heightPx * 0.3), this.radius);
+    this.highlightGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, Math.round(this.heightPx * 0.3), this.radius);
+  }
+
+  private drawDelta() {
+    this.deltaGfx.clear();
+    if (this.deltaWidth <= 0) return;
+    const deltaX = this.barOffsetX + this.currentFillWidth;
+    const clampedDeltaWidth = Math.min(this.deltaWidth, this.widthPx - this.currentFillWidth);
+    if (clampedDeltaWidth <= 0) return;
+    this.deltaGfx.fillStyle(0xffffff, 0.6);
+    this.deltaGfx.fillRoundedRect(deltaX, 0, clampedDeltaWidth, this.heightPx, this.radius);
   }
 
   setValue(current: number, max: number) {
     const clamped = Phaser.Math.Clamp(current, 0, max);
     const ratio = max === 0 ? 0 : clamped / max;
-    const fillWidth = this.widthPx * ratio;
+    const newFillWidth = this.widthPx * ratio;
 
-    if (this.isHp) {
+    if (this.isHp && !this.alwaysGreen) {
       this.currentColor = ratio > 0.5 ? this.baseColor : ratio > 0.25 ? 0xf5a623 : 0xde3e3e;
     }
 
-    this.drawFill(fillWidth);
-    this.drawHighlight(fillWidth);
+    // Trailing delta: accumulate when value decreases
+    if (this.deltaEnabled && newFillWidth < this.currentFillWidth) {
+      const lost = this.currentFillWidth - newFillWidth;
+      this.deltaWidth += lost;
+    } else if (this.deltaEnabled && newFillWidth > this.currentFillWidth) {
+      // Value increased — shrink delta proportionally
+      this.deltaWidth = Math.max(0, this.deltaWidth - (newFillWidth - this.currentFillWidth));
+    }
+
+    this.currentFillWidth = newFillWidth;
+    this.drawFill(newFillWidth);
+    this.drawHighlight(newFillWidth);
+
+    if (this.deltaEnabled) {
+      this.drawDelta();
+    }
+
     this.label.setText(`${Math.floor(clamped)}/${max}`);
+  }
+
+  /** Flash the bar fill white briefly */
+  flash() {
+    if (this.flashing || this.currentFillWidth <= 0) return;
+    this.flashing = true;
+
+    this.flashGfx.clear();
+    this.flashGfx.fillStyle(0xffffff, 1);
+    this.flashGfx.fillRoundedRect(this.barOffsetX, 0, this.currentFillWidth, this.heightPx, this.radius);
+    this.flashGfx.setAlpha(0);
+
+    this.scene.tweens.add({
+      targets: this.flashGfx,
+      alpha: { from: 0, to: 0.6 },
+      duration: FLASH_DURATION / 2,
+      yoyo: true,
+      onComplete: () => {
+        this.flashGfx.setAlpha(0);
+        this.flashing = false;
+      },
+    });
+  }
+
+  /** Smoothly drain the trailing delta rectangle */
+  drainDelta() {
+    if (!this.deltaEnabled || this.deltaWidth <= 0 || this.deltaDraining) return;
+    this.deltaDraining = true;
+
+    const startWidth = this.deltaWidth;
+    let prevT = 1;
+    this.scene.tweens.addCounter({
+      from: 1,
+      to: 0,
+      duration: DELTA_DRAIN_DURATION,
+      ease: "Quad.easeOut",
+      onUpdate: (tween) => {
+        const t = tween.getValue() ?? 0;
+        const step = (prevT - t) * startWidth;
+        this.deltaWidth = Math.max(0, this.deltaWidth - step);
+        prevT = t;
+        this.drawDelta();
+      },
+      onComplete: () => {
+        this.deltaDraining = false;
+      },
+    });
   }
 }
