@@ -35,6 +35,7 @@ export class Meter extends Phaser.GameObjects.Container {
   private currentFillWidth = 0;
   private deltaWidth = 0;
   private deltaDraining = false;
+  private deltaDrainTween?: Phaser.Tweens.Tween;
 
   // Always-green option
   private alwaysGreen: boolean;
@@ -164,8 +165,12 @@ export class Meter extends Phaser.GameObjects.Container {
       this.currentColor = ratio > 0.5 ? this.baseColor : ratio > 0.25 ? 0xf5a623 : 0xde3e3e;
     }
 
-    // Trailing delta: accumulate when value decreases
+    // Trailing delta: accumulate when value decreases, cancel active drain
     if (this.deltaEnabled && newFillWidth < this.currentFillWidth) {
+      if (this.deltaDraining && this.deltaDrainTween) {
+        this.deltaDrainTween.stop();
+        this.deltaDraining = false;
+      }
       const lost = this.currentFillWidth - newFillWidth;
       this.deltaWidth += lost;
     } else if (this.deltaEnabled && newFillWidth > this.currentFillWidth) {
@@ -213,7 +218,7 @@ export class Meter extends Phaser.GameObjects.Container {
 
     const startWidth = this.deltaWidth;
     let prevT = 1;
-    this.scene.tweens.addCounter({
+    this.deltaDrainTween = this.scene.tweens.addCounter({
       from: 1,
       to: 0,
       duration: DELTA_DRAIN_DURATION,
@@ -227,6 +232,7 @@ export class Meter extends Phaser.GameObjects.Container {
       },
       onComplete: () => {
         this.deltaDraining = false;
+        this.deltaDrainTween = undefined;
       },
     });
   }

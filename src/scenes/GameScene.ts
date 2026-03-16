@@ -154,6 +154,7 @@ export class GameScene extends Phaser.Scene {
   private tutorialBubble?: SpeechBubble;
   private tutorialHand?: Phaser.GameObjects.Image;
   private tutorialHandChain?: Phaser.Tweens.TweenChain;
+  private tutorialHandDelay?: Phaser.Time.TimerEvent;
   private tutorialHintOverlays: Phaser.GameObjects.Image[] = [];
   private tutorialHintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
 
@@ -814,9 +815,11 @@ export class GameScene extends Phaser.Scene {
       swapTargets = [];
     }
 
-    // Crossfade damage art back to idle after all cascades finish (skip if game over)
+    // Crossfade damage art back to idle after all cascades finish
     if (!this.gameOver) {
       await this.restoreBossArtFromDamage();
+    } else {
+      this.bossDamageArtActive = false;
     }
 
     // Drain accumulated boss HP delta after all cascades
@@ -1894,9 +1897,9 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100)
       .setAlpha(0);
 
-    // Looping slide animation: delayed 1.5s, then fade in -> slide -> fade out -> loop
+    // Looping slide animation: delayed 600ms, then fade in -> slide -> fade out -> loop
     const hand = this.tutorialHand;
-    this.time.delayedCall(600, () => {
+    this.tutorialHandDelay = this.time.delayedCall(600, () => {
       if (!hand.scene || !this.tutorialActive) return;
       const slideChain = this.tweens.chain({
         tweens: [
@@ -1948,6 +1951,10 @@ export class GameScene extends Phaser.Scene {
     if (this.tutorialBubble?.scene) {
       this.tutorialBubble.fadeOut(150);
       this.tutorialBubble = undefined;
+    }
+    if (this.tutorialHandDelay) {
+      this.tutorialHandDelay.destroy();
+      this.tutorialHandDelay = undefined;
     }
     if (this.tutorialHandChain) {
       this.tutorialHandChain.stop();
