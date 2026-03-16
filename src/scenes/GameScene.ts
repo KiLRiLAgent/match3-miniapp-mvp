@@ -1896,7 +1896,7 @@ export class GameScene extends Phaser.Scene {
 
     // Looping slide animation: delayed 1.5s, then fade in -> slide -> fade out -> loop
     const hand = this.tutorialHand;
-    this.time.delayedCall(1500, () => {
+    this.time.delayedCall(600, () => {
       if (!hand.scene || !this.tutorialActive) return;
       const slideChain = this.tweens.chain({
         tweens: [
