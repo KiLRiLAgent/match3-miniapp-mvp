@@ -2742,25 +2742,24 @@ export class GameScene extends Phaser.Scene {
 
   /** Show slash overlay on target. strong=true uses double slash texture. */
   private showSlashEffect(target: FlyTarget, strong: boolean) {
-    const SLASH_FADE_DURATION = 300;
     const key = strong ? ASSET_KEYS.effects.slashDouble : ASSET_KEYS.effects.slash;
     if (!this.textures.exists(key)) return;
 
     const slash = this.add.image(target.x, target.y, key)
       .setDepth(4.5)
       .setAlpha(0)
-      .setAngle(-15 + Math.random() * 30);
+      .setAngle(-10 + Math.random() * 20);
 
-    // Scale to fit ~80px target area
-    const targetSize = 80;
+    // Scale to cover a large area (~250px for normal, ~300px for strong)
+    const targetSize = strong ? 300 : 250;
     const scale = targetSize / Math.max(slash.width, slash.height);
     slash.setScale(scale);
 
     this.tweens.add({
       targets: slash,
-      alpha: { from: 0, to: 0.9 },
-      scale: scale * 1.2,
-      duration: SLASH_FADE_DURATION / 2,
+      alpha: { from: 0, to: 1 },
+      scale: scale * 1.3,
+      duration: 180,
       ease: "Quad.easeOut",
       yoyo: true,
       onComplete: () => { if (slash.scene) slash.destroy(); },
