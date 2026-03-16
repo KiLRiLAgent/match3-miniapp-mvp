@@ -149,11 +149,10 @@ export class Meter extends Phaser.GameObjects.Container {
   private drawDelta() {
     this.deltaGfx.clear();
     if (this.deltaWidth <= 0) return;
-    const deltaX = this.barOffsetX + this.currentFillWidth;
-    const clampedWidth = Math.min(this.deltaWidth, this.widthPx - this.currentFillWidth);
-    if (clampedWidth <= 0) return;
+    const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
+    if (totalWidth <= 0) return;
     this.deltaGfx.fillStyle(0xffffff, 0.85);
-    this.deltaGfx.fillRect(deltaX, 0, clampedWidth, this.heightPx);
+    this.deltaGfx.fillRoundedRect(this.barOffsetX, 0, totalWidth, this.heightPx, this.radius);
   }
 
   setValue(current: number, max: number) {
