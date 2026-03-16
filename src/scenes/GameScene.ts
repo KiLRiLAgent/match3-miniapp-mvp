@@ -1890,7 +1890,7 @@ export class GameScene extends Phaser.Scene {
     const handOffY = 40;
     this.tutorialHand = this.add
       .image(fromWorld.x + handOffX, fromWorld.y + handOffY, ASSET_KEYS.ui.handArrow)
-      .setDisplaySize(72, 78)
+      .setDisplaySize(86, 94)
       .setDepth(100)
       .setAlpha(0);
 
@@ -1898,11 +1898,11 @@ export class GameScene extends Phaser.Scene {
     const hand = this.tutorialHand;
     const slideChain = this.tweens.chain({
       tweens: [
-        // Fade in at source
-        { targets: hand, alpha: 1, duration: 200, ease: "Quad.easeOut",
+        // Fade in at source (slow enough to be visible)
+        { targets: hand, alpha: 1, duration: 400, ease: "Quad.easeOut",
           onStart: () => { if (hand.scene) hand.setPosition(fromWorld.x + handOffX, fromWorld.y + handOffY); } },
         // Hold briefly
-        { targets: hand, alpha: 1, duration: 200 },
+        { targets: hand, alpha: 1, duration: 150 },
         // Slide to target
         { targets: hand, x: toWorld.x + handOffX, y: toWorld.y + handOffY, duration: 400, ease: "Quad.easeInOut" },
         // Hold at target
