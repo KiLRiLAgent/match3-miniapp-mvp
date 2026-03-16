@@ -74,9 +74,11 @@ export class Meter extends Phaser.GameObjects.Container {
 
     this.widthPx = width - this.barOffsetX;
 
-    // Rounded border background
+    // Rounded border background (dark gray for visible empty portion)
+    const bgColor = this.deltaEnabled ? 0x555555 : 0x0a0c16;
+    const bgAlpha = this.deltaEnabled ? 0.9 : 0.65;
     const borderGfx = scene.add.graphics();
-    borderGfx.fillStyle(0x0a0c16, 0.65);
+    borderGfx.fillStyle(bgColor, bgAlpha);
     borderGfx.fillRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
     borderGfx.lineStyle(2, 0x334466, 0.7);
     borderGfx.strokeRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
@@ -147,10 +149,11 @@ export class Meter extends Phaser.GameObjects.Container {
   private drawDelta() {
     this.deltaGfx.clear();
     if (this.deltaWidth <= 0) return;
-    const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
-    if (totalWidth <= 0) return;
-    this.deltaGfx.fillStyle(0xffffff, 0.7);
-    this.deltaGfx.fillRoundedRect(this.barOffsetX, 0, totalWidth, this.heightPx, this.radius);
+    const deltaX = this.barOffsetX + this.currentFillWidth;
+    const clampedWidth = Math.min(this.deltaWidth, this.widthPx - this.currentFillWidth);
+    if (clampedWidth <= 0) return;
+    this.deltaGfx.fillStyle(0xffffff, 0.85);
+    this.deltaGfx.fillRect(deltaX, 0, clampedWidth, this.heightPx);
   }
 
   setValue(current: number, max: number) {
