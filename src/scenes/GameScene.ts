@@ -510,14 +510,14 @@ export class GameScene extends Phaser.Scene {
     this.playerHpBar = new Meter(
       this, L.playerHpBarX, L.playerHpBarY,
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp, true,
-      { alwaysGreen: true, iconKey: ASSET_KEYS.tiles[TileKind.Heal], iconSize: L.playerBarHeight * 2 }
+      { alwaysGreen: true, iconKey: ASSET_KEYS.tiles[TileKind.Heal], iconSize: L.playerBarHeight * 1.75 }
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === MANA БАР ИГРОКА (mana icon) ===
     this.manaBar = new Meter(
       this, L.playerHpBarX, L.playerMpBarY,
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerMana, false,
-      { iconKey: ASSET_KEYS.tiles[TileKind.Mana], iconSize: L.playerBarHeight * 2 }
+      { iconKey: ASSET_KEYS.tiles[TileKind.Mana], iconSize: L.playerBarHeight * 1.75 }
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === КНОПКА MUTE ===
