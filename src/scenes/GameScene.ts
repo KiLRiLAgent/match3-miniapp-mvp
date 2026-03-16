@@ -1870,8 +1870,8 @@ export class GameScene extends Phaser.Scene {
       this.tutorialHintOverlays.push(glow);
     }
 
-    // Speech bubble at screen center
-    const bubbleY = GAME_HEIGHT / 2;
+    // Speech bubble at screen center, shifted up 30px
+    const bubbleY = GAME_HEIGHT / 2 - 30;
     const bubbleMaxW = Math.min(GAME_WIDTH - 40, 360);
     this.tutorialBubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text: "Составь комбинацию из МЕЧЕЙ,\nчтобы атаковать!",
