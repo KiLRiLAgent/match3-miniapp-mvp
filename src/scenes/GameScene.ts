@@ -852,7 +852,7 @@ export class GameScene extends Phaser.Scene {
     this.checkGameOver();
   }
 
-  private applyDamageToBoss(damage: number) {
+  private applyDamageToBoss(damage: number, skipSlash = false) {
     if (damage <= 0) return;
 
     // Проверка щита
@@ -876,7 +876,7 @@ export class GameScene extends Phaser.Scene {
       const dmgTarget = this.bossTarget;
       showDamageNumber(this, dmgTarget.x, dmgTarget.y, damage, "damage");
       this.flashBoss(); // fire-and-forget: instant texture swap + white flash + shake
-      this.showSlashEffect(this.bossTarget, false);
+      if (!skipSlash) this.showSlashEffect(this.bossTarget, false);
     }
   }
 
@@ -1433,7 +1433,7 @@ export class GameScene extends Phaser.Scene {
     // Обработка разных скиллов
     if (id === "powerStrike") {
       this.showSlashEffect(this.bossTarget, true);
-      this.applyDamageToBoss(cfg.damage);
+      this.applyDamageToBoss(cfg.damage, true);
     } else if (id === "stun" && cfg.stunTurns) {
       // Добавляем ходы к кулдауну босса
       this.bossAbilityManager.addCooldown(cfg.stunTurns);
