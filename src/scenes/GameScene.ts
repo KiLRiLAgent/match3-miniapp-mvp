@@ -1894,12 +1894,13 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100)
       .setAlpha(0);
 
-    // Looping slide animation: fade in on source -> slide to target -> fade out -> reset
+    // Looping slide animation: delayed start, then fade in -> slide -> fade out -> loop
     const hand = this.tutorialHand;
     const slideChain = this.tweens.chain({
+      delay: 1500,
       tweens: [
-        // Fade in at source (slow enough to be visible)
-        { targets: hand, alpha: 1, duration: 400, ease: "Quad.easeOut",
+        // Fade in at source
+        { targets: hand, alpha: 1, duration: 500, ease: "Quad.easeOut",
           onStart: () => { if (hand.scene) hand.setPosition(fromWorld.x + handOffX, fromWorld.y + handOffY); } },
         // Hold briefly
         { targets: hand, alpha: 1, duration: 150 },
