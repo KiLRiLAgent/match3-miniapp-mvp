@@ -463,7 +463,7 @@ export class GameScene extends Phaser.Scene {
     // Золотая рамка
     const frameGraphics = this.add.graphics();
     const framePadding = 4;
-    frameGraphics.fillStyle(0xc9a227, 1);
+    frameGraphics.fillStyle(0x4caf50, 1);
     frameGraphics.fillRoundedRect(
       L.avatarX - L.avatarWidth / 2 - framePadding,
       L.avatarY - L.avatarHeight / 2 - framePadding,
@@ -510,14 +510,14 @@ export class GameScene extends Phaser.Scene {
     this.playerHpBar = new Meter(
       this, L.playerHpBarX, L.playerHpBarY,
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp, true,
-      { alwaysGreen: true, iconKey: ASSET_KEYS.tiles[TileKind.Heal], iconSize: L.playerBarHeight }
+      { alwaysGreen: true, iconKey: ASSET_KEYS.tiles[TileKind.Heal], iconSize: L.playerBarHeight * 2 }
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === MANA БАР ИГРОКА (mana icon) ===
     this.manaBar = new Meter(
       this, L.playerHpBarX, L.playerMpBarY,
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerMana, false,
-      { iconKey: ASSET_KEYS.tiles[TileKind.Mana], iconSize: L.playerBarHeight }
+      { iconKey: ASSET_KEYS.tiles[TileKind.Mana], iconSize: L.playerBarHeight * 2 }
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === КНОПКА MUTE ===
