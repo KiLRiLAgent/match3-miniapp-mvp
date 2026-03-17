@@ -75,12 +75,12 @@ export class Meter extends Phaser.GameObjects.Container {
 
     this.widthPx = width - this.barOffsetX;
 
-    // Background: flat fill inside rounded stroke
+    // Rounded background (matches bar shape)
     const bgColor = this.deltaEnabled ? 0x555555 : 0x0a0c16;
     const bgAlpha = this.deltaEnabled ? 0.9 : 0.65;
     const borderGfx = scene.add.graphics();
     borderGfx.fillStyle(bgColor, bgAlpha);
-    borderGfx.fillRect(this.barOffsetX, 0, this.widthPx, height);
+    borderGfx.fillRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
     borderGfx.lineStyle(2, 0x334466, 0.7);
     borderGfx.strokeRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
     children.push(borderGfx);
