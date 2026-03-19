@@ -69,37 +69,24 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     borderGfx.strokeRoundedRect(0, 0, this.widthPx, height, this.radius);
     children.push(borderGfx);
 
-    // Geometry mask for clipping
-    const maskGfx = scene.add.graphics();
-    maskGfx.fillStyle(0xffffff);
-    maskGfx.fillRoundedRect(0, 0, this.widthPx, height, this.radius);
-    maskGfx.setVisible(false);
-    children.push(maskGfx);
-    const barMask = maskGfx.createGeometryMask();
-
     // Next layer fill (behind current)
     this.nextFillGfx = scene.add.graphics();
-    this.nextFillGfx.setMask(barMask);
     children.push(this.nextFillGfx);
 
     // Delta rectangle (behind current fill)
     this.deltaGfx = scene.add.graphics();
-    this.deltaGfx.setMask(barMask);
     children.push(this.deltaGfx);
 
     // Current layer fill
     this.fillGfx = scene.add.graphics();
-    this.fillGfx.setMask(barMask);
     children.push(this.fillGfx);
 
     // Highlight strip
     this.highlightGfx = scene.add.graphics();
-    this.highlightGfx.setMask(barMask);
     children.push(this.highlightGfx);
 
     // Flash overlay
     this.flashGfx = scene.add.graphics();
-    this.flashGfx.setMask(barMask);
     this.flashGfx.setAlpha(0);
     children.push(this.flashGfx);
 

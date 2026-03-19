@@ -1443,9 +1443,11 @@ export class GameScene extends Phaser.Scene {
     if (id === "powerStrike") {
       this.showSlashEffect(this.bossTarget, true);
       this.applyDamageToBoss(cfg.damage, true);
-      // Restore boss art after skill damage (no resolveBoard to do it)
-      this.restoreBossArtFromDamage();
-      this.bossHpBar?.drainDelta();
+      // Restore boss art after skill damage — delay so damage art is visible
+      this.time.delayedCall(500, () => {
+        this.restoreBossArtFromDamage();
+        this.bossHpBar?.drainDelta();
+      });
     } else if (id === "stun" && cfg.stunTurns) {
       // Добавляем ходы к кулдауну босса
       this.bossAbilityManager.addCooldown(cfg.stunTurns);
