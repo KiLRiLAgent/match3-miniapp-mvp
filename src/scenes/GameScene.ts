@@ -507,11 +507,11 @@ export class GameScene extends Phaser.Scene {
       .rectangle(L.avatarX, L.avatarY, L.avatarWidth, L.avatarHeight, 0x000000, 0)
       .setDepth(3);
 
-    // === HP БАР ИГРОКА (always green + heal icon) ===
+    // === HP БАР ИГРОКА (always green + heal icon + trailing delta) ===
     this.playerHpBar = new Meter(
       this, L.playerHpBarX, L.playerHpBarY,
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerHp, true,
-      { alwaysGreen: true, iconKey: ASSET_KEYS.tiles[TileKind.Heal], iconSize: L.playerBarHeight * 1.75 }
+      { alwaysGreen: true, trailingDelta: true, iconKey: ASSET_KEYS.tiles[TileKind.Heal], iconSize: L.playerBarHeight * 1.75 }
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === MANA БАР ИГРОКА (mana icon) ===
@@ -822,8 +822,9 @@ export class GameScene extends Phaser.Scene {
       this.bossDamageArtActive = false;
     }
 
-    // Drain accumulated boss HP delta after all cascades
+    // Drain accumulated HP deltas after all cascades
     this.bossHpBar?.drainDelta();
+    this.playerHpBar?.drainDelta();
 
     // Check for deadlock after cascades settle
     if (!this.gameOver) {
@@ -991,7 +992,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Crossfade from damage art back to idle art. Called at end of resolveBoard. */
   private async restoreBossArtFromDamage() {
-    if (!this.bossDamageArtActive || !this.bossImage) return;
+    if (!this.bossDamageArtActive || !this.bossImage || this.gameOver) return;
     this.bossDamageArtActive = false;
 
     // Crossfade all 3 boss layers: fade out damage art, switch texture, fade back in
@@ -1437,6 +1438,9 @@ export class GameScene extends Phaser.Scene {
     if (id === "powerStrike") {
       this.showSlashEffect(this.bossTarget, true);
       this.applyDamageToBoss(cfg.damage, true);
+      // Restore boss art after skill damage (no resolveBoard to do it)
+      this.restoreBossArtFromDamage();
+      this.bossHpBar?.drainDelta();
     } else if (id === "stun" && cfg.stunTurns) {
       // Добавляем ходы к кулдауну босса
       this.bossAbilityManager.addCooldown(cfg.stunTurns);
@@ -2190,6 +2194,7 @@ export class GameScene extends Phaser.Scene {
 
       // Apply damage
       this.applyDamageToPlayer(BOSS_ABILITIES.bombs.bombDamage);
+      this.playerHpBar?.drainDelta();
       this.updateHud();
       this.checkGameOver();
       if (this.gameOver) return;
@@ -2356,6 +2361,7 @@ export class GameScene extends Phaser.Scene {
     this.bossHpBar?.setValue(this.bossHp, GAME_PARAMS.boss.hpMax);
     this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
     this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
+    this.playerHpBar?.drainDelta();
 
     await wait(this, 1500);
 
@@ -2458,6 +2464,7 @@ export class GameScene extends Phaser.Scene {
       this.applyDamageToPlayer(config.damage);
       this.flashPlayerAvatar();
       this.showSlashEffect(this.playerTarget, true);
+      this.playerHpBar?.drainDelta();
 
       const manaDrain = Math.min(this.mana, config.manaDrain);
       if (manaDrain > 0) {
