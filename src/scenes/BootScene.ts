@@ -225,8 +225,8 @@ export class BootScene extends Phaser.Scene {
       const grad = ctx.createRadialGradient(center, center, 0, center, center, center);
       const rgba = (a: number) => `rgba(${r},${g},${b},${a})`;
       grad.addColorStop(0, rgba(1.0));
-      grad.addColorStop(0.4, rgba(0.7));
-      grad.addColorStop(0.7, rgba(0.4));
+      grad.addColorStop(0.3, rgba(0.85));
+      grad.addColorStop(0.6, rgba(0.55));
       grad.addColorStop(1, rgba(0));
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, size, size);
