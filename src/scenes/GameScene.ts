@@ -1382,7 +1382,7 @@ export class GameScene extends Phaser.Scene {
         enabled: canUse,
         ready: canUse,
         cooldown,
-        info: `${cfg.cost} MP`,
+        info: `${cfg.cost}`,
         locked,
       });
     });
@@ -1436,7 +1436,7 @@ export class GameScene extends Phaser.Scene {
 
     // Обработка разных скиллов
     if (id === "powerStrike") {
-      this.showSlashEffect(this.bossTarget, true);
+      this.showSlashEffect(this.boardCenter, true);
       this.applyDamageToBoss(cfg.damage, true);
       // Restore boss art after skill damage (no resolveBoard to do it)
       this.restoreBossArtFromDamage();
@@ -2356,7 +2356,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(200, 0.015 / DPR);
     this.applyDamageToPlayer(config.damage);
     this.flashPlayerAvatar();
-    this.showSlashEffect(this.playerTarget, false);
+    this.showSlashEffect(this.boardCenter, false);
     // Update only bars, NOT updateBossArt() which would reset the attack texture
     this.bossHpBar?.setValue(this.bossHp, GAME_PARAMS.boss.hpMax);
     this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
@@ -2463,7 +2463,7 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.shake(300, 0.02 / DPR);
       this.applyDamageToPlayer(config.damage);
       this.flashPlayerAvatar();
-      this.showSlashEffect(this.playerTarget, true);
+      this.showSlashEffect(this.boardCenter, true);
       this.playerHpBar?.drainDelta();
 
       const manaDrain = Math.min(this.mana, config.manaDrain);

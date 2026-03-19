@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import { TileKind } from "../match3/types";
+import { ASSET_KEYS } from "../game/assets";
 
 type SkillState = {
   enabled: boolean;
@@ -7,6 +9,8 @@ type SkillState = {
   info?: string;
   locked?: boolean;
 };
+
+const MANA_ICON_SIZE = 14;
 
 const COLORS = {
   bgIdle: 0x4a3a6e,    // Фиолетовый как в референсе
@@ -20,6 +24,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
   private iconText: Phaser.GameObjects.Text;
   private iconImage?: Phaser.GameObjects.Image;
   private costText: Phaser.GameObjects.Text;
+  private manaIcon: Phaser.GameObjects.Image;
   private clickCallback: () => void;
   private isEnabled = true;
   private originalIcon: string;
@@ -63,9 +68,10 @@ export class SkillButton extends Phaser.GameObjects.Container {
       this.iconText.setVisible(false);
     }
 
-    // Стоимость под кнопкой
+    // Стоимость под кнопкой: число + иконка маны
+    const costY = size / 2 + 12;
     this.costText = scene.add
-      .text(0, size / 2 + 12, `${cost} MP`, {
+      .text(-MANA_ICON_SIZE / 2, costY, `${cost}`, {
         fontSize: "12px",
         color: "#aabbff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -73,12 +79,22 @@ export class SkillButton extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5);
 
+    this.manaIcon = scene.add
+      .image(0, costY, ASSET_KEYS.tiles[TileKind.Mana])
+      .setDisplaySize(MANA_ICON_SIZE, MANA_ICON_SIZE)
+      .setOrigin(0.5);
+    this.repositionManaIcon();
+
     const children: Phaser.GameObjects.GameObject[] = [this.bg, this.iconText];
     if (this.iconImage) children.push(this.iconImage);
-    children.push(this.costText);
+    children.push(this.costText, this.manaIcon);
     this.add(children);
     this.setSize(size, size);
     scene.add.existing(this);
+  }
+
+  private repositionManaIcon() {
+    this.manaIcon.setX(this.costText.x + this.costText.width / 2 + MANA_ICON_SIZE / 2 + 2);
   }
 
   applyState(state: SkillState) {
@@ -97,6 +113,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
       this.bg.setAlpha(0.3);
       this.iconText.setAlpha(0.4);
       this.costText.setAlpha(0);
+      this.manaIcon.setAlpha(0);
       return;
     }
 
@@ -113,7 +130,11 @@ export class SkillButton extends Phaser.GameObjects.Container {
       this.bg.setAlpha(0.7);
       this.iconText.setAlpha(1);
       this.costText.setAlpha(0.5);
-      if (info) this.costText.setText(info);
+      this.manaIcon.setAlpha(0.5);
+      if (info) {
+        this.costText.setText(info);
+        this.repositionManaIcon();
+      }
       return;
     }
 
@@ -143,7 +164,11 @@ export class SkillButton extends Phaser.GameObjects.Container {
     this.iconText.setAlpha(alpha);
     if (this.iconImage) this.iconImage.setAlpha(alpha);
     this.costText.setAlpha(alpha);
+    this.manaIcon.setAlpha(alpha);
 
-    if (info) this.costText.setText(info);
+    if (info) {
+      this.costText.setText(info);
+      this.repositionManaIcon();
+    }
   }
 }
