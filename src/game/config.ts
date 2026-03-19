@@ -362,6 +362,11 @@ export const UI_COLORS = {
   defusedFlash: 0x44ff66,
 } as const;
 
+// Boss layered HP bar
+export const BOSS_LAYER_COUNT = 10;
+export const BOSS_HP_PER_LAYER = 100;
+export const BOSS_LAYER_COLORS = [0xde3e3e, 0xf5c542] as const;
+
 // Input thresholds
 export const INPUT_THRESHOLD = {
   tapDistance: 10,

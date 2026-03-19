@@ -19,6 +19,9 @@ import {
   GAME_PARAMS,
   DPR,
   TILE_DISPLAY_SCALE,
+  BOSS_LAYER_COUNT,
+  BOSS_HP_PER_LAYER,
+  BOSS_LAYER_COLORS,
 } from "../game/config";
 import {
   ANIMATION_DURATIONS,
@@ -31,6 +34,7 @@ import { Match3Board } from "../match3/Board";
 import { TileKind } from "../match3/types";
 import type { BaseTileKind, Match, Position, PotentialMove, Tile, CountTotals } from "../match3/types";
 import { Meter } from "../ui/Meter";
+import { LayeredMeter } from "../ui/LayeredMeter";
 import { SkillButton } from "../ui/SkillButton";
 import { SettingsPanel } from "../ui/SettingsPanel";
 import { CooldownIcon } from "../ui/CooldownIcon";
@@ -106,7 +110,7 @@ export class GameScene extends Phaser.Scene {
     return [this.bossImage, this.bossImageGlow, this.bossGlowBrightness].filter(Boolean) as Phaser.GameObjects.Image[];
   }
   private bgImage?: Phaser.GameObjects.Image;
-  private bossHpBar?: Meter;
+  private bossHpBar?: LayeredMeter;
   private playerHpBar?: Meter;
   private manaBar?: Meter;
   private skillButtons: Partial<Record<SkillId, SkillButton>> = {};
@@ -449,11 +453,12 @@ export class GameScene extends Phaser.Scene {
       .setDepth(4)
       .setAlpha(initialAlpha);
 
-    // === HP БАР БОССА (с trailing delta) ===
-    this.bossHpBar = new Meter(
-      this, L.bossHpBarX, L.bossHpBarY,
-      L.hpBarWidth, L.hpBarHeight, "", UI_COLORS.bossHp, true,
-      { trailingDelta: true }
+    // === HP БАР БОССА (layered, с trailing delta) ===
+    const bossBarHeight = L.hpBarHeight + 4;
+    this.bossHpBar = new LayeredMeter(
+      this, L.bossHpBarX, L.bossHpBarY - 2,
+      L.hpBarWidth, bossBarHeight,
+      BOSS_LAYER_COUNT, BOSS_HP_PER_LAYER, [...BOSS_LAYER_COLORS]
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА КУЛДАУНА ===
