@@ -1436,7 +1436,7 @@ export class GameScene extends Phaser.Scene {
 
     // Обработка разных скиллов
     if (id === "powerStrike") {
-      this.showSlashEffect(this.boardCenter, true);
+      this.showSlashEffect(this.bossTarget, true);
       this.applyDamageToBoss(cfg.damage, true);
       // Restore boss art after skill damage (no resolveBoard to do it)
       this.restoreBossArtFromDamage();
@@ -2767,8 +2767,8 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0)
       .setAngle(-10 + Math.random() * 20);
 
-    // Scale to cover a large area (~250px for normal, ~300px for strong)
-    const targetSize = strong ? 300 : 250;
+    // Scale to cover a large area (~350px for normal, ~400px for strong)
+    const targetSize = strong ? 400 : 350;
     const scale = targetSize / Math.max(slash.width, slash.height);
     slash.setScale(scale);
 
