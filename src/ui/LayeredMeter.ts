@@ -158,21 +158,30 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
       this.nextFillGfx.fillRoundedRect(0, 0, this.widthPx, this.heightPx, this.radius);
     }
 
-    // Current layer fill (straight right edge)
+    // Current layer fill: rounded when full width, straight right edge when partial
     this.fillGfx.clear();
     if (fillWidth > 0) {
       const color = this.getLayerColor(layerIdx);
       this.fillGfx.fillStyle(color, 0.95);
-      this.fillGfx.fillRect(0, 0, fillWidth, this.heightPx);
+      if (fillWidth >= this.widthPx) {
+        this.fillGfx.fillRoundedRect(0, 0, this.widthPx, this.heightPx, this.radius);
+      } else {
+        this.fillGfx.fillRect(0, 0, fillWidth, this.heightPx);
+      }
     }
 
     this.currentFillWidth = fillWidth;
 
-    // Highlight on current fill (straight right edge)
+    // Highlight: same logic
     this.highlightGfx.clear();
     if (fillWidth > 0) {
       this.highlightGfx.fillStyle(0xffffff, 0.15);
-      this.highlightGfx.fillRect(0, 0, fillWidth, Math.round(this.heightPx * 0.3));
+      const hlH = Math.round(this.heightPx * 0.3);
+      if (fillWidth >= this.widthPx) {
+        this.highlightGfx.fillRoundedRect(0, 0, this.widthPx, hlH, this.radius);
+      } else {
+        this.highlightGfx.fillRect(0, 0, fillWidth, hlH);
+      }
     }
 
     // Delta
@@ -235,7 +244,11 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
 
     this.flashGfx.clear();
     this.flashGfx.fillStyle(0xffffff, 1);
-    this.flashGfx.fillRect(0, 0, this.currentFillWidth, this.heightPx);
+    if (this.currentFillWidth >= this.widthPx) {
+      this.flashGfx.fillRoundedRect(0, 0, this.widthPx, this.heightPx, this.radius);
+    } else {
+      this.flashGfx.fillRect(0, 0, this.currentFillWidth, this.heightPx);
+    }
     this.flashGfx.setAlpha(0);
 
     this.scene.tweens.add({
