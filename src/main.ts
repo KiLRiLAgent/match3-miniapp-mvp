@@ -144,5 +144,29 @@ function startGame(rendererType: number) {
   }
 }
 
-// Ждём 100ms для полной инициализации Telegram API (safeAreaInset)
-setTimeout(() => startGame(detectRenderer()), 100);
+// Ждём стабилизации viewport (Telegram WebApp может менять размер после expand)
+function waitForStableViewport(cb: () => void, maxWait = 800) {
+  let prevW = window.innerWidth;
+  let prevH = window.innerHeight;
+  let stableCount = 0;
+  const start = Date.now();
+  const check = () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w === prevW && h === prevH) {
+      stableCount++;
+    } else {
+      stableCount = 0;
+      prevW = w;
+      prevH = h;
+    }
+    if (stableCount >= 2 || Date.now() - start > maxWait) {
+      cb();
+    } else {
+      setTimeout(check, 100);
+    }
+  };
+  setTimeout(check, 150);
+}
+
+waitForStableViewport(() => startGame(detectRenderer()));
