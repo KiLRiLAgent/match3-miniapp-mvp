@@ -454,7 +454,7 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(initialAlpha);
 
     // === HP БАР БОССА (layered, с trailing delta) ===
-    const bossBarHeight = L.hpBarHeight + 4;
+    const bossBarHeight = L.hpBarHeight + 8;
     this.bossHpBar = new LayeredMeter(
       this, L.bossHpBarX, L.bossHpBarY - 2,
       L.hpBarWidth, bossBarHeight,

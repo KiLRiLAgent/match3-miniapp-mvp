@@ -93,12 +93,12 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     // HP text centered in bar
     this.label = scene.add
       .text(this.widthPx / 2, height / 2, "", {
-        fontSize: "13px",
+        fontSize: "15px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         stroke: "#000000",
-        strokeThickness: 2,
+        strokeThickness: 3,
       })
       .setOrigin(0.5, 0.5);
     children.push(this.label);
@@ -106,7 +106,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     // Layer counter on the right
     this.counterText = scene.add
       .text(this.widthPx + 4, height / 2, "", {
-        fontSize: "16px",
+        fontSize: "18px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
