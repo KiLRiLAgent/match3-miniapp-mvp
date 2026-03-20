@@ -76,8 +76,8 @@ export class Meter extends Phaser.GameObjects.Container {
     this.widthPx = width - this.barOffsetX;
 
     // Rounded background (matches bar shape)
-    const bgColor = this.deltaEnabled ? 0x555555 : 0x0a0c16;
-    const bgAlpha = this.deltaEnabled ? 0.9 : 0.65;
+    const bgColor = this.deltaEnabled ? 0x555555 : 0x333333;
+    const bgAlpha = this.deltaEnabled ? 0.9 : 0.8;
     const borderGfx = scene.add.graphics();
     borderGfx.fillStyle(bgColor, bgAlpha);
     borderGfx.fillRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);

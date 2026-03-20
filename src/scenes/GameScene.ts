@@ -1053,7 +1053,8 @@ export class GameScene extends Phaser.Scene {
     const startY = (startYOrAlpha !== undefined && startYOrAlpha > 1) ? startYOrAlpha : undefined;
     const alpha = initialAlpha ?? ((startYOrAlpha !== undefined && startYOrAlpha <= 1) ? startYOrAlpha : 1);
 
-    const tileSize = Math.round(CELL_SIZE * TILE_DISPLAY_SCALE);
+    const scale = tile.kind === TileKind.Bomb ? 1.0 : TILE_DISPLAY_SCALE;
+    const tileSize = Math.round(CELL_SIZE * scale);
     const sprite = this.add
       .image(world.x, startY ?? world.y, this.getTileTexture(tile))
       .setDisplaySize(tileSize, tileSize)
