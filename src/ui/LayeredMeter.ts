@@ -214,6 +214,18 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     const newLayerIdx = this.getLayerIndex();
     const newFillWidth = this.widthPx * this.getLayerFillRatio();
 
+    // Clear delta when dead
+    if (clamped <= 0) {
+      this.deltaWidth = 0;
+      if (this.deltaDraining && this.deltaDrainTween) {
+        this.deltaDrainTween.stop();
+        this.deltaDraining = false;
+      }
+      this.prevLayerIdx = 0;
+      this.drawAll();
+      return;
+    }
+
     // Trailing delta
     if (clamped < oldHp) {
       // HP decreased — cancel active drain and accumulate delta
