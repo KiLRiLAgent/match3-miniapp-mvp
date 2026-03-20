@@ -75,9 +75,9 @@ export class Meter extends Phaser.GameObjects.Container {
 
     this.widthPx = width - this.barOffsetX;
 
-    // Rounded background (matches bar shape)
-    const bgColor = this.deltaEnabled ? 0x555555 : 0x333333;
-    const bgAlpha = this.deltaEnabled ? 0.9 : 0.8;
+    // Rounded background
+    const bgColor = this.deltaEnabled ? 0x555555 : 0x0a0c16;
+    const bgAlpha = this.deltaEnabled ? 0.9 : 0.65;
     const borderGfx = scene.add.graphics();
     borderGfx.fillStyle(bgColor, bgAlpha);
     borderGfx.fillRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
@@ -85,35 +85,23 @@ export class Meter extends Phaser.GameObjects.Container {
     borderGfx.strokeRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
     children.push(borderGfx);
 
-    // Geometry mask: clip fill/delta/highlight/flash to the rounded bar shape
-    const maskGfx = scene.add.graphics();
-    maskGfx.fillStyle(0xffffff);
-    maskGfx.fillRoundedRect(this.barOffsetX, 0, this.widthPx, height, this.radius);
-    maskGfx.setVisible(false);
-    children.push(maskGfx);
-    const barMask = maskGfx.createGeometryMask();
-
     // Delta rectangle (behind fill)
     this.deltaGfx = scene.add.graphics();
-    this.deltaGfx.setMask(barMask);
     children.push(this.deltaGfx);
 
-    // Fill drawn as straight rect, clipped by geometry mask
+    // Fill drawn as rounded rect
     this.fillGfx = scene.add.graphics();
-    this.fillGfx.setMask(barMask);
     this.drawFill(this.widthPx);
     this.currentFillWidth = this.widthPx;
     children.push(this.fillGfx);
 
     // Highlight strip for faux gradient
     this.highlightGfx = scene.add.graphics();
-    this.highlightGfx.setMask(barMask);
     this.drawHighlight(this.widthPx);
     children.push(this.highlightGfx);
 
     // Flash overlay (on top of fill and highlight)
     this.flashGfx = scene.add.graphics();
-    this.flashGfx.setMask(barMask);
     this.flashGfx.setAlpha(0);
     children.push(this.flashGfx);
 
@@ -149,14 +137,14 @@ export class Meter extends Phaser.GameObjects.Container {
     this.fillGfx.clear();
     if (fillWidth <= 0) return;
     this.fillGfx.fillStyle(this.currentColor, 0.95);
-    this.fillGfx.fillRect(this.barOffsetX, 0, fillWidth, this.heightPx);
+    this.fillGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, this.heightPx, this.radius);
   }
 
   private drawHighlight(fillWidth: number) {
     this.highlightGfx.clear();
     if (fillWidth <= 0) return;
     this.highlightGfx.fillStyle(0xffffff, 0.15);
-    this.highlightGfx.fillRect(this.barOffsetX, 0, fillWidth, Math.round(this.heightPx * 0.3));
+    this.highlightGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, Math.round(this.heightPx * 0.3), this.radius);
   }
 
   private drawDelta() {
@@ -165,7 +153,7 @@ export class Meter extends Phaser.GameObjects.Container {
     const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
     if (totalWidth <= 0) return;
     this.deltaGfx.fillStyle(0xffffff, 0.85);
-    this.deltaGfx.fillRect(this.barOffsetX, 0, totalWidth, this.heightPx);
+    this.deltaGfx.fillRoundedRect(this.barOffsetX, 0, totalWidth, this.heightPx, this.radius);
   }
 
   setValue(current: number, max: number) {
@@ -208,7 +196,7 @@ export class Meter extends Phaser.GameObjects.Container {
 
     this.flashGfx.clear();
     this.flashGfx.fillStyle(0xffffff, 1);
-    this.flashGfx.fillRect(this.barOffsetX, 0, this.currentFillWidth, this.heightPx);
+    this.flashGfx.fillRoundedRect(this.barOffsetX, 0, this.currentFillWidth, this.heightPx, this.radius);
     this.flashGfx.setAlpha(0);
 
     this.scene.tweens.add({
