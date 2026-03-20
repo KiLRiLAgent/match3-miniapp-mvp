@@ -158,21 +158,21 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
       this.nextFillGfx.fillRoundedRect(0, 0, this.widthPx, this.heightPx, this.radius);
     }
 
-    // Current layer fill
+    // Current layer fill (straight right edge)
     this.fillGfx.clear();
     if (fillWidth > 0) {
       const color = this.getLayerColor(layerIdx);
       this.fillGfx.fillStyle(color, 0.95);
-      this.fillGfx.fillRoundedRect(0, 0, fillWidth, this.heightPx, this.radius);
+      this.fillGfx.fillRect(0, 0, fillWidth, this.heightPx);
     }
 
     this.currentFillWidth = fillWidth;
 
-    // Highlight on current fill
+    // Highlight on current fill (straight right edge)
     this.highlightGfx.clear();
     if (fillWidth > 0) {
       this.highlightGfx.fillStyle(0xffffff, 0.15);
-      this.highlightGfx.fillRoundedRect(0, 0, fillWidth, Math.round(this.heightPx * 0.3), this.radius);
+      this.highlightGfx.fillRect(0, 0, fillWidth, Math.round(this.heightPx * 0.3));
     }
 
     // Delta
@@ -191,7 +191,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
     if (totalWidth <= 0) return;
     this.deltaGfx.fillStyle(0xffffff, 0.85);
-    this.deltaGfx.fillRoundedRect(0, 0, totalWidth, this.heightPx, this.radius);
+    this.deltaGfx.fillRect(0, 0, totalWidth, this.heightPx);
   }
 
   /** Update displayed HP. Accepts (current) or (current, max) for Meter API compat. */
@@ -235,7 +235,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
 
     this.flashGfx.clear();
     this.flashGfx.fillStyle(0xffffff, 1);
-    this.flashGfx.fillRoundedRect(0, 0, this.currentFillWidth, this.heightPx, this.radius);
+    this.flashGfx.fillRect(0, 0, this.currentFillWidth, this.heightPx);
     this.flashGfx.setAlpha(0);
 
     this.scene.tweens.add({
