@@ -158,30 +158,21 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
       this.nextFillGfx.fillRoundedRect(0, 0, this.widthPx, this.heightPx, this.radius);
     }
 
-    // Current layer fill: rounded when full width, straight right edge when partial
+    // Current layer fill (always rounded to match border)
     this.fillGfx.clear();
     if (fillWidth > 0) {
       const color = this.getLayerColor(layerIdx);
       this.fillGfx.fillStyle(color, 0.95);
-      if (fillWidth >= this.widthPx) {
-        this.fillGfx.fillRoundedRect(0, 0, this.widthPx, this.heightPx, this.radius);
-      } else {
-        this.fillGfx.fillRect(0, 0, fillWidth, this.heightPx);
-      }
+      this.fillGfx.fillRoundedRect(0, 0, fillWidth, this.heightPx, this.radius);
     }
 
     this.currentFillWidth = fillWidth;
 
-    // Highlight: same logic
+    // Highlight
     this.highlightGfx.clear();
     if (fillWidth > 0) {
       this.highlightGfx.fillStyle(0xffffff, 0.15);
-      const hlH = Math.round(this.heightPx * 0.3);
-      if (fillWidth >= this.widthPx) {
-        this.highlightGfx.fillRoundedRect(0, 0, this.widthPx, hlH, this.radius);
-      } else {
-        this.highlightGfx.fillRect(0, 0, fillWidth, hlH);
-      }
+      this.highlightGfx.fillRoundedRect(0, 0, fillWidth, Math.round(this.heightPx * 0.3), this.radius);
     }
 
     // Delta
@@ -200,7 +191,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
     if (totalWidth <= 0) return;
     this.deltaGfx.fillStyle(0xffffff, 0.85);
-    this.deltaGfx.fillRect(0, 0, totalWidth, this.heightPx);
+    this.deltaGfx.fillRoundedRect(0, 0, totalWidth, this.heightPx, this.radius);
   }
 
   /** Update displayed HP. Accepts (current) or (current, max) for Meter API compat. */
@@ -244,11 +235,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
 
     this.flashGfx.clear();
     this.flashGfx.fillStyle(0xffffff, 1);
-    if (this.currentFillWidth >= this.widthPx) {
-      this.flashGfx.fillRoundedRect(0, 0, this.widthPx, this.heightPx, this.radius);
-    } else {
-      this.flashGfx.fillRect(0, 0, this.currentFillWidth, this.heightPx);
-    }
+    this.flashGfx.fillRoundedRect(0, 0, this.currentFillWidth, this.heightPx, this.radius);
     this.flashGfx.setAlpha(0);
 
     this.scene.tweens.add({
