@@ -880,6 +880,7 @@ export class GameScene extends Phaser.Scene {
     this.stats.totalDamageDealt += damage;
     this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticMedium();
+    this.bossHpBar?.setValue(this.bossHp, GAME_PARAMS.boss.hpMax);
     this.bossHpBar?.flash();
     if (this.bossImage) {
       const dmgTarget = this.bossTarget;
@@ -896,6 +897,7 @@ export class GameScene extends Phaser.Scene {
     hapticHeavy();
     this.stats.totalDamageReceived += damage;
     this.playerHp = clamp(this.playerHp - damage, 0, GAME_PARAMS.player.hpMax);
+    this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
     this.playerHpBar?.flash();
     if (this.playerAvatar) {
       showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 30, damage, "damage");
@@ -911,6 +913,7 @@ export class GameScene extends Phaser.Scene {
 
     if (actualGain > 0) {
       this.sfx(ASSET_KEYS.sfx.gemDestroy, 0.3);
+      this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
       this.manaBar?.flash();
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 20, actualGain, "mana");
@@ -938,6 +941,7 @@ export class GameScene extends Phaser.Scene {
     if (actualHeal > 0) {
       this.stats.totalHealDone += actualHeal;
       this.sfx(ASSET_KEYS.sfx.gemDestroy);
+      this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
       this.playerHpBar?.flash();
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 40, actualHeal, "heal");
