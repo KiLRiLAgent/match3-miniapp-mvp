@@ -55,20 +55,11 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     const panelX = 12;
     const panelY = 30 + SAFE_AREA.top;
 
-    // Затемнённый фон
+    // Затемнённый фон — close only on short tap outside panel
     this.overlay = scene.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.85)
       .setOrigin(0)
-      .setInteractive()
-      .on("pointerup", (pointer: Phaser.Input.Pointer) => {
-        // Only close on tap outside panel (not on drag/scroll)
-        if (this.isDragging) return;
-        const inPanel = pointer.x >= panelX && pointer.x <= panelX + panelWidth &&
-                        pointer.y >= panelY && pointer.y <= panelY + panelHeight;
-        if (!inPanel) {
-          this.close();
-        }
-      });
+      .setInteractive();
 
     this.panel = scene.add
       .rectangle(panelX, panelY, panelWidth, panelHeight, 0x1a1a2e, 0.98)
@@ -292,34 +283,46 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   }
 
   private setupScrollHandlers(scene: Phaser.Scene) {
-    // Обработчик нажатия - начало скролла
+    const panelX = this.scrollAreaLeft;
+    const panelRight = this.scrollAreaRight;
+    const panelTop = this.scrollAreaTop - 55;
+    const panelBottom = this.scrollAreaTop + this.scrollAreaHeight + 70;
+    let dragMoved = false;
+
+    const isInPanel = (x: number, y: number) =>
+      x >= panelX && x <= panelRight && y >= panelTop && y <= panelBottom;
+
+    // Start drag anywhere on screen
     this.pointerDownHandler = (pointer: Phaser.Input.Pointer) => {
       if (!this.visible) return;
-
-      // Проверяем, что клик в области скролла
-      if (this.isInScrollArea(pointer.x, pointer.y)) {
-        this.isDragging = true;
-        this.dragStartY = pointer.y;
-        this.scrollStartY = this.scrollY;
-      }
+      this.isDragging = true;
+      this.dragStartY = pointer.y;
+      this.scrollStartY = this.scrollY;
+      dragMoved = false;
     };
 
-    // Обработчик движения - скролл
+    // Scroll on drag
     this.pointerMoveHandler = (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || !this.isDragging) return;
-
       const deltaY = pointer.y - this.dragStartY;
-      // Стандартный мобильный скролл: палец вниз = контент следует вниз
+      if (Math.abs(deltaY) > 5) dragMoved = true;
       this.scrollY = Phaser.Math.Clamp(this.scrollStartY - deltaY, 0, this.maxScrollY);
       this.updateScrollPosition();
     };
 
-    // Обработчик отпускания
-    this.pointerUpHandler = () => {
+    // On release: close if short tap outside panel
+    this.pointerUpHandler = (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible) return;
+      const wasDrag = dragMoved;
       this.isDragging = false;
+      dragMoved = false;
+      // Only close on tap (no drag) outside panel bounds
+      if (!wasDrag && !isInPanel(pointer.x, pointer.y)) {
+        this.close();
+      }
     };
 
-    // Колесо мыши
+    // Mouse wheel
     this.wheelHandler = (_pointer: Phaser.Input.Pointer, _gameObjects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number) => {
       if (!this.visible) return;
       this.scrollY = Phaser.Math.Clamp(this.scrollY + deltaY * 0.5, 0, this.maxScrollY);
@@ -330,14 +333,6 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     scene.input.on("pointermove", this.pointerMoveHandler);
     scene.input.on("pointerup", this.pointerUpHandler);
     scene.input.on("wheel", this.wheelHandler);
-  }
-
-  private isInScrollArea(x: number, y: number): boolean {
-    // Allow scrolling anywhere inside the panel, not just the scroll content area
-    return x >= this.scrollAreaLeft &&
-           x <= this.scrollAreaRight &&
-           y >= this.scrollAreaTop - 55 &&
-           y <= this.scrollAreaTop + this.scrollAreaHeight + 70;
   }
 
   private updateScrollPosition() {
