@@ -301,8 +301,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       if (!this.visible || !this.isDragging) return;
 
       const deltaY = pointer.y - this.dragStartY;
-      // Инвертируем: тянем вниз - контент вверх
-      this.scrollY = Phaser.Math.Clamp(this.scrollStartY - deltaY, 0, this.maxScrollY);
+      // Тянем вниз — контент скроллится вверх (scrollY увеличивается)
+      this.scrollY = Phaser.Math.Clamp(this.scrollStartY + deltaY, 0, this.maxScrollY);
       this.updateScrollPosition();
     };
 
@@ -363,7 +363,9 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
 
   private applyAndRestart() {
     saveGameParams();
-    this.scene.scene.restart();
+    const sceneRef = this.scene;
+    this.close();
+    sceneRef.scene.restart();
   }
 
   private close() {
