@@ -82,6 +82,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
+        resolution: 2,
       })
       .setOrigin(0.5);
 
@@ -91,6 +92,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         fontSize: "28px",
         color: "#ff6666",
         fontFamily: "'Exo 2', Arial, sans-serif",
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
@@ -183,6 +185,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
           fontSize: "16px",
           color: "#ffffff",
           fontFamily: "'Exo 2', Arial, sans-serif",
+          resolution: 2,
         })
         .setOrigin(0, 0.5);
 
@@ -202,6 +205,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
           color: "#ff8888",
           fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
+          resolution: 2,
         })
         .setOrigin(0.5);
 
@@ -216,6 +220,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
           color: "#ffffff",
           fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
+          resolution: 2,
         })
         .setOrigin(0.5);
 
@@ -235,6 +240,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
           color: "#88ff88",
           fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
+          resolution: 2,
         })
         .setOrigin(0.5);
 
@@ -276,6 +282,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         color: "#88ff88",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
+        resolution: 2,
       })
       .setOrigin(0.5);
 

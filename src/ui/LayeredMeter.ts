@@ -97,6 +97,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 3,
+        resolution: 2,
       })
       .setOrigin(0.5, 0.5);
     children.push(this.label);
@@ -110,6 +111,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 3,
+        resolution: 2,
       })
       .setOrigin(1, 0.5);
     children.push(this.counterText);

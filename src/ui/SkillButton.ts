@@ -56,6 +56,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
         fontSize: "30px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
+        resolution: 2,
       })
       .setOrigin(0.5);
 
@@ -76,6 +77,7 @@ export class SkillButton extends Phaser.GameObjects.Container {
         color: "#aabbff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
+        resolution: 2,
       })
       .setOrigin(0.5);
 

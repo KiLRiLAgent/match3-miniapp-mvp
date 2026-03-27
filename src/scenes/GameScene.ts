@@ -388,6 +388,7 @@ export class GameScene extends Phaser.Scene {
       fontStyle: "bold",
       stroke: "#000000",
       strokeThickness: 3,
+      resolution: 2,
     }).setOrigin(0.5).setDepth(2);
     this.bombCooldownTexts.set(tileId, text);
     return text;
@@ -460,6 +461,7 @@ export class GameScene extends Phaser.Scene {
         fontFamily: "'Exo 2', Arial, sans-serif",
         stroke: "#000000",
         strokeThickness: 4,
+        resolution: 2,
       })
       .setOrigin(0, 0.5)
       .setDepth(4)
@@ -543,6 +545,7 @@ export class GameScene extends Phaser.Scene {
       .text(GAME_WIDTH - 70, 65 + SAFE_AREA.top, isMuted() ? "🔇" : "🔊", {
         fontSize: "26px",
         fontFamily: "'Exo 2', Arial, sans-serif",
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(5)
@@ -562,6 +565,7 @@ export class GameScene extends Phaser.Scene {
       .text(GAME_WIDTH - 35, 65 + SAFE_AREA.top, "⚙️", {
         fontSize: "26px",
         fontFamily: "'Exo 2', Arial, sans-serif",
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(5)
@@ -910,6 +914,7 @@ export class GameScene extends Phaser.Scene {
           fontStyle: "bold",
           stroke: "#000000",
           strokeThickness: 5,
+          resolution: 2,
         })
         .setOrigin(0.5)
         .setDepth(100)
@@ -1013,6 +1018,7 @@ export class GameScene extends Phaser.Scene {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 5,
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(201)
@@ -1778,6 +1784,7 @@ export class GameScene extends Phaser.Scene {
         fontFamily: "'Exo 2', Arial, sans-serif",
         stroke: "#000000",
         strokeThickness: 3,
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(12);
@@ -2871,6 +2878,7 @@ export class GameScene extends Phaser.Scene {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 4,
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setAlpha(0)
@@ -2947,6 +2955,7 @@ export class GameScene extends Phaser.Scene {
       fontStyle: "700",
       stroke: "#003366",
       strokeThickness: 5,
+      resolution: 2,
     }).setOrigin(0.5).setDepth(0.5).setAlpha(0);
 
     // Fade in + alpha pulse (no preFX — safe on Android)
@@ -3075,6 +3084,7 @@ export class GameScene extends Phaser.Scene {
         fontStyle: "700",
         stroke: textColor,
         strokeThickness: 12,
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(1000)
@@ -3090,6 +3100,7 @@ export class GameScene extends Phaser.Scene {
         fontStyle: "700",
         stroke: textColor,
         strokeThickness: 6,
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(1000)
@@ -3144,6 +3155,7 @@ export class GameScene extends Phaser.Scene {
             fontSize: "17px",
             color: "#cccccc",
             fontFamily: font,
+            resolution: 2,
           })
           .setOrigin(0, 0.5)
           .setDepth(1000)
@@ -3155,6 +3167,7 @@ export class GameScene extends Phaser.Scene {
             color,
             fontFamily: font,
             fontStyle: "700",
+            resolution: 2,
           })
           .setOrigin(1, 0.5)
           .setDepth(1000)
@@ -3187,6 +3200,7 @@ export class GameScene extends Phaser.Scene {
         color: "#ffffff",
         fontFamily: font,
         fontStyle: "700",
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(1000)
@@ -3270,6 +3284,7 @@ export class GameScene extends Phaser.Scene {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 4,
+        resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(100)
@@ -3310,6 +3325,7 @@ export class GameScene extends Phaser.Scene {
           fontStyle: "bold",
           stroke: "#000000",
           strokeThickness: 3,
+          resolution: 2,
         })
         .setOrigin(0.5)
         .setDepth(100);

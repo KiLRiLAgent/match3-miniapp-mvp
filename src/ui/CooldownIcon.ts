@@ -30,7 +30,7 @@ export class CooldownIcon extends Phaser.GameObjects.Container {
       .setStrokeStyle(2, 0xffffff, 0.6);
 
     this.iconText = scene.add
-      .text(0, -4, "\u2694", { fontSize: "22px", color: "#ffffff", fontFamily: "'Exo 2', Arial, sans-serif" })
+      .text(0, -4, "\u2694", { fontSize: "22px", color: "#ffffff", fontFamily: "'Exo 2', Arial, sans-serif", resolution: 2 })
       .setOrigin(0.5);
 
     this.cooldownText = scene.add
@@ -41,6 +41,7 @@ export class CooldownIcon extends Phaser.GameObjects.Container {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 3,
+        resolution: 2,
       })
       .setOrigin(0.5);
 

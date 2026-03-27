@@ -76,6 +76,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 1,
+        resolution: 2,
       })
       .setOrigin(0.5);
 
@@ -86,6 +87,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
         fontSize: "40px",
         color: CARD_COLORS.icon,
         fontFamily: "'Exo 2', Arial, sans-serif",
+        resolution: 2,
       })
       .setOrigin(0.5);
 
@@ -96,6 +98,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
         color: CARD_COLORS.manaCost,
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
+        resolution: 2,
       })
       .setOrigin(0.5);
 
@@ -104,6 +107,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
         fontSize: "9px",
         color: CARD_COLORS.manaCost,
         fontFamily: "'Exo 2', Arial, sans-serif",
+        resolution: 2,
       })
       .setOrigin(0.5);
 
@@ -128,6 +132,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
           fontSize: "16px",
           color,
           fontFamily: "'Exo 2', Arial, sans-serif",
+          resolution: 2,
         })
         .setOrigin(0.5);
 
@@ -155,6 +160,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
         fontFamily: "'Exo 2', Arial, sans-serif",
         align: "center",
         wordWrap: { width: w - 16 },
+        resolution: 2,
       })
       .setOrigin(0.5);
 

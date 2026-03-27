@@ -51,6 +51,7 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
       color: this.config.textColor,
       wordWrap: { width: this.config.maxWidth - this.config.padding * 2 },
       align: "center",
+      resolution: 2,
     });
     this.textObj.setOrigin(0.5);
 
@@ -80,6 +81,7 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
         fontStyle: style.fontStyle,
         wordWrap: { width: wrapWidth },
         align: "center",
+        resolution: 2,
       }).setOrigin(0.5);
 
       // Search for the word directly in wrapped lines (avoids \n offset issues)
@@ -105,16 +107,19 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
         fontSize: style.fontSize,
         fontFamily: style.fontFamily,
         fontStyle: style.fontStyle,
+        resolution: 2,
       });
       const tempWord = this.scene.add.text(0, 0, word, {
         fontSize: style.fontSize,
         fontFamily: style.fontFamily,
         fontStyle: style.fontStyle,
+        resolution: 2,
       });
       const tempLine = this.scene.add.text(0, 0, lineText, {
         fontSize: style.fontSize,
         fontFamily: style.fontFamily,
         fontStyle: style.fontStyle,
+        resolution: 2,
       });
       const wordX = -tempLine.width / 2 + tempBefore.width + tempWord.width / 2;
 
@@ -123,6 +128,7 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
         fontFamily: style.fontFamily as string,
         fontStyle: style.fontStyle as string,
         color,
+        resolution: 2,
       }).setOrigin(0.5);
       this.add(overlay);
 

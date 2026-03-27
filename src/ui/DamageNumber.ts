@@ -31,6 +31,7 @@ class DamageNumber extends Phaser.GameObjects.Container {
         stroke: "#000000",
         strokeThickness: 6,
         fontStyle: "bold",
+        resolution: 2,
       })
       .setOrigin(0.5);
 

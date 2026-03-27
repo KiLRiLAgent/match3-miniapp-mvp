@@ -111,6 +111,7 @@ export class Meter extends Phaser.GameObjects.Container {
           fontSize: "14px",
           color: "#cfd8ff",
           fontFamily: "'Exo 2', Arial, sans-serif",
+          resolution: 2,
         })
         .setOrigin(0, 0.5);
       children.push(title);
@@ -125,6 +126,7 @@ export class Meter extends Phaser.GameObjects.Container {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 2,
+        resolution: 2,
       })
       .setOrigin(0.5, 0.5);
     children.push(this.label);
