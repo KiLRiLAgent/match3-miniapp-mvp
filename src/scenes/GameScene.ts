@@ -56,12 +56,6 @@ import { INTRO_ANIMATION } from "../game/animations";
 
 const SKILL_IDS: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 
-const SKILL_TUTORIAL = [
-  { id: "powerStrike" as SkillId, text: "⚡ Мощный удар\nНаноси урон, когда\nу босса нет щита!" },
-  { id: "stun" as SkillId,        text: "⏳ Стан\nЗадержи атаку босса\nперед его мощным ударом!" },
-  { id: "heal" as SkillId,        text: "💚 Хил\nВосстанавливай HP,\nкогда здоровье на исходе!" },
-  { id: "hammer" as SkillId,      text: "🔨 Молоток\nУдали любую фишку с поля\n— полезно в трудный момент" },
-];
 
 // Tutorial: fixed 8x7 board for the first move
 // Player must swipe tile at (5,2) DOWN to (5,3) to complete 3 swords in a row at (3..5,3)
@@ -125,7 +119,6 @@ export class GameScene extends Phaser.Scene {
     hammer: 0,
   };
   private hammerMode = false;
-  private unlockedSkillCount = 0;
   private hammerOverlay?: Phaser.GameObjects.Rectangle;
   private hammerHint?: Phaser.GameObjects.Text;
   private settingsOpen = false;
@@ -347,7 +340,6 @@ export class GameScene extends Phaser.Scene {
     this.bossShieldDuration = 0;
     this.bossDamageArtActive = false;
     this.skillCooldowns = { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
-    this.unlockedSkillCount = 0;
     this.bombTipShown = false;
     this.shieldTipShown = false;
     this.manaTipShown = false;
@@ -1616,17 +1608,15 @@ export class GameScene extends Phaser.Scene {
     this.cooldownIcon?.setAbility(abilityState.type, abilityState.currentCooldown);
 
     // Обновляем состояние всех 4 кнопок способностей
-    SKILL_IDS.forEach((id, idx) => {
+    SKILL_IDS.forEach((id) => {
       const cfg = SKILL_CONFIG[id];
-      const locked = idx >= this.unlockedSkillCount;
       const cooldown = this.skillCooldowns[id];
-      const canUse = !locked && cooldown === 0 && this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
+      const canUse = cooldown === 0 && this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
       this.skillButtons[id]?.applyState({
         enabled: canUse,
         ready: canUse,
         cooldown,
         info: `${cfg.cost}`,
-        locked,
       });
     });
   }
@@ -1658,8 +1648,6 @@ export class GameScene extends Phaser.Scene {
 
   private activateSkill(id: SkillId) {
     if (!this.canPlayerAct()) return;
-    const idx = SKILL_IDS.indexOf(id);
-    if (idx >= this.unlockedSkillCount) return;
     this.stopHintTimer();
 
     const cfg = SKILL_CONFIG[id];
@@ -2234,48 +2222,6 @@ export class GameScene extends Phaser.Scene {
 
   // ===== Tutorial & Tips =====
 
-  private async showSkillUnlockHint(id: SkillId): Promise<void> {
-    const step = SKILL_TUTORIAL.find(s => s.id === id);
-    const btn = this.skillButtons[id];
-    if (!step || !btn) return;
-
-    this.busy = true;
-
-    const overlay = this.add
-      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 1)
-      .setOrigin(0, 0).setDepth(200).setAlpha(0).setInteractive();
-    await tweenPromise(this, { targets: overlay, alpha: 0.6, duration: 200 });
-
-    btn.setDepth(201);
-    const pulseTween = this.tweens.add({
-      targets: btn, scaleX: 1.15, scaleY: 1.15,
-      duration: 500, yoyo: true, repeat: -1, ease: "Sine.easeInOut",
-    });
-
-    const bubbleY = btn.y - UI_LAYOUT.skillButtonSize / 2 - 60;
-    const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
-      text: step.text, tailDirection: "none", maxWidth: 260, fontSize: "15px",
-    });
-    bubble.setDepth(202);
-    await bubble.fadeIn(200);
-    await this.waitForTap(overlay);
-    await bubble.fadeOut(150);
-
-    pulseTween.stop();
-    btn.setScale(1);
-    btn.setDepth(2);
-
-    await tweenPromise(this, { targets: overlay, alpha: 0, duration: 200 });
-    overlay.destroy();
-    this.busy = false;
-  }
-
-  private waitForTap(target: Phaser.GameObjects.GameObject): Promise<void> {
-    return new Promise(resolve => {
-      target.once("pointerdown", resolve);
-    });
-  }
-
   private async showTip(text: string, duration = 2000): Promise<void> {
     // Don't show tips during busy animations or if a tip is already active
     if (this.activeTip) return;
@@ -2332,14 +2278,6 @@ export class GameScene extends Phaser.Scene {
   private async finishPlayerTurn() {
     if (this.gameOver) return;
     this.stats.turnsPlayed++;
-
-    // Открытие скиллов каждые 3 хода
-    if (this.unlockedSkillCount < SKILL_IDS.length && this.stats.turnsPlayed % 3 === 0) {
-      const unlockIdx = this.unlockedSkillCount;
-      this.unlockedSkillCount++;
-      this.updateHud();
-      await this.showSkillUnlockHint(SKILL_IDS[unlockIdx]);
-    }
 
     // Тикаем кулдауны скиллов игрока
     this.tickSkillCooldowns();
