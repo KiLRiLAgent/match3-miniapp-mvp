@@ -632,6 +632,7 @@ export class GameScene extends Phaser.Scene {
     const y = L.skillButtonsY;
     const initialAlpha = startHidden ? 0 : 1;
 
+    // Create all 4 buttons in locked state, positioned left-to-right
     SKILL_IDS.forEach((id, idx) => {
       const cfg = SKILL_CONFIG[id];
       const btn = new SkillButton(
@@ -646,6 +647,37 @@ export class GameScene extends Phaser.Scene {
       );
       btn.setDepth(2).setAlpha(initialAlpha);
       this.skillButtons[id] = btn;
+    });
+
+    // Initially all locked — updateHud will position unlocked ones
+    this.repositionSkillButtons();
+  }
+
+  /** Reposition skill buttons: unlocked left-to-right, rest hidden */
+  private repositionSkillButtons() {
+    const L = UI_LAYOUT;
+    const btnSize = L.skillButtonSize;
+    const spacing = L.skillButtonSpacing;
+    const startX = L.skillButtonsStartX;
+    const y = L.skillButtonsY;
+
+    const unlocked = this.perkManager?.unlockedOrder ?? [];
+
+    // Position unlocked skills left-to-right
+    unlocked.forEach((id, idx) => {
+      const btn = this.skillButtons[id];
+      if (btn) {
+        btn.setPosition(startX + idx * (btnSize + spacing), y);
+        btn.setVisible(true);
+      }
+    });
+
+    // Hide locked skills
+    SKILL_IDS.forEach((id) => {
+      if (!unlocked.includes(id)) {
+        const btn = this.skillButtons[id];
+        if (btn) btn.setVisible(false);
+      }
     });
   }
 
@@ -1048,7 +1080,12 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Apply perk
-    this.perkManager.applyPerk(selectedPerk.skillId);
+    const result = this.perkManager.applyPerk(selectedPerk.skillId);
+
+    // Reposition buttons if new skill unlocked
+    if (result.isNewUnlock) {
+      this.repositionSkillButtons();
+    }
 
     // Update skill button UI with new costs/values
     this.updateHud();
@@ -1607,12 +1644,19 @@ export class GameScene extends Phaser.Scene {
     const abilityState = this.bossAbilityManager.state;
     this.cooldownIcon?.setAbility(abilityState.type, abilityState.currentCooldown);
 
-    // Обновляем состояние всех 4 кнопок способностей
+    // Обновляем состояние только разблокированных скилов
+    const unlocked = this.perkManager?.unlockedOrder ?? [];
     SKILL_IDS.forEach((id) => {
+      const btn = this.skillButtons[id];
+      if (!btn) return;
+      if (!unlocked.includes(id)) {
+        btn.setVisible(false);
+        return;
+      }
       const cfg = SKILL_CONFIG[id];
       const cooldown = this.skillCooldowns[id];
       const canUse = cooldown === 0 && this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
-      this.skillButtons[id]?.applyState({
+      btn.applyState({
         enabled: canUse,
         ready: canUse,
         cooldown,
@@ -1648,6 +1692,7 @@ export class GameScene extends Phaser.Scene {
 
   private activateSkill(id: SkillId) {
     if (!this.canPlayerAct()) return;
+    if (!this.perkManager?.isUnlocked(id)) return;
     this.stopHintTimer();
 
     const cfg = SKILL_CONFIG[id];
