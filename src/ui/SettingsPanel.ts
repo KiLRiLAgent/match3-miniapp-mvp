@@ -333,10 +333,11 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   }
 
   private isInScrollArea(x: number, y: number): boolean {
+    // Allow scrolling anywhere inside the panel, not just the scroll content area
     return x >= this.scrollAreaLeft &&
            x <= this.scrollAreaRight &&
-           y >= this.scrollAreaTop &&
-           y <= this.scrollAreaTop + this.scrollAreaHeight;
+           y >= this.scrollAreaTop - 55 &&
+           y <= this.scrollAreaTop + this.scrollAreaHeight + 70;
   }
 
   private updateScrollPosition() {
