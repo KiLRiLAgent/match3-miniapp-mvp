@@ -169,15 +169,8 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
 
     this.currentFillWidth = fillWidth;
 
-    // Highlight: same corner logic
+    // Highlight disabled — looks like white strip on delta/layered bars
     this.highlightGfx.clear();
-    if (fillWidth > 0) {
-      this.highlightGfx.fillStyle(0xffffff, 0.15);
-      const r = fillWidth >= this.widthPx
-        ? this.radius
-        : { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
-      this.highlightGfx.fillRoundedRect(0, 0, fillWidth, Math.round(this.heightPx * 0.3), r);
-    }
 
     // Delta
     this.drawDelta();
