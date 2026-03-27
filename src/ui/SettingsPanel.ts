@@ -42,7 +42,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   private isDragging = false;
   private pointerDownHandler: ((pointer: Phaser.Input.Pointer) => void) | null = null;
   private pointerMoveHandler: ((pointer: Phaser.Input.Pointer) => void) | null = null;
-  private pointerUpHandler: (() => void) | null = null;
+  private pointerUpHandler: ((pointer: Phaser.Input.Pointer) => void) | null = null;
   private wheelHandler: ((pointer: Phaser.Input.Pointer, gameObjects: Phaser.GameObjects.GameObject[], deltaX: number, deltaY: number) => void) | null = null;
 
   constructor(scene: Phaser.Scene, onClose: () => void) {
