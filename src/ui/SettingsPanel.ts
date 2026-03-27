@@ -71,7 +71,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     this.panel = scene.add
       .rectangle(panelX, panelY, panelWidth, panelHeight, 0x1a1a2e, 0.98)
       .setOrigin(0)
-      .setStrokeStyle(2, 0x4a4a6e);
+      .setStrokeStyle(2, 0x4a4a6e)
+      .setInteractive();
 
     // Заголовок
     const title = scene.add
@@ -301,8 +302,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       if (!this.visible || !this.isDragging) return;
 
       const deltaY = pointer.y - this.dragStartY;
-      // Тянем вниз — контент скроллится вверх (scrollY увеличивается)
-      this.scrollY = Phaser.Math.Clamp(this.scrollStartY + deltaY, 0, this.maxScrollY);
+      // Стандартный мобильный скролл: палец вниз = контент следует вниз
+      this.scrollY = Phaser.Math.Clamp(this.scrollStartY - deltaY, 0, this.maxScrollY);
       this.updateScrollPosition();
     };
 

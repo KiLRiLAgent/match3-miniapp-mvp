@@ -1691,6 +1691,18 @@ export class GameScene extends Phaser.Scene {
 
     this.updateHud();
 
+    // Process pending perks from skill damage (layer transition)
+    if (this.pendingPerkCount > 0 && !this.gameOver && this.bossHp > 0) {
+      const processPerks = async () => {
+        while (this.pendingPerkCount > 0 && !this.gameOver) {
+          this.pendingPerkCount--;
+          await this.showPerkSelection();
+        }
+        this.updateHud();
+      };
+      processPerks();
+    }
+
     if (this.bossHp <= 0) {
       this.showVictory();
       return;
