@@ -653,7 +653,7 @@ export class GameScene extends Phaser.Scene {
     this.repositionSkillButtons();
   }
 
-  /** Reposition skill buttons: unlocked left-to-right, rest hidden */
+  /** Reposition skill buttons: unlocked left-to-right, locked as empty circles */
   private repositionSkillButtons() {
     const L = UI_LAYOUT;
     const btnSize = L.skillButtonSize;
@@ -672,11 +672,17 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Hide locked skills
+    // Show locked skills as empty circles after unlocked ones
+    let slotIdx = unlocked.length;
     SKILL_IDS.forEach((id) => {
       if (!unlocked.includes(id)) {
         const btn = this.skillButtons[id];
-        if (btn) btn.setVisible(false);
+        if (btn) {
+          btn.setPosition(startX + slotIdx * (btnSize + spacing), y);
+          btn.setVisible(true);
+          btn.applyState({ enabled: false, ready: false, locked: true });
+          slotIdx++;
+        }
       }
     });
   }
@@ -1644,13 +1650,13 @@ export class GameScene extends Phaser.Scene {
     const abilityState = this.bossAbilityManager.state;
     this.cooldownIcon?.setAbility(abilityState.type, abilityState.currentCooldown);
 
-    // Обновляем состояние только разблокированных скилов
+    // Обновляем состояние скилов: unlocked = нормальный UI, locked = пустой круг
     const unlocked = this.perkManager?.unlockedOrder ?? [];
     SKILL_IDS.forEach((id) => {
       const btn = this.skillButtons[id];
       if (!btn) return;
       if (!unlocked.includes(id)) {
-        btn.setVisible(false);
+        btn.applyState({ enabled: false, ready: false, locked: true });
         return;
       }
       const cfg = SKILL_CONFIG[id];
