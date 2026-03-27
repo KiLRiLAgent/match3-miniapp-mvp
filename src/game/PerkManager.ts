@@ -130,27 +130,24 @@ export class PerkManager {
 
   /**
    * Get perk choices: mix of new skill unlocks + upgrades for existing skills.
-   * - New skills fill remaining slots after upgrades (1 upgrade per unlocked skill)
-   * - If no new skills left, show only upgrades
+   * Priority: show ALL available new skills (up to count-1 if upgrades exist),
+   * fill remaining with upgrades. This ensures player sees all unlock options.
    */
   getRandomPerks(count: number = PERKS_TO_OFFER): PerkDef[] {
     const newSkills = shuffle(this.getNewSkills());
     const upgrades = shuffle(this.getUpgradeableSkills());
 
     if (newSkills.length === 0) {
-      // All unlocked — show only upgrades
       return upgrades.slice(0, count);
     }
-
     if (upgrades.length === 0) {
-      // Nothing unlocked yet — show only new skills
       return newSkills.slice(0, count);
     }
 
-    // Mix: upgrades first (1 per unlocked skill), fill rest with new skills
-    const upgradeCount = Math.min(upgrades.length, count - 1); // leave at least 1 slot for new
-    const newCount = Math.min(newSkills.length, count - upgradeCount);
-    return [...upgrades.slice(0, upgradeCount), ...newSkills.slice(0, newCount)];
+    // Show as many new skills as possible, leave at least 1 slot for upgrade
+    const newCount = Math.min(newSkills.length, count - 1);
+    const upgradeCount = Math.min(upgrades.length, count - newCount);
+    return [...newSkills.slice(0, newCount), ...upgrades.slice(0, upgradeCount)];
   }
 
   applyPerk(skillId: SkillId): PerkUpgrade {
