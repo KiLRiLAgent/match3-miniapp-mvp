@@ -19,8 +19,8 @@ import {
   GAME_PARAMS,
   DPR,
   TILE_DISPLAY_SCALE,
-  BOSS_LAYER_COUNT,
-  BOSS_HP_PER_LAYER,
+  getBossLayerCount,
+  getBossHpPerLayer,
   BOSS_LAYER_COLORS,
 } from "../game/config";
 import {
@@ -458,7 +458,7 @@ export class GameScene extends Phaser.Scene {
     this.bossHpBar = new LayeredMeter(
       this, L.bossHpBarX, L.bossHpBarY - 2,
       L.hpBarWidth, bossBarHeight,
-      BOSS_LAYER_COUNT, BOSS_HP_PER_LAYER, [...BOSS_LAYER_COLORS]
+      getBossLayerCount(), getBossHpPerLayer(), [...BOSS_LAYER_COLORS]
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА КУЛДАУНА ===

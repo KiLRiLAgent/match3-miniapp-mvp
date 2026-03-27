@@ -56,6 +56,8 @@ export const GAME_PARAMS = {
   boss: {
     hpMax: 1000,
     physAttack: 10,
+    layerCount: 10,
+    hpPerLayer: 100,
   },
   tiles: {
     hpPerTile: 2,
@@ -118,6 +120,10 @@ export function loadGameParams() {
       GAME_PARAMS.player.magAttack = clamp(GAME_PARAMS.player.magAttack, 0, 1000);
       GAME_PARAMS.boss.hpMax = clamp(GAME_PARAMS.boss.hpMax, 1, 100000);
       GAME_PARAMS.boss.physAttack = clamp(GAME_PARAMS.boss.physAttack, 0, 1000);
+      GAME_PARAMS.boss.layerCount = clamp(GAME_PARAMS.boss.layerCount, 1, 20);
+      GAME_PARAMS.boss.hpPerLayer = clamp(GAME_PARAMS.boss.hpPerLayer, 10, 1000);
+      // Sync hpMax with layers
+      GAME_PARAMS.boss.hpMax = GAME_PARAMS.boss.layerCount * GAME_PARAMS.boss.hpPerLayer;
       GAME_PARAMS.tiles.hpPerTile = clamp(GAME_PARAMS.tiles.hpPerTile, 0, 1000);
       GAME_PARAMS.tiles.mpPerTile = clamp(GAME_PARAMS.tiles.mpPerTile, 0, 1000);
       GAME_PARAMS.tiles.swordDamage = clamp(GAME_PARAMS.tiles.swordDamage, 0, 1000);
@@ -362,14 +368,22 @@ export const UI_COLORS = {
   defusedFlash: 0x44ff66,
 } as const;
 
-// Boss layered HP bar
-export const BOSS_LAYER_COUNT = 10;
-export const BOSS_HP_PER_LAYER = 100;
+// Boss layered HP bar (dynamic from GAME_PARAMS)
+export const getBossLayerCount = () => GAME_PARAMS.boss.layerCount;
+export const getBossHpPerLayer = () => GAME_PARAMS.boss.hpPerLayer;
 export const BOSS_LAYER_COLORS = [0xde3e3e, 0xf5c542] as const;
 
 // Input thresholds
 export const INPUT_THRESHOLD = {
   tapDistance: 10,
+} as const;
+
+// CRIT multipliers for enhanced matches (4+ tiles)
+export const CRIT_MULTIPLIERS = {
+  /** Match of exactly 4 tiles */
+  match4: 2,
+  /** Match of 5+ tiles (or L-shape) */
+  match5plus: 3,
 } as const;
 
 // Tile classification helpers
