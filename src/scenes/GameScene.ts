@@ -535,7 +535,7 @@ export class GameScene extends Phaser.Scene {
     this.manaBar = new Meter(
       this, L.playerHpBarX, L.playerMpBarY,
       L.playerBarWidth, L.playerBarHeight, "", UI_COLORS.playerMana, false,
-      { trailingDelta: true, iconKey: ASSET_KEYS.tiles[TileKind.Mana], iconSize: L.playerBarHeight * 1.75 }
+      { iconKey: ASSET_KEYS.tiles[TileKind.Mana], iconSize: L.playerBarHeight * 1.75 }
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === КНОПКА MUTE ===
@@ -1662,8 +1662,6 @@ export class GameScene extends Phaser.Scene {
     this.manaBar?.flash();
     this.skillCooldowns[id] = cfg.cooldown; // Ставим на кулдаун
     this.stats.skillsUsed++;
-    // Drain mana delta after skill use
-    this.time.delayedCall(300, () => this.manaBar?.drainDelta());
 
     // Звук общий для всех скиллов
     this.sfx(ASSET_KEYS.sfx.gemTap);
@@ -2671,7 +2669,6 @@ export class GameScene extends Phaser.Scene {
         this.mana -= manaDrain;
         this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
         this.manaBar?.flash();
-        this.manaBar?.drainDelta();
         if (this.playerAvatar) {
           showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 10, manaDrain, "mana_loss");
         }

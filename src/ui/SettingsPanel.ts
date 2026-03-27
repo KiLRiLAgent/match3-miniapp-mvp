@@ -60,7 +60,9 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.85)
       .setOrigin(0)
       .setInteractive()
-      .on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      .on("pointerup", (pointer: Phaser.Input.Pointer) => {
+        // Only close on tap outside panel (not on drag/scroll)
+        if (this.isDragging) return;
         const inPanel = pointer.x >= panelX && pointer.x <= panelX + panelWidth &&
                         pointer.y >= panelY && pointer.y <= panelY + panelHeight;
         if (!inPanel) {
@@ -71,8 +73,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     this.panel = scene.add
       .rectangle(panelX, panelY, panelWidth, panelHeight, 0x1a1a2e, 0.98)
       .setOrigin(0)
-      .setStrokeStyle(2, 0x4a4a6e)
-      .setInteractive();
+      .setStrokeStyle(2, 0x4a4a6e);
 
     // Заголовок
     const title = scene.add
