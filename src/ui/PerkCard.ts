@@ -197,6 +197,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
 
   playEntrance(delay: number): Promise<void> {
     return new Promise<void>((resolve) => {
+      if (!this.scene) { resolve(); return; }
       this.scene.tweens.add({
         targets: this,
         scale: { from: 0, to: 1 },
@@ -211,12 +212,14 @@ export class PerkCard extends Phaser.GameObjects.Container {
 
   playSelect(): Promise<void> {
     return new Promise<void>((resolve) => {
+      if (!this.scene) { resolve(); return; }
       this.scene.tweens.add({
         targets: this,
         scale: 1.15,
         duration: 150,
         ease: "Quad.easeOut",
         onComplete: () => {
+          if (!this.scene) { resolve(); return; }
           this.scene.tweens.add({
             targets: this,
             alpha: 0,
@@ -232,6 +235,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
 
   playDismiss(): Promise<void> {
     return new Promise<void>((resolve) => {
+      if (!this.scene) { resolve(); return; }
       this.scene.tweens.add({
         targets: this,
         alpha: 0,
@@ -248,6 +252,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
       this.glowTween.stop();
       this.glowTween = undefined;
     }
+    if (!this.scene) return;
 
     if (isOver) {
       this.glowTween = this.scene.tweens.add({
