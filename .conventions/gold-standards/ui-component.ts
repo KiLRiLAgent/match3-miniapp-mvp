@@ -21,9 +21,25 @@
  *
  * 2. GRAPHICS-BASED RENDERING
  *    - Bars and shapes use Phaser.GameObjects.Graphics (not sprites)
- *    - Fill content uses fillRect() (straight edges), clipped by geometry mask
  *    - Separate Graphics objects for separate z-layers:
  *      borderGfx -> deltaGfx -> fillGfx -> highlightGfx -> flashGfx
+ *
+ * 2a. PER-CORNER RADIUS FOR BAR FILLS
+ *    - Background border uses fillRoundedRect with uniform radius
+ *    - Fill, delta, highlight, flash use per-corner radius:
+ *      - Full width: uniform radius (all corners match border)
+ *      - Partial width: left corners rounded, right corners straight
+ *    - Extract into a fillRadius() helper method:
+ *
+ *      private fillRadius(width: number): number | RoundedRectRadius {
+ *        if (width >= this.widthPx - 0.5) return this.radius;
+ *        return { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
+ *      }
+ *
+ *    - The -0.5 threshold handles float precision at 100% fill
+ *    - Applied in both Meter.ts and LayeredMeter.ts
+ *    - ANTI-PATTERN: Do NOT use geometry masks for bar clipping —
+ *      masks don't work inside Containers (see anti-pattern doc)
  *
  * 3. CONSTRUCTOR OPTIONS PATTERN
  *    - Required params first, optional config object last
@@ -37,30 +53,14 @@
  *
  *      constructor(scene, x, y, width, height, label, color, isHp = false, options?: MeterOptions)
  *
- * 4. GEOMETRY MASK FOR BAR CLIPPING
- *    - Background border uses fillRoundedRect (rounded edges)
- *    - Fill, delta, highlight, flash use fillRect (straight right edges)
- *    - A geometry mask clips fillRect content to the rounded bar shape
- *    - Mask is applied PER-GRAPHICS-CHILD (not on container) to avoid clipping
- *      label text and value text that sit outside the bar bounds
- *    - maskGfx is added to children array so it moves with the container
- *
- *      // Create mask shape matching the border
- *      const maskGfx = scene.add.graphics();
- *      maskGfx.fillStyle(0xffffff);
- *      maskGfx.fillRoundedRect(offsetX, 0, width, height, radius);
- *      maskGfx.setVisible(false);
- *      children.push(maskGfx);
- *      const barMask = maskGfx.createGeometryMask();
- *
- *      // Apply to each graphics layer individually
- *      this.fillGfx.setMask(barMask);
- *      this.deltaGfx.setMask(barMask);
- *      this.highlightGfx.setMask(barMask);
- *      this.flashGfx.setMask(barMask);
- *
- *    ANTI-PATTERN: Do NOT use this.setMask() on the Container — it clips
- *    ALL children including text labels positioned outside the bar bounds.
+ * 4. BAR EDGE HANDLING (per-corner radius, NOT geometry masks)
+ *    - Use fillRoundedRect with per-corner radius for all fills:
+ *      - Full bar: uniform radius (matches border)
+ *      - Partial fill: { tl: radius, tr: 0, bl: radius, br: 0 }
+ *    - This gives straight right edges without needing geometry masks
+ *    - IMPORTANT: Geometry masks do NOT work inside Containers in Phaser
+ *      (see anti-pattern: avoid-container-mask.md)
+ *    - fillRadius() helper centralizes the logic (see section 2a above)
  *
  * 5. TRAILING DELTA PATTERN
  *    - Show "lost" amount as white rectangle between old and new fill

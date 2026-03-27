@@ -1,33 +1,42 @@
-# Anti-Pattern: Container-Level Geometry Mask
+# Anti-Pattern: Geometry Masks Inside Containers
 
-Do not apply `setMask()` on a Container when the container has children positioned outside the mask bounds (e.g., label text above a bar, value text centered inside).
+**Geometry masks do NOT work correctly inside Phaser Containers.** This is a Phaser engine limitation, not a bug in our code.
 
-## Why
+## The Problem
 
-A geometry mask on a Container clips ALL children — including text labels at y=-18 (above the bar) and centered value text. This causes text to be invisible or partially cut off.
+Geometry masks on children inside a Container use world coordinates for clipping, but the Container applies its own transform. This causes the mask to clip at the wrong position — children appear cut off or invisible.
+
+## Why This Matters
+
+Even per-child masking (not container-level) fails inside Containers. The mask shape doesn't move with the container.
 
 ## Examples
 
 ```typescript
-// WRONG — clips ALL children including text labels
+// WRONG — geometry mask inside Container (mask position doesn't follow container)
 const maskGfx = scene.add.graphics();
 maskGfx.fillRoundedRect(0, 0, width, height, radius);
-maskGfx.setVisible(false);
-this.setMask(maskGfx.createGeometryMask()); // Container-level mask
+this.fillGfx.setMask(maskGfx.createGeometryMask()); // broken inside Container
 
-// CORRECT — mask only the graphics layers that need clipping
-const barMask = maskGfx.createGeometryMask();
-this.fillGfx.setMask(barMask);
-this.deltaGfx.setMask(barMask);
-this.highlightGfx.setMask(barMask);
-this.flashGfx.setMask(barMask);
-// Text children are NOT masked — they render freely
+// ALSO WRONG — container-level mask clips ALL children
+this.setMask(maskGfx.createGeometryMask());
+
+// CORRECT — use per-corner radius instead of masks
+private fillRadius(width: number): number | RoundedRectRadius {
+  if (width >= this.widthPx - 0.5) return this.radius;
+  return { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
+}
+this.fillGfx.fillRoundedRect(0, 0, fillWidth, height, this.fillRadius(fillWidth));
 ```
 
-## When to use Container-level mask
+## The Solution: Per-Corner Radius
 
-Only when ALL children should be clipped to the same bounds (e.g., a scrollable panel where everything must stay within the panel rect). For bar components with labels, always use per-child masking.
+Instead of geometry masks, use `fillRoundedRect` with per-corner radius objects:
+- `{ tl: r, tr: 0, bl: r, br: 0 }` for left-rounded, right-straight fills
+- Uniform `r` when fill spans full width (all corners match border)
 
-## Session finding
+This is implemented in both Meter.ts and LayeredMeter.ts via the `fillRadius()` helper method.
 
-During this session, Meter.ts was initially implemented with container-level mask which would have clipped the title label at y=-18 and the "150/200" value text. Fixed by applying mask to individual Graphics children only.
+## When geometry masks ARE safe
+
+Only on game objects that are NOT inside a Container — i.e., added directly to the scene. For UI components that extend Container, always use per-corner radius or other non-mask approaches.

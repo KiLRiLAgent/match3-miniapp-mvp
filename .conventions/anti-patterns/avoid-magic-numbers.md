@@ -13,6 +13,9 @@ All visual and timing parameters must be defined as named constants in their res
 | Hint animation params | `src/game/animations.ts` | `HINT_ANIMATION` |
 | Board/cell/screen sizes | `src/game/config.ts` | Top-level exports |
 | Game balance (HP, damage, costs) | `src/game/config.ts` | `GAME_PARAMS` |
+| CRIT multipliers | `src/game/config.ts` | `CRIT_MULTIPLIERS` |
+| Perk system limits | `src/game/config.ts` | `PERK_MAX_LEVEL`, `PERK_CHOICES` |
+| Boss layer config | `src/game/config.ts` | `GAME_PARAMS.boss.layerCount/hpPerLayer` |
 | UI colors | `src/game/config.ts` | `UI_COLORS` |
 | Component-local timing | Same file as component | Module-level `const` |
 
