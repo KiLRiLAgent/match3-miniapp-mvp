@@ -57,9 +57,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
 
     const children: Phaser.GameObjects.GameObject[] = [];
 
-    // Counter text width reservation
-    const counterWidth = 36;
-    this.widthPx = width - counterWidth;
+    this.widthPx = width;
 
     // Rounded background
     const borderGfx = scene.add.graphics();
@@ -103,9 +101,9 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
       .setOrigin(0.5, 0.5);
     children.push(this.label);
 
-    // Layer counter on the right
+    // Layer counter inside bar (right-aligned)
     this.counterText = scene.add
-      .text(this.widthPx + 4, height / 2, "", {
+      .text(this.widthPx - 8, height / 2, "", {
         fontSize: "18px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -113,7 +111,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
         stroke: "#000000",
         strokeThickness: 3,
       })
-      .setOrigin(0, 0.5);
+      .setOrigin(1, 0.5);
     children.push(this.counterText);
 
     this.add(children);

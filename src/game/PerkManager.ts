@@ -1,8 +1,8 @@
-import { SKILL_CONFIG } from "./config";
+import { SKILL_CONFIG, PERK_MAX_LEVEL, PERK_CHOICES } from "./config";
 import type { SkillId } from "./config";
 
-export const MAX_PERK_LEVEL = 5;
-export const PERKS_TO_OFFER = 3;
+export const MAX_PERK_LEVEL = PERK_MAX_LEVEL;
+export const PERKS_TO_OFFER = PERK_CHOICES;
 
 export interface PerkDef {
   skillId: SkillId;
@@ -66,6 +66,14 @@ const PERK_DEFS: PerkDef[] = [
     ],
   },
 ];
+
+// Baseline skill values (before any perks) — used to restore on reset
+const SKILL_BASELINE: Record<SkillId, { damage: number; heal: number; cost: number; cooldown: number; stunTurns?: number }> = {
+  powerStrike: { damage: 100, heal: 0, cost: 40, cooldown: 3 },
+  stun:        { damage: 0,   heal: 0, cost: 50, cooldown: 5, stunTurns: 2 },
+  heal:        { damage: 0,   heal: 50, cost: 30, cooldown: 2 },
+  hammer:      { damage: 0,   heal: 0, cost: 20, cooldown: 3 },
+};
 
 export class PerkManager {
   private levels: Record<SkillId, number> = {
@@ -148,6 +156,16 @@ export class PerkManager {
 
   reset(): void {
     this.levels = { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
+    // Restore SKILL_CONFIG to baseline values
+    for (const id of Object.keys(SKILL_BASELINE) as SkillId[]) {
+      const base = SKILL_BASELINE[id];
+      const cfg = SKILL_CONFIG[id];
+      cfg.damage = base.damage;
+      cfg.heal = base.heal;
+      cfg.cost = base.cost;
+      cfg.cooldown = base.cooldown;
+      if (base.stunTurns !== undefined) cfg.stunTurns = base.stunTurns;
+    }
   }
 }
 

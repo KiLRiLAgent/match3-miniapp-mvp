@@ -383,8 +383,12 @@ export const CRIT_MULTIPLIERS = {
   /** Match of exactly 4 tiles */
   match4: 2,
   /** Match of 5+ tiles (or L-shape) */
-  match5plus: 3,
+  match5: 3,
 } as const;
+
+// Perk system constants
+export const PERK_MAX_LEVEL = 5;
+export const PERK_CHOICES = 3;
 
 // Tile classification helpers
 export const DAMAGE_TILES: readonly TileKind[] = [TileKind.Sword, TileKind.Star] as const;

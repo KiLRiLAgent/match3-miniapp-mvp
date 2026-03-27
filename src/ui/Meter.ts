@@ -133,18 +133,24 @@ export class Meter extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
+  /** Per-corner radius: left corners rounded, right corners straight when partial */
+  private fillRadius(width: number): number | Phaser.Types.GameObjects.Graphics.RoundedRectRadius {
+    if (width >= this.widthPx - 0.5) return this.radius;
+    return { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
+  }
+
   private drawFill(fillWidth: number) {
     this.fillGfx.clear();
     if (fillWidth <= 0) return;
     this.fillGfx.fillStyle(this.currentColor, 0.95);
-    this.fillGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, this.heightPx, this.radius);
+    this.fillGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, this.heightPx, this.fillRadius(fillWidth));
   }
 
   private drawHighlight(fillWidth: number) {
     this.highlightGfx.clear();
     if (fillWidth <= 0) return;
     this.highlightGfx.fillStyle(0xffffff, 0.15);
-    this.highlightGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, Math.round(this.heightPx * 0.3), this.radius);
+    this.highlightGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, Math.round(this.heightPx * 0.3), this.fillRadius(fillWidth));
   }
 
   private drawDelta() {
@@ -153,7 +159,7 @@ export class Meter extends Phaser.GameObjects.Container {
     const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
     if (totalWidth <= 0) return;
     this.deltaGfx.fillStyle(0xffffff, 0.85);
-    this.deltaGfx.fillRoundedRect(this.barOffsetX, 0, totalWidth, this.heightPx, this.radius);
+    this.deltaGfx.fillRoundedRect(this.barOffsetX, 0, totalWidth, this.heightPx, this.fillRadius(totalWidth));
   }
 
   setValue(current: number, max: number) {
@@ -196,7 +202,7 @@ export class Meter extends Phaser.GameObjects.Container {
 
     this.flashGfx.clear();
     this.flashGfx.fillStyle(0xffffff, 1);
-    this.flashGfx.fillRoundedRect(this.barOffsetX, 0, this.currentFillWidth, this.heightPx, this.radius);
+    this.flashGfx.fillRoundedRect(this.barOffsetX, 0, this.currentFillWidth, this.heightPx, this.fillRadius(this.currentFillWidth));
     this.flashGfx.setAlpha(0);
 
     this.scene.tweens.add({

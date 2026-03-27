@@ -150,24 +150,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   private buildSpecialTileTextures() {
-    const d = DPR;
-    const size = (CELL_SIZE - 2) * d;
-    const specialTiles = [
-      { color: 0xf7c948, accent: 0xffffff, key: ASSET_KEYS.tiles[TileKind.BoosterRow] },
-      { color: 0xf17c67, accent: 0xffffff, key: ASSET_KEYS.tiles[TileKind.BoosterCol] },
-      { color: 0xffffff, accent: 0x222222, key: ASSET_KEYS.tiles[TileKind.Ultimate] },
-    ];
-
-    for (const tile of specialTiles) {
-      const g = this.add.graphics();
-      g.fillStyle(tile.color, 1);
-      g.fillRoundedRect(2 * d, 2 * d, size, size, 10 * d);
-      g.lineStyle(4 * d, tile.accent, 0.8);
-      g.strokeRoundedRect(2 * d, 2 * d, size, size, 10 * d);
-      g.generateTexture(tile.key, CELL_SIZE * d, CELL_SIZE * d);
-      g.destroy();
-    }
-
     this.buildBombTexture();
     this.buildEnhancedGlowTextures();
   }

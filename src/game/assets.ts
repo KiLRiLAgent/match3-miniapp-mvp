@@ -36,8 +36,11 @@ export const ASSET_KEYS = {
     [TileKind.Star]: "tile_star",
     [TileKind.Mana]: "tile_mana",
     [TileKind.Heal]: "tile_heal",
+    /** @deprecated No longer generated — kept for type compatibility */
     [TileKind.BoosterRow]: "tile_booster_row",
+    /** @deprecated No longer generated — kept for type compatibility */
     [TileKind.BoosterCol]: "tile_booster_col",
+    /** @deprecated No longer generated — kept for type compatibility */
     [TileKind.Ultimate]: "tile_ultimate",
     [TileKind.Bomb]: "tile_bomb",
   },

@@ -1,4 +1,4 @@
-import { BASE_TYPES } from "../game/config";
+import { BASE_TYPES, CRIT_MULTIPLIERS } from "../game/config";
 import { TileKind } from "./types";
 import type { BaseTileKind, Match, Position, PotentialMove, Tile } from "./types";
 
@@ -38,6 +38,13 @@ export const baseCountTemplate = (): Record<BaseTileKind, number> => ({
   [TileKind.Mana]: 0,
   [TileKind.Heal]: 0,
 });
+
+/** Convert match length to CRIT multiplier (4 = x2, 5+ = x3) */
+function critMultiplier(matchLength: number): number {
+  if (matchLength >= 5) return CRIT_MULTIPLIERS.match5;
+  if (matchLength >= 4) return CRIT_MULTIPLIERS.match4;
+  return 1;
+}
 
 export class Match3Board {
   width: number;
@@ -331,7 +338,7 @@ export class Match3Board {
           kind: a.kind,
           base: a.kind,
           tile: tileAtPos,
-          multiplier: uniquePositions.length,
+          multiplier: critMultiplier(uniquePositions.length),
         });
       }
     }
@@ -356,7 +363,7 @@ export class Match3Board {
             kind: match.kind,
             base: match.kind,
             tile: tileAtPos,
-            multiplier: match.positions.length,
+            multiplier: critMultiplier(match.positions.length),
           });
         }
       } else {
@@ -367,43 +374,13 @@ export class Match3Board {
       }
     }
 
-    this.expandSpecialsCascade(clearSet, addPos);
-
-    // Do not clear tiles that transform into specials
+    // Do not clear tiles that transform into enhanced (CRIT) tiles
     for (const transform of transforms) {
       clearSet.delete(this.key(transform.pos));
     }
 
     const { cleared, counts: finalCounts } = this.buildClearOutcome(clearSet);
     return { cleared, transforms, counts: finalCounts };
-  }
-
-  private expandSpecialsCascade(
-    clearSet: Set<string>,
-    addPos: (pos: Position) => void
-  ): void {
-    const processedSpecials = new Set<string>();
-    const queue = Array.from(clearSet);
-
-    while (queue.length > 0) {
-      const posKey = queue.shift()!;
-      if (processedSpecials.has(posKey)) continue;
-
-      const pos = this.fromKey(posKey);
-      const tile = this.getTile(pos);
-
-      if (tile && this.isSpecial(tile.kind)) {
-        processedSpecials.add(posKey);
-        const additions = this.blastArea(pos, tile.kind);
-        additions.forEach((p) => {
-          addPos(p);
-          const key = this.key(p);
-          if (!processedSpecials.has(key)) {
-            queue.push(key);
-          }
-        });
-      }
-    }
   }
 
   private buildClearOutcome(clearSet: Set<string>): {

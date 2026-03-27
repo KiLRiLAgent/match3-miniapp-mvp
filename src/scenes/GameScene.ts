@@ -22,6 +22,7 @@ import {
   getBossLayerCount,
   getBossHpPerLayer,
   BOSS_LAYER_COLORS,
+  CRIT_MULTIPLIERS,
 } from "../game/config";
 import {
   ANIMATION_DURATIONS,
@@ -40,6 +41,9 @@ import { SettingsPanel } from "../ui/SettingsPanel";
 import { CooldownIcon } from "../ui/CooldownIcon";
 import { showDamageNumber } from "../ui/DamageNumber";
 import { BossAbilityManager } from "../game/BossAbility";
+import { PerkManager, PERKS_TO_OFFER } from "../game/PerkManager";
+import type { PerkDef } from "../game/PerkManager";
+import { PerkCard } from "../ui/PerkCard";
 import { BOSS_ABILITIES } from "../game/config";
 import { flyTilesToTarget } from "../ui/FlyingTile";
 import type { FlyTarget } from "../ui/FlyingTile";
@@ -187,6 +191,15 @@ export class GameScene extends Phaser.Scene {
     bombsDefused: 0,
   };
 
+  // Red vignette overlay (low HP warning)
+  private vignetteGfx?: Phaser.GameObjects.Graphics;
+  private vignetteTween?: Phaser.Tweens.Tween;
+
+  // Perk system
+  private perkManager!: PerkManager;
+  private prevBossLayerIdx = 0;
+  private pendingPerkCount = 0;
+
   constructor() {
     super("GameScene");
   }
@@ -228,6 +241,8 @@ export class GameScene extends Phaser.Scene {
     this.bossShieldText = undefined;
     this.skillButtons = {};
     this.muteButton = undefined;
+    this.vignetteGfx = undefined;
+    this.vignetteTween = undefined;
     this.bgm = undefined;
 
     this.cameras.main.setZoom(DPR);
@@ -347,12 +362,17 @@ export class GameScene extends Phaser.Scene {
     this.tutorialHintTweens = [];
     this.board = Match3Board.fromGrid(BOARD_WIDTH, BOARD_HEIGHT, TUTORIAL_BOARD);
     this.bossAbilityManager = new BossAbilityManager();
+    this.perkManager = new PerkManager();
+    this.perkManager.reset(); // Restore SKILL_CONFIG to baseline values
+    this.prevBossLayerIdx = getBossLayerCount();
+    this.pendingPerkCount = 0;
     this.tileSprites.clear();
     this.tilePositions.clear();
     this.clearBombCooldownTexts();
     this.clearTileGlows();
     this.rebuildPositionMap();
     this.hideBossShieldOverlay(true);
+    this.hideVignette();
   }
 
   private clearBombCooldownTexts() {
@@ -656,7 +676,7 @@ export class GameScene extends Phaser.Scene {
       const isTap = Math.abs(dx) < INPUT_THRESHOLD.tapDistance && Math.abs(dy) < INPUT_THRESHOLD.tapDistance;
 
       if (isTap) {
-        this.handleTap(start.pos);
+        // Tap does nothing — no special tiles to activate
       } else {
         const dir = this.getSwipeDirection(dx, dy);
         const target = { x: start.pos.x + dir.x, y: start.pos.y + dir.y };
@@ -677,21 +697,6 @@ export class GameScene extends Phaser.Scene {
     return Math.abs(dx) > Math.abs(dy)
       ? { x: Math.sign(dx), y: 0 }
       : { x: 0, y: Math.sign(dy) };
-  }
-
-  private handleTap(pos: Position) {
-    if (this.tutorialActive) return;
-    const tile = this.board.getTile(pos);
-    if (!tile || !this.board.isSpecial(tile.kind)) return;
-
-    this.sfx(ASSET_KEYS.sfx.gemTap);
-    this.stopHintTimer();
-    this.busy = true;
-    this.resolveBoard([], [pos], [], true, "player").finally(() => {
-      if (!this.gameOver && this.currentTurn === "player") {
-        this.busy = false;
-      }
-    });
   }
 
   private attemptSwap(a: Position, b: Position) {
@@ -732,24 +737,15 @@ export class GameScene extends Phaser.Scene {
     this.rebuildPositionMap();
     this.animateSwap(tileA.id, tileB.id)
       .then(() => {
-        const specials: Position[] = [];
-        const tileAfterA = this.board.getTile(a);
-        const tileAfterB = this.board.getTile(b);
-        if (tileAfterA && this.board.isSpecial(tileAfterA.kind)) {
-          specials.push({ ...a });
-        }
-        if (tileAfterB && this.board.isSpecial(tileAfterB.kind)) {
-          specials.push({ ...b });
-        }
         const matches = this.board.findMatches();
-        if (!matches.length && !specials.length) {
+        if (!matches.length) {
           // invalid swap, revert
           this.sfx(ASSET_KEYS.sfx.gemSwipe);
           this.board.swap(a, b);
           this.rebuildPositionMap();
           return this.animateSwap(tileA.id, tileB.id);
         }
-        return this.resolveBoard(matches, specials, [a, b], true, "player");
+        return this.resolveBoard(matches, [], [a, b], true, "player");
       })
       .finally(() => {
         if (!this.gameOver && this.currentTurn === "player") {
@@ -795,6 +791,9 @@ export class GameScene extends Phaser.Scene {
 
       await this.animateClear(outcome, actor);
 
+      // Show CRIT floating text for enhanced matches
+      this.showCritTexts(outcome.transforms);
+
       // Применяем эффекты СРАЗУ после полёта фишек (не в конце!)
       this.applyMatchResults(outcome.counts, actor);
 
@@ -831,6 +830,12 @@ export class GameScene extends Phaser.Scene {
     this.bossHpBar?.drainDelta();
     this.playerHpBar?.drainDelta();
 
+    // Perk selection on boss layer transition (one per layer crossed)
+    while (this.pendingPerkCount > 0 && !this.gameOver) {
+      this.pendingPerkCount--;
+      await this.showPerkSelection();
+    }
+
     // Check for deadlock after cascades settle
     if (!this.gameOver) {
       await this.checkAndReshuffle();
@@ -861,6 +866,223 @@ export class GameScene extends Phaser.Scene {
     this.checkGameOver();
   }
 
+  private showCritTexts(transforms: Array<{ pos: Position; multiplier?: number }>) {
+    for (const t of transforms) {
+      if (!t.multiplier || t.multiplier <= 1) continue;
+      const world = this.toWorld(t.pos);
+      const isMega = t.multiplier >= CRIT_MULTIPLIERS.match5;
+      const label = isMega ? `MEGA CRIT! x${t.multiplier}` : `CRIT! x${t.multiplier}`;
+      const text = this.add
+        .text(world.x, world.y - CELL_SIZE * 0.8, label, {
+          fontSize: isMega ? "28px" : "24px",
+          color: "#ffd700",
+          fontFamily: "'Exo 2', Arial, sans-serif",
+          fontStyle: "bold",
+          stroke: "#000000",
+          strokeThickness: 5,
+        })
+        .setOrigin(0.5)
+        .setDepth(100)
+        .setScale(0.5);
+
+      this.tweens.add({
+        targets: text,
+        scale: 1,
+        duration: 200,
+        ease: "Back.easeOut",
+      });
+      this.tweens.add({
+        targets: text,
+        y: text.y - 50,
+        alpha: 0,
+        duration: 800,
+        delay: 300,
+        ease: "Quad.easeOut",
+        onComplete: () => text.destroy(),
+      });
+    }
+  }
+
+  // --- Red vignette (low HP warning) ---
+
+  private readonly VIGNETTE_HP_THRESHOLD = 0.3;
+  private readonly VIGNETTE_ALPHA_MIN = 0.15;
+  private readonly VIGNETTE_ALPHA_MAX = 0.35;
+  private readonly VIGNETTE_DEPTH = 5.5;
+
+  private updateVignette() {
+    const hpRatio = this.playerHp / GAME_PARAMS.player.hpMax;
+    if (hpRatio < this.VIGNETTE_HP_THRESHOLD && this.playerHp > 0) {
+      this.showVignette();
+    } else {
+      this.hideVignette();
+    }
+  }
+
+  private showVignette() {
+    if (this.vignetteGfx) return; // already visible
+
+    const gfx = this.add.graphics();
+    gfx.setDepth(this.VIGNETTE_DEPTH);
+
+    // Draw red gradient edges (4 edge rects with alpha gradient via fillGradientStyle)
+    const w = GAME_WIDTH;
+    const h = GAME_HEIGHT;
+    const edgeSize = Math.min(w, h) * 0.25;
+
+    // Top edge
+    gfx.fillGradientStyle(0xff0000, 0xff0000, 0xff0000, 0xff0000, 0.8, 0.8, 0, 0);
+    gfx.fillRect(0, 0, w, edgeSize);
+    // Bottom edge
+    gfx.fillGradientStyle(0xff0000, 0xff0000, 0xff0000, 0xff0000, 0, 0, 0.8, 0.8);
+    gfx.fillRect(0, h - edgeSize, w, edgeSize);
+    // Left edge
+    gfx.fillGradientStyle(0xff0000, 0xff0000, 0xff0000, 0xff0000, 0.6, 0, 0.6, 0);
+    gfx.fillRect(0, 0, edgeSize, h);
+    // Right edge
+    gfx.fillGradientStyle(0xff0000, 0xff0000, 0xff0000, 0xff0000, 0, 0.6, 0, 0.6);
+    gfx.fillRect(w - edgeSize, 0, edgeSize, h);
+
+    gfx.setAlpha(this.VIGNETTE_ALPHA_MIN);
+    this.vignetteGfx = gfx;
+
+    this.vignetteTween = this.tweens.add({
+      targets: gfx,
+      alpha: { from: this.VIGNETTE_ALPHA_MIN, to: this.VIGNETTE_ALPHA_MAX },
+      duration: 1200,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  private hideVignette() {
+    if (!this.vignetteGfx) return;
+    if (this.vignetteTween) {
+      this.vignetteTween.stop();
+      this.vignetteTween = undefined;
+    }
+    this.vignetteGfx.destroy();
+    this.vignetteGfx = undefined;
+  }
+
+  // --- Perk selection UI ---
+
+  private async showPerkSelection(): Promise<void> {
+    const perks = this.perkManager.getRandomPerks(PERKS_TO_OFFER);
+    if (perks.length === 0) return;
+
+    this.busy = true;
+
+    // "New level!" text
+    const levelText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.25, "Новый уровень!", {
+        fontSize: "32px",
+        color: "#ffd700",
+        fontFamily: "'Exo 2', Arial, sans-serif",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5)
+      .setDepth(201)
+      .setAlpha(0);
+
+    // Dark overlay
+    const overlay = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.7)
+      .setOrigin(0, 0)
+      .setDepth(200)
+      .setAlpha(0);
+
+    await tweenPromise(this, {
+      targets: overlay,
+      alpha: 1,
+      duration: 200,
+      ease: "Quad.easeOut",
+    });
+
+    await tweenPromise(this, {
+      targets: levelText,
+      alpha: 1,
+      duration: 200,
+      ease: "Quad.easeOut",
+    });
+
+    // Create perk cards
+    const cardWidth = 120;
+    const cardSpacing = 16;
+    const totalWidth = perks.length * cardWidth + (perks.length - 1) * cardSpacing;
+    const startX = GAME_WIDTH / 2 - totalWidth / 2 + cardWidth / 2;
+    const cardY = GAME_HEIGHT * 0.55;
+
+    const selectedPerk = await new Promise<PerkDef>((resolve) => {
+      const cards: PerkCard[] = [];
+
+      perks.forEach((perk, i) => {
+        const x = startX + i * (cardWidth + cardSpacing);
+        const level = this.perkManager.getLevel(perk.skillId);
+        const manaCost = this.perkManager.getManaCost(perk.skillId);
+        const desc = this.perkManager.getNextDescription(perk.skillId);
+
+        const card = new PerkCard(
+          this,
+          x,
+          cardY,
+          perk,
+          level,
+          manaCost,
+          desc,
+          async () => {
+            // Selected card scales up and fades
+            await card.playSelect();
+            // Dismiss other cards
+            await Promise.all(
+              cards.filter((c) => c !== card).map((c) => c.playDismiss())
+            );
+            // Cleanup
+            cards.forEach((c) => c.destroy());
+            resolve(perk);
+          },
+        );
+        card.setDepth(202);
+        cards.push(card);
+      });
+
+      // Entrance animations
+      cards.forEach((card, i) => {
+        card.playEntrance(i * 100);
+      });
+    });
+
+    // Apply perk
+    this.perkManager.applyPerk(selectedPerk.skillId);
+
+    // Update skill button UI with new costs/values
+    this.updateHud();
+
+    // Fade out overlay and level text
+    await Promise.all([
+      tweenPromise(this, {
+        targets: overlay,
+        alpha: 0,
+        duration: 200,
+        ease: "Quad.easeIn",
+      }),
+      tweenPromise(this, {
+        targets: levelText,
+        alpha: 0,
+        duration: 200,
+        ease: "Quad.easeIn",
+      }),
+    ]);
+
+    overlay.destroy();
+    levelText.destroy();
+
+    this.busy = false;
+  }
+
   private applyDamageToBoss(damage: number, skipSlash = false) {
     if (damage <= 0) return;
 
@@ -888,6 +1110,15 @@ export class GameScene extends Phaser.Scene {
       this.flashBoss(); // fire-and-forget: instant texture swap + white flash + shake
       if (!skipSlash) this.showSlashEffect(this.bossTarget, false);
     }
+
+    // Track boss layer transition for perk system
+    const hpPerLayer = getBossHpPerLayer();
+    const newLayerIdx = this.bossHp <= 0 ? 0 : Math.ceil(this.bossHp / hpPerLayer);
+    if (newLayerIdx < this.prevBossLayerIdx && newLayerIdx > 0) {
+      // Count how many layers were crossed (supports multi-layer skip from CRIT)
+      this.pendingPerkCount += this.prevBossLayerIdx - newLayerIdx;
+    }
+    this.prevBossLayerIdx = newLayerIdx;
   }
 
   private applyDamageToPlayer(damage: number) {
@@ -902,6 +1133,7 @@ export class GameScene extends Phaser.Scene {
     if (this.playerAvatar) {
       showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 30, damage, "damage");
     }
+    this.updateVignette();
   }
 
   private applyManaToPlayer(manaGain: number) {
@@ -946,6 +1178,7 @@ export class GameScene extends Phaser.Scene {
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 40, actualHeal, "heal");
       }
+      this.updateVignette();
     }
   }
 
