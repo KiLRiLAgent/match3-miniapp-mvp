@@ -56,8 +56,8 @@ export const FLYING_TILE = {
   trailOpacity: 0.7,
   trailSize: 6,
   delayBetweenTiles: 30,
-  startScale: 1.6,
-  endScale: 1.05,
+  startScale: 2.4,
+  endScale: 1.55,
 } as const;
 
 /**
