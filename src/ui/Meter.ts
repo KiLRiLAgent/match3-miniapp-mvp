@@ -148,7 +148,7 @@ export class Meter extends Phaser.GameObjects.Container {
 
   private drawHighlight(fillWidth: number) {
     this.highlightGfx.clear();
-    if (fillWidth <= 0) return;
+    if (fillWidth <= 0 || this.deltaEnabled) return; // skip highlight on delta bars — looks like white strip
     this.highlightGfx.fillStyle(0xffffff, 0.15);
     this.highlightGfx.fillRoundedRect(this.barOffsetX, 0, fillWidth, Math.round(this.heightPx * 0.3), this.fillRadius(fillWidth));
   }

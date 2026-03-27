@@ -106,9 +106,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       { label: "✨ Маг. атака", getValue: () => GAME_PARAMS.player.magAttack, setValue: (v) => GAME_PARAMS.player.magAttack = v, min: 1, max: 50, step: 1 },
 
       // === БОСС ===
-      { label: "🔢 Кол-во слоёв", getValue: () => GAME_PARAMS.boss.layerCount, setValue: (v) => { GAME_PARAMS.boss.layerCount = v; GAME_PARAMS.boss.hpMax = v * GAME_PARAMS.boss.hpPerLayer; }, min: 1, max: 20, step: 1 },
-      { label: "💎 HP за слой", getValue: () => GAME_PARAMS.boss.hpPerLayer, setValue: (v) => { GAME_PARAMS.boss.hpPerLayer = v; GAME_PARAMS.boss.hpMax = GAME_PARAMS.boss.layerCount * v; }, min: 10, max: 1000, step: 10 },
-      { label: "👿 HP босса", getValue: () => GAME_PARAMS.boss.hpMax, setValue: (v) => GAME_PARAMS.boss.hpMax = v, min: 100, max: 20000, step: 50 },
+      { label: "👿 HP босса", getValue: () => GAME_PARAMS.boss.hpMax, setValue: (v) => { GAME_PARAMS.boss.hpMax = v; GAME_PARAMS.boss.hpPerLayer = Math.ceil(v / GAME_PARAMS.boss.layerCount); }, min: 100, max: 20000, step: 50 },
+      { label: "🔢 Кол-во слоёв", getValue: () => GAME_PARAMS.boss.layerCount, setValue: (v) => { GAME_PARAMS.boss.layerCount = v; GAME_PARAMS.boss.hpPerLayer = Math.ceil(GAME_PARAMS.boss.hpMax / v); }, min: 1, max: 20, step: 1 },
       { label: "👊 Атака босса", getValue: () => GAME_PARAMS.boss.physAttack, setValue: (v) => GAME_PARAMS.boss.physAttack = v, min: 1, max: 50, step: 1 },
 
       // === ТАЙЛЫ ===

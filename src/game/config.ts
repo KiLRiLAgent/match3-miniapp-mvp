@@ -121,9 +121,8 @@ export function loadGameParams() {
       GAME_PARAMS.boss.hpMax = clamp(GAME_PARAMS.boss.hpMax, 1, 100000);
       GAME_PARAMS.boss.physAttack = clamp(GAME_PARAMS.boss.physAttack, 0, 1000);
       GAME_PARAMS.boss.layerCount = clamp(GAME_PARAMS.boss.layerCount, 1, 20);
-      GAME_PARAMS.boss.hpPerLayer = clamp(GAME_PARAMS.boss.hpPerLayer, 10, 1000);
-      // Sync hpMax with layers
-      GAME_PARAMS.boss.hpMax = GAME_PARAMS.boss.layerCount * GAME_PARAMS.boss.hpPerLayer;
+      // hpPerLayer вычисляется автоматически: hpMax / layerCount
+      GAME_PARAMS.boss.hpPerLayer = Math.ceil(GAME_PARAMS.boss.hpMax / GAME_PARAMS.boss.layerCount);
       GAME_PARAMS.tiles.hpPerTile = clamp(GAME_PARAMS.tiles.hpPerTile, 0, 1000);
       GAME_PARAMS.tiles.mpPerTile = clamp(GAME_PARAMS.tiles.mpPerTile, 0, 1000);
       GAME_PARAMS.tiles.swordDamage = clamp(GAME_PARAMS.tiles.swordDamage, 0, 1000);
@@ -253,8 +252,10 @@ export const getUILayout = () => {
   const screenPadding = SCREEN_PADDING;
   const bottomPadding = 16 + SAFE_AREA.bottom; // Базовый отступ
 
-  // 1. Кнопки скиллов (круглые, самый низ)
-  const skillButtonSize = 50;
+  // 1. Кнопки скиллов (круглые, самый низ) — размер адаптивный к ширине
+  const avatarRightForSkills = screenPadding + 4 + 65 / 2 + 65 / 2 + 8; // avatar right edge
+  const skillsAvailW = GAME_WIDTH - avatarRightForSkills - screenPadding;
+  const skillButtonSize = Math.min(60, Math.floor((skillsAvailW - 3 * 8) / 4));
   const skillButtonSpacing = 12;
   const skillCostOffset = 18; // место для текста стоимости под кнопкой
   const skillButtonsY = GAME_HEIGHT - bottomPadding - skillButtonSize / 2 - skillCostOffset;
@@ -370,7 +371,7 @@ export const UI_COLORS = {
 
 // Boss layered HP bar (dynamic from GAME_PARAMS)
 export const getBossLayerCount = () => GAME_PARAMS.boss.layerCount;
-export const getBossHpPerLayer = () => GAME_PARAMS.boss.hpPerLayer;
+export const getBossHpPerLayer = () => Math.ceil(GAME_PARAMS.boss.hpMax / GAME_PARAMS.boss.layerCount);
 export const BOSS_LAYER_COLORS = [0xde3e3e, 0xf5c542] as const;
 
 // Input thresholds
