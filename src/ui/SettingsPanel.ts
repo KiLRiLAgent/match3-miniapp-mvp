@@ -310,9 +310,13 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       this.updateScrollPosition();
     };
 
+    // Ignore events for first 200ms (prevent immediate close from opening tap)
+    const createdAt = Date.now();
+
     // On release: close if short tap outside panel
     this.pointerUpHandler = (pointer: Phaser.Input.Pointer) => {
       if (!this.visible) return;
+      if (Date.now() - createdAt < 200) return;
       const wasDrag = dragMoved;
       this.isDragging = false;
       dragMoved = false;
