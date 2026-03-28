@@ -292,9 +292,12 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     const isInPanel = (x: number, y: number) =>
       x >= panelX && x <= panelRight && y >= panelTop && y <= panelBottom;
 
+    let downInPanel = false;
+
     // Start drag anywhere on screen
     this.pointerDownHandler = (pointer: Phaser.Input.Pointer) => {
       if (!this.visible) return;
+      downInPanel = isInPanel(pointer.x, pointer.y);
       this.isDragging = true;
       this.dragStartY = pointer.y;
       this.scrollStartY = this.scrollY;
@@ -320,8 +323,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       const wasDrag = dragMoved;
       this.isDragging = false;
       dragMoved = false;
-      // Only close on tap (no drag) outside panel bounds
-      if (!wasDrag && !isInPanel(pointer.x, pointer.y)) {
+      // Only close on tap (no drag) that started AND ended outside panel
+      if (!wasDrag && !downInPanel && !isInPanel(pointer.x, pointer.y)) {
         this.close();
       }
     };
@@ -373,7 +376,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     saveGameParams();
     const sceneRef = this.scene;
     this.close();
-    sceneRef.scene.restart();
+    sceneRef.scene.stop("GameScene");
+    sceneRef.scene.start("IntroScene");
   }
 
   private close() {
