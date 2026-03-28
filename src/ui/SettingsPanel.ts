@@ -32,8 +32,6 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   private maxScrollY = 0;
   private scrollAreaTop = 0;
   private scrollAreaHeight = 0;
-  private scrollAreaLeft = 0;
-  private scrollAreaRight = 0;
   private contentHeight = 0;
 
   // Для отслеживания скролла
@@ -151,8 +149,6 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     const footerHeight = 70;
     this.scrollAreaTop = panelY + headerHeight;
     this.scrollAreaHeight = panelHeight - headerHeight - footerHeight;
-    this.scrollAreaLeft = panelX;
-    this.scrollAreaRight = panelX + panelWidth;
 
     // Создаём маску для скролла
     this.scrollMask = scene.add.graphics();
@@ -302,7 +298,6 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     // On release: just stop dragging (close only via X button)
     this.pointerUpHandler = (_pointer: Phaser.Input.Pointer) => {
       this.isDragging = false;
-      dragMoved = false;
     };
 
     // Mouse wheel
