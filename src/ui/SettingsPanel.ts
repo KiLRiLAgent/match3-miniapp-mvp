@@ -283,29 +283,18 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   }
 
   private setupScrollHandlers(scene: Phaser.Scene) {
-    const panelX = this.scrollAreaLeft;
-    const panelRight = this.scrollAreaRight;
-    const panelTop = this.scrollAreaTop - 55;
-    const panelBottom = this.scrollAreaTop + this.scrollAreaHeight + 70;
-    let dragMoved = false;
-
-    const isInPanel = (x: number, y: number) =>
-      x >= panelX && x <= panelRight && y >= panelTop && y <= panelBottom;
-
     // Start drag anywhere on screen
     this.pointerDownHandler = (pointer: Phaser.Input.Pointer) => {
       if (!this.visible) return;
       this.isDragging = true;
       this.dragStartY = pointer.y;
       this.scrollStartY = this.scrollY;
-      dragMoved = false;
     };
 
     // Scroll on drag
     this.pointerMoveHandler = (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || !this.isDragging) return;
       const deltaY = pointer.y - this.dragStartY;
-      if (Math.abs(deltaY) > 5) dragMoved = true;
       this.scrollY = Phaser.Math.Clamp(this.scrollStartY - deltaY, 0, this.maxScrollY);
       this.updateScrollPosition();
     };
