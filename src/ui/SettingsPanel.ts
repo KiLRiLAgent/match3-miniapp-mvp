@@ -292,12 +292,9 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     const isInPanel = (x: number, y: number) =>
       x >= panelX && x <= panelRight && y >= panelTop && y <= panelBottom;
 
-    let downInPanel = false;
-
     // Start drag anywhere on screen
     this.pointerDownHandler = (pointer: Phaser.Input.Pointer) => {
       if (!this.visible) return;
-      downInPanel = isInPanel(pointer.x, pointer.y);
       this.isDragging = true;
       this.dragStartY = pointer.y;
       this.scrollStartY = this.scrollY;
@@ -313,20 +310,10 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       this.updateScrollPosition();
     };
 
-    // Ignore events for first 200ms (prevent immediate close from opening tap)
-    const createdAt = Date.now();
-
-    // On release: close if short tap outside panel
-    this.pointerUpHandler = (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible) return;
-      if (Date.now() - createdAt < 200) return;
-      const wasDrag = dragMoved;
+    // On release: just stop dragging (close only via X button)
+    this.pointerUpHandler = (_pointer: Phaser.Input.Pointer) => {
       this.isDragging = false;
       dragMoved = false;
-      // Only close on tap (no drag) that started AND ended outside panel
-      if (!wasDrag && !downInPanel && !isInPanel(pointer.x, pointer.y)) {
-        this.close();
-      }
     };
 
     // Mouse wheel
