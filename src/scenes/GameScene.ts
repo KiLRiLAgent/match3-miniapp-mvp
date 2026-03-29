@@ -1415,7 +1415,7 @@ export class GameScene extends Phaser.Scene {
   ) {
     const tweens: Promise<void>[] = [];
 
-    this.animateTransforms(outcome.transforms);
+    // transforms are informational only (for CRIT text) — tiles are in cleared list
 
     const { tilesToBoss, tilesToPlayer } = this.groupTilesByTarget(outcome.cleared, tweens, actor);
 
@@ -1429,38 +1429,6 @@ export class GameScene extends Phaser.Scene {
     return Promise.all(tweens);
   }
 
-  private animateTransforms(transforms: Array<{ tile: Tile | null; kind: TileKind; pos: Position; multiplier?: number }>) {
-    if (transforms.length > 0) {
-      this.sfx(ASSET_KEYS.sfx.gemDestroy);
-    }
-    transforms.forEach((transform) => {
-      // Получаем тайл на позиции (ещё не трансформирован в Board)
-      const tile = this.board.getTile(transform.pos);
-      if (!tile) return;
-
-      // Special particle burst
-      const wPos = this.toWorld(transform.pos);
-      emitTileParticles(this, wPos.x, wPos.y, transform.kind, 12);
-
-      const sprite = this.tileSprites.get(tile.id);
-      if (sprite) {
-        // Используем kind из transform, а не из tile (tile ещё не обновлён)
-        const textureKey = ASSET_KEYS.tiles[transform.kind] ?? transform.kind;
-        sprite.setTexture(textureKey);
-        // ВАЖНО: пересчитываем размер после смены текстуры
-        sprite.setDisplaySize(Math.round(CELL_SIZE * TILE_DISPLAY_SCALE), Math.round(CELL_SIZE * TILE_DISPLAY_SCALE));
-        const baseScale = sprite.scaleX;
-        this.tweens.add({
-          targets: sprite,
-          scaleX: baseScale * VISUAL_EFFECTS.transformScaleFactor,
-          scaleY: baseScale * VISUAL_EFFECTS.transformScaleFactor,
-          duration: 150,
-          yoyo: true,
-          ease: ANIMATION_EASING.scale,
-        });
-      }
-    });
-  }
 
   private groupTilesByTarget(
     cleared: Array<{ pos: Position; tile: Tile }>,

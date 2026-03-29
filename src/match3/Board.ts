@@ -374,9 +374,10 @@ export class Match3Board {
       }
     }
 
-    // Do not clear tiles that transform into enhanced (CRIT) tiles
+    // CRIT tiles are also cleared (no special tiles remain on board)
+    // Add transform positions to clearSet if not already there
     for (const transform of transforms) {
-      clearSet.delete(this.key(transform.pos));
+      clearSet.add(this.key(transform.pos));
     }
 
     const { cleared, counts: finalCounts } = this.buildClearOutcome(clearSet);
@@ -403,22 +404,8 @@ export class Match3Board {
   }
 
   applyClearOutcome(outcome: ClearOutcome): CollapseResult {
-    // Apply transforms first so they can fall with the rest of the column if needed.
-    outcome.transforms.forEach((transform) => {
-      const current = this.getTile(transform.pos);
-      if (current) {
-        current.kind = transform.kind;
-        current.base = transform.base;
-        current.multiplier = Math.max(current.multiplier ?? 1, transform.multiplier ?? 1);
-      } else {
-        this.grid[transform.pos.y][transform.pos.x] = {
-          id: this.nextId++,
-          kind: transform.kind,
-          base: transform.base,
-          multiplier: transform.multiplier,
-        };
-      }
-    });
+    // Transforms are informational only (for CRIT text display) — no tile modification needed
+    // All matched tiles (including CRIT anchors) are in cleared list
 
     outcome.cleared.forEach(({ pos }) => {
       this.grid[pos.y][pos.x] = null;
