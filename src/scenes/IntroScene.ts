@@ -47,6 +47,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async runIntroSequence() {
+    await document.fonts.ready;
     await this.step1_backgroundAppear();
     await this.step2_safiraAppear();
     await this.step3_firstDialogue();

@@ -148,7 +148,6 @@ export class GameScene extends Phaser.Scene {
   // Tutorial & tips
   private bombTipShown = false;
   private shieldTipShown = false;
-  private manaTipShown = false;
   private activeTip?: SpeechBubble;
   private tutorialActive = false;
   private tutorialOverlay?: Phaser.GameObjects.Rectangle;
@@ -342,7 +341,6 @@ export class GameScene extends Phaser.Scene {
     this.skillCooldowns = { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
     this.bombTipShown = false;
     this.shieldTipShown = false;
-    this.manaTipShown = false;
     this.activeTip = undefined;
     this.stats = {
       totalDamageDealt: 0, totalDamageReceived: 0, totalHealDone: 0,
@@ -1193,15 +1191,6 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Tip: first time mana is enough for cheapest skill
-    if (!this.manaTipShown) {
-      const minCost = Math.min(...Object.values(SKILL_CONFIG).map(s => s.cost));
-      if (this.mana >= minCost) {
-        this.manaTipShown = true;
-        // Show asynchronously, don't block game flow
-        this.time.delayedCall(500, () => this.showTip("Достаточно маны!\nИспользуй скил внизу"));
-      }
-    }
   }
 
   private applyHealToPlayer(healGain: number) {
@@ -1369,31 +1358,7 @@ export class GameScene extends Phaser.Scene {
     sprite.setDepth(1);
     this.tileSprites.set(tile.id, sprite);
 
-    // Create glow for enhanced tiles (multiplier > 1)
-    if (tile.multiplier && tile.multiplier > 1) {
-      this.createTileGlowSprite(tile.id, sprite.x, sprite.y, tile.multiplier);
-    }
-
     return sprite;
-  }
-
-  private createTileGlowSprite(tileId: number, x: number, y: number, multiplier: number): Phaser.GameObjects.Image {
-    const glowKey = multiplier >= 5 ? ASSET_KEYS.glow.red : ASSET_KEYS.glow.gold;
-    const glowSize = CELL_SIZE * VISUAL_EFFECTS.glowScale;
-    const glow = this.add.image(x, y, glowKey)
-      .setDisplaySize(glowSize, glowSize)
-      .setDepth(0.99);
-    // Pulsating glow animation
-    this.tweens.add({
-      targets: glow,
-      alpha: { from: VISUAL_EFFECTS.glowBaseAlpha, to: VISUAL_EFFECTS.glowPeakAlpha },
-      duration: 800,
-      ease: "Sine.easeInOut",
-      yoyo: true,
-      repeat: -1,
-    });
-    this.tileGlows.set(tileId, glow);
-    return glow;
   }
 
   private rebuildPositionMap() {
@@ -1493,18 +1458,6 @@ export class GameScene extends Phaser.Scene {
           yoyo: true,
           ease: ANIMATION_EASING.scale,
         });
-
-        // Create glow for enhanced tiles
-        if (transform.multiplier && transform.multiplier > 1) {
-          // Remove old glow if exists
-          const oldGlow = this.tileGlows.get(tile.id);
-          if (oldGlow) {
-            this.tweens.killTweensOf(oldGlow);
-            oldGlow.destroy();
-            this.tileGlows.delete(tile.id);
-          }
-          this.createTileGlowSprite(tile.id, wPos.x, wPos.y, transform.multiplier);
-        }
       }
     });
   }
@@ -2294,17 +2247,17 @@ export class GameScene extends Phaser.Scene {
 
   // ===== Tutorial & Tips =====
 
-  private async showTip(text: string, duration = 2000): Promise<void> {
+  private async showTip(text: string, duration = 2000, centered = false): Promise<void> {
     // Don't show tips during busy animations or if a tip is already active
     if (this.activeTip) return;
 
     // Stop hint animations while tip is visible
     this.stopHintTimer();
 
-    const bubbleY = UI_LAYOUT.boardOriginY + UI_LAYOUT.boardHeight + 5;
+    const bubbleY = centered ? GAME_HEIGHT / 2 : UI_LAYOUT.boardOriginY + UI_LAYOUT.boardHeight + 5;
     const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text,
-      tailDirection: "up",
+      tailDirection: centered ? "none" : "up",
       maxWidth: 280,
       fontSize: "15px",
     });
@@ -2691,7 +2644,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.bombTipShown) {
       this.bombTipShown = true;
-      await this.showTip("Собирай тайлы рядом\nс бомбами, чтобы обезвредить!");
+      await this.showTip("Собирай тайлы рядом\nс бомбами, чтобы обезвредить!", 2000, true);
     }
   }
 
