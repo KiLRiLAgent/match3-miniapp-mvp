@@ -7,10 +7,12 @@
  *    - All animation methods return Promise<void>
  *    - Game flow uses async/await for sequencing:
  *
- *      await animateTransforms(outcome.transforms);
- *      await animateClear(outcome, actor);
- *      applyMatchResults(outcome.counts, actor);
- *      await animateCollapse(collapse);
+ *      showCritTexts(outcome.transforms);         // CRIT text before flight
+ *      await animateClear(outcome, actor);         // tile flight
+ *      applyMatchResults(outcome.counts, actor);   // wave 1 damage + resources
+ *      // ... CRIT additional waves with delay
+ *      // ... perk selection (mid-cascade interrupt)
+ *      await animateCollapse(collapse);            // collapse + refill
  *
  * 2. tweenPromise() HELPER
  *    - Wraps Phaser tweens in Promises for async/await usage
