@@ -1075,7 +1075,7 @@ export class GameScene extends Phaser.Scene {
 
     // "Уровень повышен" + "Выбери новую способность!"
     const levelText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.22, "Уровень повышен", {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.26, "Уровень повышен", {
         fontSize: "28px",
         color: "#ffd700",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -1089,7 +1089,7 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     const subtitleText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.27, "Выбери новую способность!", {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.30, "Выбери новую способность!", {
         fontSize: "20px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -1135,12 +1135,14 @@ export class GameScene extends Phaser.Scene {
       ease: "Quad.easeOut",
     });
 
-    // Create perk cards
-    const cardWidth = 140;
-    const cardSpacing = 12;
+    // Create perk cards — adaptive size to fit screen
+    const cardSpacing = 8;
+    const sidePadding = 16;
+    const cardWidth = Math.floor((GAME_WIDTH - sidePadding * 2 - cardSpacing * (perks.length - 1)) / perks.length);
+    const cardHeight = Math.min(180, Math.floor(GAME_HEIGHT * 0.25));
     const totalWidth = perks.length * cardWidth + (perks.length - 1) * cardSpacing;
     const startX = GAME_WIDTH / 2 - totalWidth / 2 + cardWidth / 2;
-    const cardY = GAME_HEIGHT * 0.55;
+    const cardY = GAME_HEIGHT * 0.32 + cardHeight / 2 + 20;
 
     const selectedPerk = await new Promise<PerkDef>((resolve) => {
       const cards: PerkCard[] = [];
@@ -1170,7 +1172,7 @@ export class GameScene extends Phaser.Scene {
             cards.forEach((c) => c.destroy());
             resolve(perk);
           },
-          { width: cardWidth, height: 240 },
+          { width: cardWidth, height: cardHeight },
         );
         card.setDepth(202);
         cards.push(card);
