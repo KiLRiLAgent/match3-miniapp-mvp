@@ -20,7 +20,8 @@ import {
   DPR,
   TILE_DISPLAY_SCALE,
   getBossLayerCount,
-  getBossHpPerLayer,
+  getBossLayerHpArray,
+  getBossLayerIndex,
   BOSS_LAYER_COLORS,
   CRIT_MULTIPLIERS,
 } from "../game/config";
@@ -470,7 +471,7 @@ export class GameScene extends Phaser.Scene {
     this.bossHpBar = new LayeredMeter(
       this, L.bossHpBarX, L.bossHpBarY - 2,
       L.hpBarWidth, bossBarHeight,
-      getBossLayerCount(), getBossHpPerLayer(), [...BOSS_LAYER_COLORS]
+      getBossLayerHpArray(), [...BOSS_LAYER_COLORS]
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА КУЛДАУНА ===
@@ -821,13 +822,27 @@ export class GameScene extends Phaser.Scene {
         this.showCascadeCounter(this.cascadeCount);
       }
 
-      await this.animateClear(outcome, actor);
-
-      // Show CRIT floating text for enhanced matches
+      // Show CRIT floating text BEFORE tiles fly (at collapse moment)
       this.showCritTexts(outcome.transforms);
 
-      // Применяем эффекты СРАЗУ после полёта фишек (не в конце!)
+      // Determine CRIT wave count from transforms
+      const maxMultiplier = outcome.transforms.reduce(
+        (max, t) => Math.max(max, t.multiplier ?? 1), 1
+      );
+
+      await this.animateClear(outcome, actor);
+
+      // Wave 1: apply full results (damage + mana + heal)
       this.applyMatchResults(outcome.counts, actor);
+
+      // Additional CRIT waves: apply only damage with delay between hits
+      if (maxMultiplier > 1 && !this.gameOver) {
+        const baseDamage = this.computeDamageFromCounts(outcome.counts);
+        for (let wave = 1; wave < maxMultiplier && !this.gameOver; wave++) {
+          await wait(this, ANIMATION_DURATIONS.critWaveDelay);
+          this.applyCritWaveDamage(baseDamage, actor);
+        }
+      }
 
       // Если игра закончилась - прекращаем цикл
       if (this.gameOver) break;
@@ -894,6 +909,23 @@ export class GameScene extends Phaser.Scene {
       this.applyHealToBoss(healGain);
     }
 
+    this.updateHud();
+    this.checkGameOver();
+  }
+
+  private computeDamageFromCounts(totals: CountTotals): number {
+    const physDamage = totals[TileKind.Sword] * GAME_PARAMS.tiles.swordDamage;
+    const magDamage = totals[TileKind.Star] * GAME_PARAMS.tiles.starDamage;
+    return physDamage + Math.floor(magDamage * PLAYER_MAG_DAMAGE_MULTIPLIER);
+  }
+
+  private applyCritWaveDamage(damage: number, actor: "player" | "boss") {
+    if (damage <= 0) return;
+    if (actor === "player") {
+      this.applyDamageToBoss(damage);
+    } else {
+      this.applyDamageToPlayer(damage);
+    }
     this.updateHud();
     this.checkGameOver();
   }
@@ -1151,8 +1183,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Track boss layer transition for perk system
-    const hpPerLayer = getBossHpPerLayer();
-    const newLayerIdx = this.bossHp <= 0 ? 0 : Math.ceil(this.bossHp / hpPerLayer);
+    const newLayerIdx = getBossLayerIndex(this.bossHp);
     if (newLayerIdx < this.prevBossLayerIdx && newLayerIdx > 0) {
       // Count how many layers were crossed (supports multi-layer skip from CRIT)
       this.pendingPerkCount += this.prevBossLayerIdx - newLayerIdx;

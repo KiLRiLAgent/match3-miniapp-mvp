@@ -13,6 +13,7 @@ export const ANIMATION_DURATIONS = {
   abilityFadeOut: 300,
   flashDuration: 100,
   shakeDuration: 50,
+  critWaveDelay: 300,
 } as const;
 
 /**
