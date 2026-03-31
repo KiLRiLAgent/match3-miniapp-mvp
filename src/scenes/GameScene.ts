@@ -1149,7 +1149,7 @@ export class GameScene extends Phaser.Scene {
     const cardSpacing = 8;
     const sidePadding = 16;
     const cardWidth = Math.floor((GAME_WIDTH - sidePadding * 2 - cardSpacing * (perks.length - 1)) / perks.length);
-    const cardHeight = Math.min(180, Math.floor(GAME_HEIGHT * 0.25));
+    const cardHeight = Math.min(220, Math.floor(GAME_HEIGHT * 0.32));
     const totalWidth = perks.length * cardWidth + (perks.length - 1) * cardSpacing;
     const startX = GAME_WIDTH / 2 - totalWidth / 2 + cardWidth / 2;
     const cardY = GAME_HEIGHT * 0.32 + cardHeight / 2 + 20;

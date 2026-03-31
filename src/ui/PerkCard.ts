@@ -81,39 +81,37 @@ export class PerkCard extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5);
 
-    // Skill icon (center)
-    const iconY = -halfH + titleH + Math.round(32 * scale);
+    // Skill icon in circle (like game skill buttons)
+    const iconY = -halfH + titleH + Math.round(38 * scale);
+    const circleR = Math.round(28 * scale);
+    const iconCircleGfx = scene.add.graphics();
+    iconCircleGfx.fillStyle(0x2a2a4a, 0.9);
+    iconCircleGfx.fillCircle(0, iconY, circleR);
+    iconCircleGfx.lineStyle(2, 0x4a4a8a, 0.8);
+    iconCircleGfx.strokeCircle(0, iconY, circleR);
+
     const iconText = scene.add
       .text(0, iconY, perk.icon, {
-        fontSize: `${Math.round(40 * scale)}px`,
+        fontSize: `${Math.round(32 * scale)}px`,
         color: CARD_COLORS.icon,
         fontFamily: "'Exo 2', Arial, sans-serif",
         resolution: 2,
       })
       .setOrigin(0.5);
 
-    // Mana cost (number on blue drop)
+    // Mana cost — blue drop in top-left corner of card
     const dropGfx = scene.add.graphics();
-    const dropX = -halfW + 18;
-    const dropY = iconY + Math.round(25 * scale);
-    const dropR = Math.round(12 * scale);
+    const dropX = -halfW + Math.round(16 * scale);
+    const dropY = -halfH + titleH + Math.round(12 * scale);
+    const dropR = Math.round(13 * scale);
     dropGfx.fillStyle(0x3b82f6, 0.9);
     dropGfx.fillCircle(dropX, dropY, dropR);
     const costText = scene.add
       .text(dropX, dropY, `${manaCost}`, {
-        fontSize: `${Math.round(12 * scale)}px`,
+        fontSize: `${Math.round(11 * scale)}px`,
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
-        resolution: 2,
-      })
-      .setOrigin(0.5);
-
-    const manaLabel = scene.add
-      .text(dropX, dropY + Math.round(15 * scale), "💧", {
-        fontSize: `${Math.round(8 * scale)}px`,
-        color: CARD_COLORS.manaCost,
-        fontFamily: "'Exo 2', Arial, sans-serif",
         resolution: 2,
       })
       .setOrigin(0.5);
@@ -185,10 +183,10 @@ export class PerkCard extends Phaser.GameObjects.Container {
       this.cardBg,
       titleGfx,
       titleText,
+      iconCircleGfx,
       iconText,
       dropGfx,
       costText,
-      manaLabel,
       ...starsTexts,
       descText,
       hitArea,
