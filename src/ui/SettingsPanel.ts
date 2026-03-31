@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, SKILL_CONFIG, saveGameParams, SAFE_AREA, ABILITY_NAMES } from "../game/config";
+import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, SKILL_CONFIG, saveGameParams, SAFE_AREA, ABILITY_NAMES, recalcBossHpMax } from "../game/config";
 import type { SkillId } from "../game/config";
 
 type ParamRow = {
@@ -10,6 +10,7 @@ type ParamRow = {
   max: number;
   step: number;
   isPattern?: boolean; // Для отображения названия способности вместо числа
+  format?: (v: number) => string; // Custom value formatter
 };
 
 export class SettingsPanel extends Phaser.GameObjects.Container {
@@ -98,10 +99,32 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       { label: "✨ Маг. атака", getValue: () => GAME_PARAMS.player.magAttack, setValue: (v) => GAME_PARAMS.player.magAttack = v, min: 1, max: 50, step: 1 },
 
       // === БОСС ===
-      { label: "👿 HP босса", getValue: () => GAME_PARAMS.boss.hpMax, setValue: (v) => { GAME_PARAMS.boss.hpMax = v; GAME_PARAMS.boss.hpPerLayer = Math.ceil(v / GAME_PARAMS.boss.layerCount); }, min: 100, max: 20000, step: 50 },
-      { label: "🔢 Кол-во слоёв", getValue: () => GAME_PARAMS.boss.layerCount, setValue: (v) => { GAME_PARAMS.boss.layerCount = v; GAME_PARAMS.boss.hpPerLayer = Math.ceil(GAME_PARAMS.boss.hpMax / v); }, min: 1, max: 20, step: 1 },
+      { label: "👿 Баз. HP слоя", getValue: () => GAME_PARAMS.boss.baseHpPerLayer, setValue: (v) => { GAME_PARAMS.boss.baseHpPerLayer = v; recalcBossHpMax(); }, min: 10, max: 5000, step: 10 },
+      { label: "🔢 Кол-во слоёв", getValue: () => GAME_PARAMS.boss.layerCount, setValue: (v) => {
+        GAME_PARAMS.boss.layerCount = v;
+        // Pad or trim multipliers array
+        while (GAME_PARAMS.boss.layerMultipliers.length < v) GAME_PARAMS.boss.layerMultipliers.push(1.0);
+        GAME_PARAMS.boss.layerMultipliers.length = v;
+        recalcBossHpMax();
+      }, min: 1, max: 20, step: 1 },
       { label: "👊 Атака босса", getValue: () => GAME_PARAMS.boss.physAttack, setValue: (v) => GAME_PARAMS.boss.physAttack = v, min: 1, max: 50, step: 1 },
+    ];
 
+    // === МНОЖИТЕЛИ СЛОЁВ (динамически по кол-ву слоёв) ===
+    for (let i = 0; i < GAME_PARAMS.boss.layerCount; i++) {
+      const idx = i;
+      params.push({
+        label: `📊 K${idx + 1} (слой ${idx + 1})`,
+        getValue: () => Math.round(GAME_PARAMS.boss.layerMultipliers[idx] * 10) / 10,
+        setValue: (v) => { GAME_PARAMS.boss.layerMultipliers[idx] = Math.round(v * 10) / 10; recalcBossHpMax(); },
+        min: 0.1,
+        max: 10.0,
+        step: 0.1,
+        format: (v) => `x${v.toFixed(1)}`,
+      });
+    }
+
+    params.push(
       // === ТАЙЛЫ ===
       { label: "💚 HP за тайл", getValue: () => GAME_PARAMS.tiles.hpPerTile, setValue: (v) => GAME_PARAMS.tiles.hpPerTile = v, min: 1, max: 50, step: 1 },
       { label: "💙 MP за тайл", getValue: () => GAME_PARAMS.tiles.mpPerTile, setValue: (v) => GAME_PARAMS.tiles.mpPerTile = v, min: 1, max: 50, step: 1 },
@@ -128,7 +151,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       { label: "📋 Слот 4", getValue: () => GAME_PARAMS.bossPattern[3], setValue: (v) => GAME_PARAMS.bossPattern[3] = v, min: 1, max: 4, step: 1, isPattern: true },
       { label: "📋 Слот 5", getValue: () => GAME_PARAMS.bossPattern[4], setValue: (v) => GAME_PARAMS.bossPattern[4] = v, min: 1, max: 4, step: 1, isPattern: true },
       { label: "📋 Слот 6", getValue: () => GAME_PARAMS.bossPattern[5], setValue: (v) => GAME_PARAMS.bossPattern[5] = v, min: 1, max: 4, step: 1, isPattern: true },
-    ];
+    );
 
     // Добавляем параметры скиллов игрока
     const skillIds: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
@@ -196,14 +219,11 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         })
         .setOrigin(0.5);
 
-      // Для паттерна показываем название способности
-      const displayValue = param.isPattern
-        ? ABILITY_NAMES[param.getValue()] || param.getValue().toString()
-        : param.getValue().toString();
+      const displayValue = this.formatParamValue(param);
 
       const value = scene.add
         .text(panelX + panelWidth - 65, y, displayValue, {
-          fontSize: param.isPattern ? "12px" : "16px",
+          fontSize: (param.isPattern || param.format) ? "12px" : "16px",
           color: "#ffffff",
           fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
@@ -326,20 +346,24 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
 
   private adjustParam(param: ParamRow, direction: number) {
     const current = param.getValue();
-    const newVal = Phaser.Math.Clamp(current + param.step * direction, param.min, param.max);
+    // Round to avoid floating point drift (e.g. 0.1 + 0.1 + 0.1 = 0.30000000000000004)
+    const raw = current + param.step * direction;
+    const precision = param.step < 1 ? 10 : 1;
+    const newVal = Phaser.Math.Clamp(Math.round(raw * precision) / precision, param.min, param.max);
     param.setValue(newVal);
     this.updateValues();
   }
 
+  private formatParamValue(param: ParamRow): string {
+    const val = param.getValue();
+    if (param.format) return param.format(val);
+    if (param.isPattern) return ABILITY_NAMES[val] || val.toString();
+    return val.toString();
+  }
+
   private updateValues() {
     this.rows.forEach((row) => {
-      const val = row.param.getValue();
-      // Для паттерна показываем название способности
-      if (row.param.isPattern) {
-        row.value.setText(ABILITY_NAMES[val] || val.toString());
-      } else {
-        row.value.setText(val.toString());
-      }
+      row.value.setText(this.formatParamValue(row.param));
     });
   }
 

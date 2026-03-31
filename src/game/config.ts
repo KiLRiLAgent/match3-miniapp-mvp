@@ -58,6 +58,8 @@ export const GAME_PARAMS = {
     physAttack: 10,
     layerCount: 10,
     hpPerLayer: 100,
+    baseHpPerLayer: 100,
+    layerMultipliers: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] as number[],
   },
   tiles: {
     hpPerTile: 2,
@@ -118,11 +120,22 @@ export function loadGameParams() {
       GAME_PARAMS.player.manaMax = clamp(GAME_PARAMS.player.manaMax, 1, 10000);
       GAME_PARAMS.player.physAttack = clamp(GAME_PARAMS.player.physAttack, 0, 1000);
       GAME_PARAMS.player.magAttack = clamp(GAME_PARAMS.player.magAttack, 0, 1000);
-      GAME_PARAMS.boss.hpMax = clamp(GAME_PARAMS.boss.hpMax, 1, 100000);
       GAME_PARAMS.boss.physAttack = clamp(GAME_PARAMS.boss.physAttack, 0, 1000);
       GAME_PARAMS.boss.layerCount = clamp(GAME_PARAMS.boss.layerCount, 1, 20);
-      // hpPerLayer вычисляется автоматически: hpMax / layerCount
-      GAME_PARAMS.boss.hpPerLayer = Math.ceil(GAME_PARAMS.boss.hpMax / GAME_PARAMS.boss.layerCount);
+      GAME_PARAMS.boss.baseHpPerLayer = clamp(GAME_PARAMS.boss.baseHpPerLayer, 1, 10000);
+      // Validate & pad layer multipliers to match layerCount
+      if (!Array.isArray(GAME_PARAMS.boss.layerMultipliers)) {
+        GAME_PARAMS.boss.layerMultipliers = [];
+      }
+      while (GAME_PARAMS.boss.layerMultipliers.length < GAME_PARAMS.boss.layerCount) {
+        GAME_PARAMS.boss.layerMultipliers.push(1.0);
+      }
+      GAME_PARAMS.boss.layerMultipliers.length = GAME_PARAMS.boss.layerCount;
+      GAME_PARAMS.boss.layerMultipliers = GAME_PARAMS.boss.layerMultipliers.map(
+        (m: number) => clamp(typeof m === "number" ? m : 1.0, 0.1, 10.0)
+      );
+      // Recalculate hpMax from layers
+      recalcBossHpMax();
       GAME_PARAMS.tiles.hpPerTile = clamp(GAME_PARAMS.tiles.hpPerTile, 0, 1000);
       GAME_PARAMS.tiles.mpPerTile = clamp(GAME_PARAMS.tiles.mpPerTile, 0, 1000);
       GAME_PARAMS.tiles.swordDamage = clamp(GAME_PARAMS.tiles.swordDamage, 0, 1000);
@@ -372,6 +385,46 @@ export const UI_COLORS = {
 // Boss layered HP bar (dynamic from GAME_PARAMS)
 export const getBossLayerCount = () => GAME_PARAMS.boss.layerCount;
 export const getBossHpPerLayer = () => Math.ceil(GAME_PARAMS.boss.hpMax / GAME_PARAMS.boss.layerCount);
+
+/**
+ * Returns HP for each layer (index 0 = bottom/last layer, index N-1 = top/first layer).
+ * Each layer HP = baseHpPerLayer * layerMultipliers[i].
+ * Array length = layerCount.
+ */
+export function getBossLayerHpArray(): number[] {
+  const count = GAME_PARAMS.boss.layerCount;
+  const base = GAME_PARAMS.boss.baseHpPerLayer;
+  const mults = GAME_PARAMS.boss.layerMultipliers;
+  const arr: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const m = i < mults.length ? mults[i] : 1.0;
+    arr.push(Math.ceil(base * m));
+  }
+  return arr;
+}
+
+/** Recalculate hpMax from layer multipliers */
+export function recalcBossHpMax() {
+  const arr = getBossLayerHpArray();
+  GAME_PARAMS.boss.hpMax = arr.reduce((sum, hp) => sum + hp, 0);
+  GAME_PARAMS.boss.hpPerLayer = Math.ceil(GAME_PARAMS.boss.hpMax / GAME_PARAMS.boss.layerCount);
+}
+
+/**
+ * Given current boss HP, returns 1-based layer index using per-layer HP array.
+ * Layer N (top) is first to deplete, layer 1 (bottom) is last.
+ */
+export function getBossLayerIndex(currentHp: number): number {
+  if (currentHp <= 0) return 0;
+  const arr = getBossLayerHpArray();
+  let cumulative = 0;
+  for (let i = 0; i < arr.length; i++) {
+    cumulative += arr[i];
+    if (currentHp <= cumulative) return i + 1;
+  }
+  return arr.length;
+}
+
 export const BOSS_LAYER_COLORS = [0xde3e3e, 0xf5c542] as const;
 
 // Input thresholds

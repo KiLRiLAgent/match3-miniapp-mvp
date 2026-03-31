@@ -9,7 +9,10 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
   private radius: number;
 
   private layerCount: number;
-  private hpPerLayer: number;
+  /** HP for each layer: index 0 = layer 1 (bottom/last), index N-1 = layer N (top/first to deplete) */
+  private layerHpArray: number[];
+  /** Cumulative HP thresholds: cumulativeHp[i] = sum of layerHpArray[0..i] */
+  private cumulativeHp: number[];
   private totalHp: number;
   private colors: number[];
 
@@ -42,17 +45,24 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     y: number,
     width: number,
     height: number,
-    layerCount: number,
-    hpPerLayer: number,
+    layerHpArray: number[],
     colors: number[]
   ) {
     super(scene, x, y);
     this.heightPx = height;
     this.radius = Math.round(height / 2);
-    this.layerCount = layerCount;
-    this.hpPerLayer = hpPerLayer;
-    this.totalHp = layerCount * hpPerLayer;
+    this.layerHpArray = layerHpArray;
+    this.layerCount = layerHpArray.length;
     this.colors = colors;
+
+    // Build cumulative HP thresholds
+    this.cumulativeHp = [];
+    let sum = 0;
+    for (const hp of layerHpArray) {
+      sum += hp;
+      this.cumulativeHp.push(sum);
+    }
+    this.totalHp = sum;
     this.currentHp = this.totalHp;
 
     const children: Phaser.GameObjects.GameObject[] = [];
@@ -125,15 +135,18 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     this.drawAll();
   }
 
-  /** 1-based layer index (10 = full, 1 = last layer, 0 = dead) */
+  /** 1-based layer index (N = full/top, 1 = last/bottom layer, 0 = dead) */
   private getLayerIndex(): number {
     if (this.currentHp <= 0) return 0;
-    return Math.ceil(this.currentHp / this.hpPerLayer);
+    for (let i = 0; i < this.layerCount; i++) {
+      if (this.currentHp <= this.cumulativeHp[i]) return i + 1;
+    }
+    return this.layerCount;
   }
 
   /** Color for a given 1-based layer index */
   private getLayerColor(layerIdx: number): number {
-    // Layer 10 (top) = colors[0], layer 9 = colors[1], alternating
+    // Layer N (top) = colors[0], layer N-1 = colors[1], alternating
     const fromTop = this.layerCount - layerIdx;
     return this.colors[fromTop % this.colors.length];
   }
@@ -141,8 +154,11 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
   /** Fill ratio within current layer (0..1) */
   private getLayerFillRatio(): number {
     if (this.currentHp <= 0) return 0;
-    const remainder = this.currentHp % this.hpPerLayer;
-    return remainder === 0 ? 1 : remainder / this.hpPerLayer;
+    const layerIdx = this.getLayerIndex();
+    const layerHp = this.layerHpArray[layerIdx - 1];
+    const prevCumulative = layerIdx >= 2 ? this.cumulativeHp[layerIdx - 2] : 0;
+    const hpInLayer = this.currentHp - prevCumulative;
+    return hpInLayer / layerHp;
   }
 
   private drawAll() {
