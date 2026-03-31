@@ -1073,29 +1073,40 @@ export class GameScene extends Phaser.Scene {
 
     this.busy = true;
 
-    // "Уровень повышен" + "Выбери новую способность!"
+    // "Уровень повышен" — black text on yellow banner
+    const bannerY = GAME_HEIGHT * 0.26;
+    const bannerW = GAME_WIDTH * 0.7;
+    const bannerH = 40;
+    const bannerGfx = this.add.graphics().setDepth(201).setAlpha(0);
+    bannerGfx.fillStyle(0xffd700, 1);
+    bannerGfx.fillRoundedRect(GAME_WIDTH / 2 - bannerW / 2, bannerY - bannerH / 2, bannerW, bannerH, 6);
+
     const levelText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.26, "Уровень повышен", {
-        fontSize: "28px",
-        color: "#ffd700",
+      .text(GAME_WIDTH / 2, bannerY, "Уровень повышен", {
+        fontSize: "26px",
+        color: "#000000",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 5,
         resolution: 2,
       })
       .setOrigin(0.5)
       .setDepth(201)
       .setAlpha(0);
 
+    // "Выбери новую способность!" — gold text on semi-transparent black
+    const subY = bannerY + bannerH / 2 + 24;
+    const subW = GAME_WIDTH * 0.8;
+    const subH = 32;
+    const subBgGfx = this.add.graphics().setDepth(201).setAlpha(0);
+    subBgGfx.fillStyle(0x000000, 0.6);
+    subBgGfx.fillRoundedRect(GAME_WIDTH / 2 - subW / 2, subY - subH / 2, subW, subH, 4);
+
     const subtitleText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.30, "Выбери новую способность!", {
-        fontSize: "20px",
-        color: "#ffffff",
+      .text(GAME_WIDTH / 2, subY, "Выбери новую способность!", {
+        fontSize: "18px",
+        color: "#ffd700",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 3,
         resolution: 2,
       })
       .setOrigin(0.5)
@@ -1109,13 +1120,12 @@ export class GameScene extends Phaser.Scene {
       .setDepth(200)
       .setAlpha(0);
 
-    // Show "Уровень повышен" text first (without overlay)
+    // Show "Уровень повышен" banner first (without overlay)
     await tweenPromise(this, {
-      targets: levelText,
+      targets: [bannerGfx, levelText],
       alpha: 1,
-      scale: { from: 0.5, to: 1 },
       duration: 300,
-      ease: "Back.easeOut",
+      ease: "Quad.easeOut",
     });
 
     // Brief pause to let player read
@@ -1129,7 +1139,7 @@ export class GameScene extends Phaser.Scene {
       ease: "Quad.easeOut",
     });
     await tweenPromise(this, {
-      targets: subtitleText,
+      targets: [subBgGfx, subtitleText],
       alpha: 1,
       duration: 200,
       ease: "Quad.easeOut",
@@ -1204,7 +1214,7 @@ export class GameScene extends Phaser.Scene {
         ease: "Quad.easeIn",
       }),
       tweenPromise(this, {
-        targets: [levelText, subtitleText],
+        targets: [bannerGfx, levelText, subBgGfx, subtitleText],
         alpha: 0,
         duration: 200,
         ease: "Quad.easeIn",
@@ -1212,7 +1222,9 @@ export class GameScene extends Phaser.Scene {
     ]);
 
     overlay.destroy();
+    bannerGfx.destroy();
     levelText.destroy();
+    subBgGfx.destroy();
     subtitleText.destroy();
 
     this.busy = false;
