@@ -70,32 +70,37 @@ export class PerkCard extends Phaser.GameObjects.Container {
     // Title text
     const titleText = scene.add
       .text(0, -halfH + titleH / 2, perk.name, {
-        fontSize: "13px",
+        fontSize: "16px",
         color: CARD_COLORS.title,
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         stroke: "#000000",
-        strokeThickness: 1,
+        strokeThickness: 2,
         resolution: 2,
       })
       .setOrigin(0.5);
 
     // Skill icon (large, center)
-    const iconY = -halfH + titleH + 35;
+    const iconY = -halfH + titleH + 40;
     const iconText = scene.add
       .text(0, iconY, perk.icon, {
-        fontSize: "40px",
+        fontSize: "48px",
         color: CARD_COLORS.icon,
         fontFamily: "'Exo 2', Arial, sans-serif",
         resolution: 2,
       })
       .setOrigin(0.5);
 
-    // Mana cost (left of icon)
+    // Mana cost (number on blue drop)
+    const dropGfx = scene.add.graphics();
+    const dropX = -35;
+    const dropY = iconY + 30;
+    dropGfx.fillStyle(0x3b82f6, 0.9);
+    dropGfx.fillCircle(dropX, dropY, 14);
     const costText = scene.add
-      .text(-30, iconY + 30, `${manaCost}`, {
-        fontSize: "12px",
-        color: CARD_COLORS.manaCost,
+      .text(dropX, dropY, `${manaCost}`, {
+        fontSize: "14px",
+        color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         resolution: 2,
@@ -103,8 +108,8 @@ export class PerkCard extends Phaser.GameObjects.Container {
       .setOrigin(0.5);
 
     const manaLabel = scene.add
-      .text(-30, iconY + 44, "мана", {
-        fontSize: "9px",
+      .text(dropX, dropY + 18, "💧", {
+        fontSize: "10px",
         color: CARD_COLORS.manaCost,
         fontFamily: "'Exo 2', Arial, sans-serif",
         resolution: 2,
@@ -112,8 +117,8 @@ export class PerkCard extends Phaser.GameObjects.Container {
       .setOrigin(0.5);
 
     // Stars row (5 stars)
-    const starsY = iconY + 65;
-    const starSpacing = 16;
+    const starsY = iconY + 70;
+    const starSpacing = 20;
     const starsStartX = -(starSpacing * (MAX_PERK_LEVEL - 1)) / 2;
 
     const starsTexts: Phaser.GameObjects.Text[] = [];
@@ -129,7 +134,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
 
       const star = scene.add
         .text(starsStartX + i * starSpacing, starsY, char, {
-          fontSize: "16px",
+          fontSize: "20px",
           color,
           fontFamily: "'Exo 2', Arial, sans-serif",
           resolution: 2,
@@ -152,10 +157,10 @@ export class PerkCard extends Phaser.GameObjects.Container {
     }
 
     // Description text (bottom)
-    const descY = halfH - 28;
+    const descY = halfH - 30;
     const descText = scene.add
       .text(0, descY, nextDescription, {
-        fontSize: "11px",
+        fontSize: "14px",
         color: CARD_COLORS.description,
         fontFamily: "'Exo 2', Arial, sans-serif",
         align: "center",
@@ -179,6 +184,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
       titleGfx,
       titleText,
       iconText,
+      dropGfx,
       costText,
       manaLabel,
       ...starsTexts,

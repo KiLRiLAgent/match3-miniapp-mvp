@@ -1073,15 +1073,29 @@ export class GameScene extends Phaser.Scene {
 
     this.busy = true;
 
-    // "New level!" text
+    // "Уровень повышен" + "Выбери новую способность!"
     const levelText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.25, "Новый уровень!", {
-        fontSize: "32px",
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.22, "Уровень повышен", {
+        fontSize: "28px",
         color: "#ffd700",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 5,
+        resolution: 2,
+      })
+      .setOrigin(0.5)
+      .setDepth(201)
+      .setAlpha(0);
+
+    const subtitleText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.27, "Выбери новую способность!", {
+        fontSize: "20px",
+        color: "#ffffff",
+        fontFamily: "'Exo 2', Arial, sans-serif",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 3,
         resolution: 2,
       })
       .setOrigin(0.5)
@@ -1095,7 +1109,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(200)
       .setAlpha(0);
 
-    // Show "Новый уровень!" text first (without overlay)
+    // Show "Уровень повышен" text first (without overlay)
     await tweenPromise(this, {
       targets: levelText,
       alpha: 1,
@@ -1107,17 +1121,23 @@ export class GameScene extends Phaser.Scene {
     // Brief pause to let player read
     await wait(this, 600);
 
-    // Then darken screen
+    // Then darken screen + show subtitle
     await tweenPromise(this, {
       targets: overlay,
       alpha: 1,
       duration: 200,
       ease: "Quad.easeOut",
     });
+    await tweenPromise(this, {
+      targets: subtitleText,
+      alpha: 1,
+      duration: 200,
+      ease: "Quad.easeOut",
+    });
 
     // Create perk cards
-    const cardWidth = 120;
-    const cardSpacing = 16;
+    const cardWidth = 140;
+    const cardSpacing = 12;
     const totalWidth = perks.length * cardWidth + (perks.length - 1) * cardSpacing;
     const startX = GAME_WIDTH / 2 - totalWidth / 2 + cardWidth / 2;
     const cardY = GAME_HEIGHT * 0.55;
@@ -1150,6 +1170,7 @@ export class GameScene extends Phaser.Scene {
             cards.forEach((c) => c.destroy());
             resolve(perk);
           },
+          { width: cardWidth, height: 240 },
         );
         card.setDepth(202);
         cards.push(card);
@@ -1181,7 +1202,7 @@ export class GameScene extends Phaser.Scene {
         ease: "Quad.easeIn",
       }),
       tweenPromise(this, {
-        targets: levelText,
+        targets: [levelText, subtitleText],
         alpha: 0,
         duration: 200,
         ease: "Quad.easeIn",
@@ -1190,6 +1211,7 @@ export class GameScene extends Phaser.Scene {
 
     overlay.destroy();
     levelText.destroy();
+    subtitleText.destroy();
 
     this.busy = false;
   }
