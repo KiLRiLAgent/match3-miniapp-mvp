@@ -1095,15 +1095,21 @@ export class GameScene extends Phaser.Scene {
       .setDepth(200)
       .setAlpha(0);
 
-    await tweenPromise(this, {
-      targets: overlay,
-      alpha: 1,
-      duration: 200,
-      ease: "Quad.easeOut",
-    });
-
+    // Show "Новый уровень!" text first (without overlay)
     await tweenPromise(this, {
       targets: levelText,
+      alpha: 1,
+      scale: { from: 0.5, to: 1 },
+      duration: 300,
+      ease: "Back.easeOut",
+    });
+
+    // Brief pause to let player read
+    await wait(this, 600);
+
+    // Then darken screen
+    await tweenPromise(this, {
+      targets: overlay,
       alpha: 1,
       duration: 200,
       ease: "Quad.easeOut",
