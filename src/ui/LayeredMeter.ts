@@ -194,7 +194,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     this.drawDelta();
 
     // Counter text
-    this.counterText.setText(layerIdx > 0 ? `x${layerIdx}` : "");
+    this.counterText.setText(layerIdx > 1 ? `x${layerIdx}` : "");
 
     // HP label
     this.label.setText(`${Math.floor(this.currentHp)}/${this.totalHp}`);

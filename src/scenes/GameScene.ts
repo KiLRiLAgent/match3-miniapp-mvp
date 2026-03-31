@@ -844,6 +844,12 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
+      // Perk selection mid-cascade (pause cascade for perk pick)
+      while (this.pendingPerkCount > 0 && !this.gameOver) {
+        this.pendingPerkCount--;
+        await this.showPerkSelection();
+      }
+
       // Если игра закончилась - прекращаем цикл
       if (this.gameOver) break;
 
@@ -876,12 +882,6 @@ export class GameScene extends Phaser.Scene {
     // Drain accumulated HP deltas after all cascades
     this.bossHpBar?.drainDelta();
     this.playerHpBar?.drainDelta();
-
-    // Perk selection on boss layer transition (one per layer crossed)
-    while (this.pendingPerkCount > 0 && !this.gameOver) {
-      this.pendingPerkCount--;
-      await this.showPerkSelection();
-    }
 
     // Check for deadlock after cascades settle
     if (!this.gameOver) {
