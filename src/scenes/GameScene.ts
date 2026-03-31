@@ -160,6 +160,8 @@ export class GameScene extends Phaser.Scene {
   private tutorialHintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
 
   private cascadeCount = 0;
+  private cascadeHitCount = 0;
+  private hitCounterText?: Phaser.GameObjects.Text;
 
   // Hint glow sprites (white silhouette clones)
   private hintOverlays: Phaser.GameObjects.Image[] = [];
@@ -798,6 +800,7 @@ export class GameScene extends Phaser.Scene {
     let loopMatches = matches;
     let loopSpecials = manualSpecials;
     this.cascadeCount = 0;
+    this.cascadeHitCount = 0;
 
     while (loopMatches.length || loopSpecials.length) {
       const outcome = this.board.computeClearOutcome(
@@ -844,6 +847,14 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
+      // Track hit counter for boss damage during cascades
+      if (actor === "player" && this.computeDamageFromCounts(outcome.counts) > 0) {
+        this.cascadeHitCount++;
+        if (this.cascadeHitCount >= 2) {
+          this.updateHitCounter(this.cascadeHitCount);
+        }
+      }
+
       // Perk selection mid-cascade (pause cascade for perk pick)
       while (this.pendingPerkCount > 0 && !this.gameOver) {
         this.pendingPerkCount--;
@@ -871,6 +882,9 @@ export class GameScene extends Phaser.Scene {
       loopSpecials = [];
       swapTargets = [];
     }
+
+    // Fade out hit counter after cascades
+    this.fadeOutHitCounter();
 
     // Crossfade damage art back to idle after all cascades finish
     if (!this.gameOver) {
@@ -3278,6 +3292,60 @@ export class GameScene extends Phaser.Scene {
           onComplete: () => text.destroy(),
         });
       },
+    });
+  }
+
+  private updateHitCounter(count: number): void {
+    const L = UI_LAYOUT;
+    const x = L.bossHpBarX + L.hpBarWidth;
+    const y = L.bossNameY - 16;
+
+    if (this.hitCounterText) {
+      this.hitCounterText.setText(`${count} Hits!`);
+      // Scale bounce on update
+      this.hitCounterText.setScale(0.8);
+      this.tweens.add({
+        targets: this.hitCounterText,
+        scale: 1,
+        duration: 150,
+        ease: "Back.easeOut",
+      });
+      return;
+    }
+
+    this.hitCounterText = this.add
+      .text(x, y, `${count} Hits!`, {
+        fontSize: "22px",
+        color: "#ffd700",
+        fontFamily: "'Exo 2', Arial, sans-serif",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 4,
+        resolution: 2,
+      })
+      .setOrigin(1, 0.5)
+      .setDepth(100)
+      .setScale(0);
+
+    this.tweens.add({
+      targets: this.hitCounterText,
+      scale: 1,
+      duration: 200,
+      ease: "Back.easeOut",
+    });
+  }
+
+  private fadeOutHitCounter(): void {
+    if (!this.hitCounterText) return;
+    const text = this.hitCounterText;
+    this.hitCounterText = undefined;
+    this.tweens.add({
+      targets: text,
+      alpha: 0,
+      y: text.y - 20,
+      duration: 400,
+      ease: "Quad.easeOut",
+      onComplete: () => text.destroy(),
     });
   }
 
