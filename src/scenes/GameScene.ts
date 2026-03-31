@@ -971,9 +971,10 @@ export class GameScene extends Phaser.Scene {
   // --- Red vignette (low HP warning) ---
 
   private readonly VIGNETTE_HP_THRESHOLD = 0.3;
-  private readonly VIGNETTE_ALPHA_MIN = 0.15;
-  private readonly VIGNETTE_ALPHA_MAX = 0.35;
+  private readonly VIGNETTE_ALPHA_MIN = 0.25;
+  private readonly VIGNETTE_ALPHA_MAX = 0.5;
   private readonly VIGNETTE_DEPTH = 5.5;
+  private hpBarPulseTween?: Phaser.Tweens.Tween;
 
   private updateVignette() {
     const hpRatio = this.playerHp / GAME_PARAMS.player.hpMax;
@@ -1019,6 +1020,18 @@ export class GameScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
     });
+
+    // Sync HP bar pulse with vignette
+    if (this.playerHpBar && !this.hpBarPulseTween) {
+      this.hpBarPulseTween = this.tweens.add({
+        targets: this.playerHpBar,
+        alpha: { from: 1.0, to: 0.5 },
+        duration: 1200,
+        ease: "Sine.easeInOut",
+        yoyo: true,
+        repeat: -1,
+      });
+    }
   }
 
   private hideVignette() {
@@ -1029,6 +1042,13 @@ export class GameScene extends Phaser.Scene {
     }
     this.vignetteGfx.destroy();
     this.vignetteGfx = undefined;
+
+    // Stop HP bar pulse and restore full alpha
+    if (this.hpBarPulseTween) {
+      this.hpBarPulseTween.stop();
+      this.hpBarPulseTween = undefined;
+      this.playerHpBar?.setAlpha(1);
+    }
   }
 
   // --- Perk selection UI ---
