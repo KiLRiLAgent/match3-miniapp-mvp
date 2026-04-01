@@ -1040,23 +1040,16 @@ export class GameScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // Sync HP bar color pulse — glow red brighter (not dimmer)
+    // Sync HP bar pulse — scale up slightly (looks "brighter"/more intense)
     if (this.playerHpBar && !this.hpBarPulseTween) {
-      const bar = this.playerHpBar;
-      this.hpBarPulseTween = this.tweens.addCounter({
-        from: 0,
-        to: 1,
+      this.hpBarPulseTween = this.tweens.add({
+        targets: this.playerHpBar,
+        scaleX: { from: 1.0, to: 1.06 },
+        scaleY: { from: 1.0, to: 1.06 },
         duration: 600,
         ease: "Sine.easeInOut",
         yoyo: true,
         repeat: -1,
-        onUpdate: (tween) => {
-          const t = tween.getValue();
-          const r = Math.round(0x4c + (0xff - 0x4c) * t);
-          const g = Math.round(0xaf * (1 - t * 0.7));
-          const b = Math.round(0x50 * (1 - t * 0.7));
-          bar.setTint(Phaser.Display.Color.GetColor(r, g, b));
-        },
       });
     }
   }
@@ -1070,11 +1063,11 @@ export class GameScene extends Phaser.Scene {
     this.vignetteGfx.destroy();
     this.vignetteGfx = undefined;
 
-    // Stop HP bar pulse and restore normal tint
+    // Stop HP bar pulse and restore normal scale
     if (this.hpBarPulseTween) {
       this.hpBarPulseTween.stop();
       this.hpBarPulseTween = undefined;
-      this.playerHpBar?.clearTint();
+      this.playerHpBar?.setScale(1);
     }
   }
 
