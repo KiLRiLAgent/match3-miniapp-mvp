@@ -838,8 +838,9 @@ export class GameScene extends Phaser.Scene {
       // Wave 1: apply full results (damage + mana + heal)
       this.applyMatchResults(outcome.counts, actor);
 
-      // Track hit counter for boss damage during cascades (first hit)
-      if (actor === "player" && this.computeDamageFromCounts(outcome.counts) > 0) {
+      // Track hit counter for boss damage during cascades (skip if shielded)
+      const didDamage = actor === "player" && this.computeDamageFromCounts(outcome.counts) > 0 && this.bossShieldDuration <= 0;
+      if (didDamage) {
         this.cascadeHitCount++;
         if (this.cascadeHitCount >= 2) {
           this.updateHitCounter(this.cascadeHitCount);
@@ -852,8 +853,7 @@ export class GameScene extends Phaser.Scene {
         for (let wave = 1; wave < maxMultiplier && !this.gameOver; wave++) {
           await wait(this, ANIMATION_DURATIONS.critWaveDelay);
           this.applyCritWaveDamage(baseDamage, actor);
-          // Count each CRIT wave as a separate hit
-          if (actor === "player" && baseDamage > 0) {
+          if (actor === "player" && baseDamage > 0 && this.bossShieldDuration <= 0) {
             this.cascadeHitCount++;
             this.updateHitCounter(this.cascadeHitCount);
           }
