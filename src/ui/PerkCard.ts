@@ -99,10 +99,10 @@ export class PerkCard extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5);
 
-    // Mana cost — blue drop in top-left corner of card
+    // Mana cost — blue drop overlapping icon circle (top-left of icon)
     const dropGfx = scene.add.graphics();
-    const dropX = -halfW + Math.round(16 * scale);
-    const dropY = -halfH + titleH + Math.round(12 * scale);
+    const dropX = -circleR + Math.round(4 * scale);
+    const dropY = iconY - circleR + Math.round(4 * scale);
     const dropR = Math.round(13 * scale);
     dropGfx.fillStyle(0x3b82f6, 0.9);
     dropGfx.fillCircle(dropX, dropY, dropR);
