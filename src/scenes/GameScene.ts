@@ -838,20 +838,25 @@ export class GameScene extends Phaser.Scene {
       // Wave 1: apply full results (damage + mana + heal)
       this.applyMatchResults(outcome.counts, actor);
 
+      // Track hit counter for boss damage during cascades (first hit)
+      if (actor === "player" && this.computeDamageFromCounts(outcome.counts) > 0) {
+        this.cascadeHitCount++;
+        if (this.cascadeHitCount >= 2) {
+          this.updateHitCounter(this.cascadeHitCount);
+        }
+      }
+
       // Additional CRIT waves: apply only damage with delay between hits
       if (maxMultiplier > 1 && !this.gameOver) {
         const baseDamage = this.computeDamageFromCounts(outcome.counts);
         for (let wave = 1; wave < maxMultiplier && !this.gameOver; wave++) {
           await wait(this, ANIMATION_DURATIONS.critWaveDelay);
           this.applyCritWaveDamage(baseDamage, actor);
-        }
-      }
-
-      // Track hit counter for boss damage during cascades
-      if (actor === "player" && this.computeDamageFromCounts(outcome.counts) > 0) {
-        this.cascadeHitCount++;
-        if (this.cascadeHitCount >= 2) {
-          this.updateHitCounter(this.cascadeHitCount);
+          // Count each CRIT wave as a separate hit
+          if (actor === "player" && baseDamage > 0) {
+            this.cascadeHitCount++;
+            this.updateHitCounter(this.cascadeHitCount);
+          }
         }
       }
 
@@ -1035,15 +1040,23 @@ export class GameScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // Sync HP bar pulse with vignette
+    // Sync HP bar color pulse — glow red brighter (not dimmer)
     if (this.playerHpBar && !this.hpBarPulseTween) {
-      this.hpBarPulseTween = this.tweens.add({
-        targets: this.playerHpBar,
-        alpha: { from: 1.0, to: 0.5 },
-        duration: 1200,
+      const bar = this.playerHpBar;
+      this.hpBarPulseTween = this.tweens.addCounter({
+        from: 0,
+        to: 1,
+        duration: 600,
         ease: "Sine.easeInOut",
         yoyo: true,
         repeat: -1,
+        onUpdate: (tween) => {
+          const t = tween.getValue();
+          const r = Math.round(0x4c + (0xff - 0x4c) * t);
+          const g = Math.round(0xaf * (1 - t * 0.7));
+          const b = Math.round(0x50 * (1 - t * 0.7));
+          bar.setTint(Phaser.Display.Color.GetColor(r, g, b));
+        },
       });
     }
   }
@@ -1057,11 +1070,11 @@ export class GameScene extends Phaser.Scene {
     this.vignetteGfx.destroy();
     this.vignetteGfx = undefined;
 
-    // Stop HP bar pulse and restore full alpha
+    // Stop HP bar pulse and restore normal tint
     if (this.hpBarPulseTween) {
       this.hpBarPulseTween.stop();
       this.hpBarPulseTween = undefined;
-      this.playerHpBar?.setAlpha(1);
+      this.playerHpBar?.clearTint();
     }
   }
 

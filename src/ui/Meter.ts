@@ -173,8 +173,17 @@ export class Meter extends Phaser.GameObjects.Container {
       this.currentColor = ratio > 0.5 ? this.baseColor : ratio > 0.25 ? 0xf5a623 : 0xde3e3e;
     }
 
+    // Clear delta when value reaches 0
+    if (this.deltaEnabled && clamped <= 0) {
+      this.deltaWidth = 0;
+      if (this.deltaDraining && this.deltaDrainTween) {
+        this.deltaDrainTween.stop();
+        this.deltaDraining = false;
+      }
+    }
+
     // Trailing delta: accumulate when value decreases, cancel active drain
-    if (this.deltaEnabled && newFillWidth < this.currentFillWidth) {
+    if (this.deltaEnabled && newFillWidth < this.currentFillWidth && clamped > 0) {
       if (this.deltaDraining && this.deltaDrainTween) {
         this.deltaDrainTween.stop();
         this.deltaDraining = false;
