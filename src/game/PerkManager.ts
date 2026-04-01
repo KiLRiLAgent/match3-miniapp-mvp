@@ -1,4 +1,4 @@
-import { SKILL_CONFIG, PERK_MAX_LEVEL, PERK_CHOICES } from "./config";
+import { SKILL_CONFIG, PERK_MAX_LEVEL, PERK_CHOICES, GAME_PARAMS } from "./config";
 import type { SkillId } from "./config";
 
 export const MAX_PERK_LEVEL = PERK_MAX_LEVEL;
@@ -24,61 +24,88 @@ const PERK_DEFS: PerkDef[] = [
     name: "Мощный удар",
     icon: "⚡",
     descriptions: [
-      "Наносит 100 урона",
-      "+20% урона",
-      "+40% урона",
-      "+60% урона",
-      "+80% урона",
-      "+100% урона",
+      "Наносит мощный физический урон",
+      "Урон способности ↑",
+      "Урон способности ↑↑",
+      "Урон способности ↑↑↑",
+      "Урон способности ↑↑↑↑",
+      "Макс. урон способности",
     ],
   },
   {
     skillId: "stun",
-    name: "Стан",
+    name: "Оглушение",
     icon: "⏳",
     descriptions: [
-      "Задерживает атаку босса на 2 хода",
-      "+1 ход стана",
-      "+2 хода стана",
-      "+3 хода стана",
-      "+4 хода стана",
-      "+5 ходов стана",
+      "Оглушает противника на 1 ход",
+      "Стоимость способности ↓",
+      "Оглушает на 2 хода",
+      "Стоимость способности ↓↓",
+      "Оглушает на 3 хода",
+      "Макс. оглушение",
     ],
   },
   {
     skillId: "heal",
-    name: "Хил",
+    name: "Лечение",
     icon: "💚",
     descriptions: [
-      "Восстанавливает 50 HP",
-      "+10 HP хила",
-      "+20 HP хила",
-      "+30 HP хила",
-      "+40 HP хила",
-      "+50 HP хила",
+      "Восстанавливает здоровье",
+      "Лечение ↑",
+      "Лечение ↑↑",
+      "Лечение ↑↑↑",
+      "Лечение ↑↑↑↑",
+      "Макс. лечение",
     ],
   },
   {
     skillId: "hammer",
-    name: "Молоток",
+    name: "Взрыв камня",
     icon: "🔨",
     descriptions: [
-      "Удаляет любую фишку с поля",
-      "-5 маны",
-      "-10 маны",
-      "-15 маны",
-      "-1 кулдаун",
-      "-1 кулдаун, -15 маны",
+      "Взрывает 1 фишку на поле",
+      "Стоимость способности ↓",
+      "Взрывает 5 фишек крестом",
+      "Стоимость способности ↓↓",
+      "Взрывает 9 фишек квадратом",
+      "Макс. взрыв",
     ],
   },
 ];
 
-// Baseline skill values (before any perks) — used to restore on reset
-const SKILL_BASELINE: Record<SkillId, { damage: number; heal: number; cost: number; cooldown: number; stunTurns?: number }> = {
-  powerStrike: { damage: 100, heal: 0, cost: 40, cooldown: 3 },
-  stun:        { damage: 0,   heal: 0, cost: 50, cooldown: 5, stunTurns: 2 },
-  heal:        { damage: 0,   heal: 50, cost: 30, cooldown: 2 },
-  hammer:      { damage: 0,   heal: 0, cost: 20, cooldown: 3 },
+/**
+ * Per-level stats for each skill.
+ * Index 0 = level 1 (unlock), index 4 = level 5 (max).
+ */
+const SKILL_LEVEL_TABLE: Record<SkillId, Array<{ cost: number; cooldown: number; damage?: number; heal?: number; stunTurns?: number; hammerPattern?: "single" | "cross" | "square" }>> = {
+  powerStrike: [
+    { cost: 40, cooldown: 3, damage: 10 },  // physAttack * 10
+    { cost: 40, cooldown: 3, damage: 15 },  // physAttack * 15
+    { cost: 40, cooldown: 3, damage: 20 },  // physAttack * 20
+    { cost: 40, cooldown: 3, damage: 25 },  // physAttack * 25
+    { cost: 40, cooldown: 3, damage: 30 },  // physAttack * 30
+  ],
+  stun: [
+    { cost: 60, cooldown: 6, stunTurns: 1 },
+    { cost: 50, cooldown: 6, stunTurns: 1 },
+    { cost: 50, cooldown: 6, stunTurns: 2 },
+    { cost: 40, cooldown: 6, stunTurns: 2 },
+    { cost: 40, cooldown: 6, stunTurns: 3 },
+  ],
+  heal: [
+    { cost: 30, cooldown: 2, heal: 30 },
+    { cost: 30, cooldown: 2, heal: 40 },
+    { cost: 30, cooldown: 2, heal: 50 },
+    { cost: 30, cooldown: 2, heal: 60 },
+    { cost: 30, cooldown: 2, heal: 70 },
+  ],
+  hammer: [
+    { cost: 40, cooldown: 4, hammerPattern: "single" },
+    { cost: 30, cooldown: 4, hammerPattern: "single" },
+    { cost: 30, cooldown: 3, hammerPattern: "cross" },
+    { cost: 20, cooldown: 3, hammerPattern: "cross" },
+    { cost: 20, cooldown: 3, hammerPattern: "square" },
+  ],
 };
 
 function shuffle<T>(arr: T[]): T[] {
@@ -115,39 +142,46 @@ export class PerkManager {
   }
 
   isMaxLevel(skillId: SkillId): boolean {
-    return this.levels[skillId] >= MAX_PERK_LEVEL + 1; // +1 because level 1 = unlock, 2-6 = upgrades
+    return this.levels[skillId] >= MAX_PERK_LEVEL + 1; // +1 because level 1 = unlock
   }
 
-  /** Skills not yet unlocked */
   private getNewSkills(): PerkDef[] {
     return PERK_DEFS.filter((p) => !this.isUnlocked(p.skillId));
   }
 
-  /** Unlocked skills that can still be upgraded */
   private getUpgradeableSkills(): PerkDef[] {
     return PERK_DEFS.filter((p) => this.isUnlocked(p.skillId) && !this.isMaxLevel(p.skillId));
   }
 
-  /**
-   * Get perk choices: mix of new skill unlocks + upgrades for existing skills.
-   * Priority: show ALL available new skills (up to count-1 if upgrades exist),
-   * fill remaining with upgrades. This ensures player sees all unlock options.
-   */
   getRandomPerks(count: number = PERKS_TO_OFFER): PerkDef[] {
     const newSkills = shuffle(this.getNewSkills());
     const upgrades = shuffle(this.getUpgradeableSkills());
 
-    if (newSkills.length === 0) {
-      return upgrades.slice(0, count);
-    }
-    if (upgrades.length === 0) {
-      return newSkills.slice(0, count);
-    }
+    if (newSkills.length === 0) return upgrades.slice(0, count);
+    if (upgrades.length === 0) return newSkills.slice(0, count);
 
-    // Show as many new skills as possible, leave at least 1 slot for upgrade
     const newCount = Math.min(newSkills.length, count - 1);
     const upgradeCount = Math.min(upgrades.length, count - newCount);
     return [...newSkills.slice(0, newCount), ...upgrades.slice(0, upgradeCount)];
+  }
+
+  /** Apply skill stats from level table */
+  private applySkillStats(skillId: SkillId, levelIdx: number) {
+    const table = SKILL_LEVEL_TABLE[skillId];
+    const stats = table[levelIdx];
+    if (!stats) return;
+
+    const cfg = SKILL_CONFIG[skillId];
+    cfg.cost = stats.cost;
+    cfg.cooldown = stats.cooldown;
+
+    if (skillId === "powerStrike" && stats.damage !== undefined) {
+      // Damage = physAttack * multiplier
+      cfg.damage = GAME_PARAMS.player.physAttack * stats.damage;
+    }
+    if (stats.heal !== undefined) cfg.heal = stats.heal;
+    if (stats.stunTurns !== undefined) cfg.stunTurns = stats.stunTurns;
+    if (stats.hammerPattern !== undefined) cfg.hammerPattern = stats.hammerPattern;
   }
 
   applyPerk(skillId: SkillId): PerkUpgrade {
@@ -161,35 +195,12 @@ export class PerkManager {
 
     if (wasLocked) {
       this._unlockedOrder.push(skillId);
-      // Level 1 = just unlocked, use baseline stats (no upgrade yet)
-      return { skillId, level, isNewUnlock: true };
     }
 
-    // Level 2+ = upgrade
-    const upgradeLevel = level - 1; // upgrade index (1-based)
-    const cfg = SKILL_CONFIG[skillId];
+    // Apply stats from level table (level 1 = index 0, level 2 = index 1, etc.)
+    this.applySkillStats(skillId, level - 1);
 
-    switch (skillId) {
-      case "powerStrike":
-        cfg.damage = 100 + upgradeLevel * 20;
-        break;
-      case "stun":
-        cfg.stunTurns = 2 + upgradeLevel;
-        break;
-      case "heal":
-        cfg.heal = 50 + upgradeLevel * 10;
-        break;
-      case "hammer":
-        if (upgradeLevel <= 3) {
-          cfg.cost = Math.max(0, 20 - upgradeLevel * 5);
-        } else {
-          cfg.cost = Math.max(0, 20 - 3 * 5);
-          cfg.cooldown = Math.max(1, 3 - (upgradeLevel - 3));
-        }
-        break;
-    }
-
-    return { skillId, level, isNewUnlock: false };
+    return { skillId, level, isNewUnlock: wasLocked };
   }
 
   getNextDescription(skillId: SkillId): string {
@@ -206,15 +217,9 @@ export class PerkManager {
   reset(): void {
     this.levels = { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
     this._unlockedOrder = [];
-    // Restore SKILL_CONFIG to baseline values
-    for (const id of Object.keys(SKILL_BASELINE) as SkillId[]) {
-      const base = SKILL_BASELINE[id];
-      const cfg = SKILL_CONFIG[id];
-      cfg.damage = base.damage;
-      cfg.heal = base.heal;
-      cfg.cost = base.cost;
-      cfg.cooldown = base.cooldown;
-      if (base.stunTurns !== undefined) cfg.stunTurns = base.stunTurns;
+    // Reset all skills to level 1 baseline
+    for (const id of Object.keys(SKILL_LEVEL_TABLE) as SkillId[]) {
+      this.applySkillStats(id, 0);
     }
   }
 }

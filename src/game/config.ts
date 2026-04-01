@@ -461,6 +461,7 @@ export interface SkillDef {
   isInteractive?: boolean;
   iconTexture?: string;
   description: string;
+  hammerPattern?: "single" | "cross" | "square";
 }
 
 export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
@@ -468,39 +469,40 @@ export const SKILL_CONFIG: Record<SkillId, SkillDef> = {
     name: "Мощный удар",
     icon: "⚡",
     cost: 40,
-    damage: 100,
+    damage: GAME_PARAMS.player.physAttack * 10,
     heal: 0,
     cooldown: 3,
-    description: "100 урона",
+    description: "Физ. урон x10",
   },
   stun: {
-    name: "Стан",
+    name: "Оглушение",
     icon: "⏳",
-    cost: 50,
+    cost: 60,
     damage: 0,
     heal: 0,
-    cooldown: 5,
-    stunTurns: 2,
-    description: "+2 к кулдауну босса",
+    cooldown: 6,
+    stunTurns: 1,
+    description: "+1 к КД босса",
   },
   heal: {
-    name: "Хил",
+    name: "Лечение",
     icon: "💚",
     cost: 30,
     damage: 0,
-    heal: 50,
+    heal: 30,
     cooldown: 2,
     iconTexture: "tile_heal",
-    description: "+50 HP",
+    description: "+30 HP",
   },
   hammer: {
-    name: "Молоток",
+    name: "Взрыв камня",
     icon: "🔨",
-    cost: 20,
+    cost: 40,
     damage: 0,
     heal: 0,
-    cooldown: 3,
+    cooldown: 4,
     isInteractive: true,
-    description: "Удалить фишку",
+    description: "Взрывает 1 фишку",
+    hammerPattern: "single",
   },
 };

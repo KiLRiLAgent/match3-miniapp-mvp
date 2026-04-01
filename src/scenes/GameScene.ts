@@ -1839,27 +1839,60 @@ export class GameScene extends Phaser.Scene {
     this.tileSprites.forEach((sprite) => sprite.setDepth(1));
   }
 
+  /** Get positions to destroy based on hammer pattern */
+  private getHammerPositions(center: Position): Position[] {
+    const pattern = SKILL_CONFIG.hammer.hammerPattern ?? "single";
+    const positions: Position[] = [{ ...center }];
+
+    if (pattern === "cross") {
+      // 5 tiles: center + 4 adjacent (cross/plus shape)
+      const offsets = [{ x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }];
+      for (const o of offsets) {
+        const p = { x: center.x + o.x, y: center.y + o.y };
+        if (p.x >= 0 && p.x < BOARD_WIDTH && p.y >= 0 && p.y < BOARD_HEIGHT) {
+          positions.push(p);
+        }
+      }
+    } else if (pattern === "square") {
+      // 9 tiles: 3x3 square
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue; // center already added
+          const p = { x: center.x + dx, y: center.y + dy };
+          if (p.x >= 0 && p.x < BOARD_WIDTH && p.y >= 0 && p.y < BOARD_HEIGHT) {
+            positions.push(p);
+          }
+        }
+      }
+    }
+
+    return positions;
+  }
+
   private async removeWithHammer(pos: Position) {
-    const tile = this.board.getTile(pos);
-    if (!tile) return;
+    const positions = this.getHammerPositions(pos);
 
-    // Удалить фишку без эффекта
     this.sfx(ASSET_KEYS.sfx.gemTap);
-    this.board.removeTile(pos);
-    const sprite = this.tileSprites.get(tile.id);
-    sprite?.destroy();
-    this.tileSprites.delete(tile.id);
 
-    // Убрать текст бомбы если была
-    this.bombCooldownTexts.get(tile.id)?.destroy();
-    this.bombCooldownTexts.delete(tile.id);
+    // Remove all tiles in pattern
+    for (const p of positions) {
+      const tile = this.board.getTile(p);
+      if (!tile) continue;
 
-    // Убрать glow enhanced tile если был
-    const hammerGlow = this.tileGlows.get(tile.id);
-    if (hammerGlow) {
-      this.tweens.killTweensOf(hammerGlow);
-      hammerGlow.destroy();
-      this.tileGlows.delete(tile.id);
+      this.board.removeTile(p);
+      const sprite = this.tileSprites.get(tile.id);
+      sprite?.destroy();
+      this.tileSprites.delete(tile.id);
+
+      this.bombCooldownTexts.get(tile.id)?.destroy();
+      this.bombCooldownTexts.delete(tile.id);
+
+      const glow = this.tileGlows.get(tile.id);
+      if (glow) {
+        this.tweens.killTweensOf(glow);
+        glow.destroy();
+        this.tileGlows.delete(tile.id);
+      }
     }
 
     // Выйти из режима молотка
