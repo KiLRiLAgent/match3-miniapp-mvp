@@ -2634,7 +2634,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const layer of this.bossLayers) {
       layer.setDisplaySize(GAME_WIDTH, attackDisplayH);
-      layer.setY(attackY);
+      layer.setPosition(GAME_WIDTH / 2, attackY);
     }
 
     // 3. Dissolve in attack sprite
