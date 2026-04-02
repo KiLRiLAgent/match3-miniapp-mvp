@@ -2357,14 +2357,14 @@ export class GameScene extends Phaser.Scene {
 
   // ===== Tutorial & Tips =====
 
-  private async showTip(text: string, duration = 2000, centered = false): Promise<void> {
+  private async showTip(text: string, duration = 2000, centered = false, customY?: number): Promise<void> {
     // Don't show tips during busy animations or if a tip is already active
     if (this.activeTip) return;
 
     // Stop hint animations while tip is visible
     this.stopHintTimer();
 
-    const bubbleY = centered ? GAME_HEIGHT / 2 : UI_LAYOUT.boardOriginY + UI_LAYOUT.boardHeight + 5;
+    const bubbleY = customY ?? (centered ? GAME_HEIGHT / 2 : UI_LAYOUT.boardOriginY + UI_LAYOUT.boardHeight + 5);
     const bubble = new SpeechBubble(this, GAME_WIDTH / 2, bubbleY, {
       text,
       tailDirection: centered ? "none" : "up",
@@ -2770,7 +2770,10 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.shieldTipShown) {
       this.shieldTipShown = true;
-      await this.showTip("Босс под щитом!\nУрон заблокирован");
+      const shieldTipY = this.bossShieldOverlay
+        ? this.bossShieldOverlay.y + this.bossShieldOverlay.displayHeight / 2 + 30
+        : UI_LAYOUT.bossHpBarY + 30;
+      await this.showTip("Босс под щитом!\nУрон заблокирован", 2000, false, shieldTipY);
     }
   }
 
