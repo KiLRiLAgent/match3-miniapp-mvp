@@ -1,6 +1,6 @@
 import {
   BOSS_ABILITIES,
-  getBossAbilityPattern,
+  GAME_PARAMS,
   type BossAbilityType,
 } from "./config";
 
@@ -12,17 +12,68 @@ export interface BossAbilityState {
   isReady: boolean;
 }
 
+/** Default pool: 3 attacks, 2 bombs, 1 shield, 1 powerStrike */
+const DEFAULT_POOL: BossAbilityType[] = [
+  "attack", "attack", "attack",
+  "bombs", "bombs",
+  "shield",
+  "powerStrike",
+];
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export class BossAbilityManager {
-  private patternIndex = 0;
+  /** Remaining abilities in current pool (drawn from end) */
+  private pool: BossAbilityType[] = [];
+  /** Current ability (drawn from pool) */
+  private _currentType: BossAbilityType = "attack";
   private currentCooldown: number;
 
   constructor() {
+    this.refillPool();
+    this.drawNext();
     this.currentCooldown = this.getCurrentAbilityCooldown();
   }
 
+  /** Fill pool from config or default, then shuffle */
+  private refillPool(): void {
+    const configPool = this.getConfigPool();
+    this.pool = shuffle(configPool);
+  }
+
+  /** Get pool definition from GAME_PARAMS.bossPattern or default */
+  private getConfigPool(): BossAbilityType[] {
+    const ABILITY_MAP: Record<number, BossAbilityType> = {
+      1: "attack",
+      2: "bombs",
+      3: "shield",
+      4: "powerStrike",
+    };
+
+    // Use bossPattern from settings as pool definition
+    if (GAME_PARAMS.bossPattern && GAME_PARAMS.bossPattern.length > 0) {
+      return GAME_PARAMS.bossPattern.map(n => ABILITY_MAP[n] || "attack");
+    }
+    return [...DEFAULT_POOL];
+  }
+
+  /** Draw next ability from pool. Refill if empty. */
+  private drawNext(): void {
+    if (this.pool.length === 0) {
+      this.refillPool();
+    }
+    this._currentType = this.pool.pop()!;
+  }
+
   get currentType(): BossAbilityType {
-    const pattern = getBossAbilityPattern();
-    return pattern[this.patternIndex % pattern.length];
+    return this._currentType;
   }
 
   get currentAbility() {
@@ -50,7 +101,6 @@ export class BossAbilityManager {
     return this.currentCooldown <= 0;
   }
 
-  // Добавить ходы к текущему кулдауну (для стана игрока)
   addCooldown(turns: number): void {
     this.currentCooldown += turns;
   }
@@ -60,13 +110,14 @@ export class BossAbilityManager {
   }
 
   advance(): void {
-    const pattern = getBossAbilityPattern();
-    this.patternIndex = (this.patternIndex + 1) % pattern.length;
+    this.drawNext();
     this.currentCooldown = this.getCurrentAbilityCooldown();
   }
 
   reset(): void {
-    this.patternIndex = 0;
+    this.pool = [];
+    this.refillPool();
+    this.drawNext();
     this.currentCooldown = this.getCurrentAbilityCooldown();
   }
 }
