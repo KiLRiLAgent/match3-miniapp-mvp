@@ -144,13 +144,11 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       { label: "⚡ КД удара", getValue: () => GAME_PARAMS.bossAbilities.powerStrikeCooldown, setValue: (v) => GAME_PARAMS.bossAbilities.powerStrikeCooldown = v, min: 1, max: 10, step: 1 },
       { label: "🌀 Слив маны", getValue: () => GAME_PARAMS.bossAbilities.powerStrikeManaDrain, setValue: (v) => GAME_PARAMS.bossAbilities.powerStrikeManaDrain = v, min: 0, max: 100, step: 10 },
 
-      // === ПАТТЕРН БОССА (1=Атака, 2=Бомбы, 3=Щит, 4=Удар) ===
-      { label: "📋 Слот 1", getValue: () => GAME_PARAMS.bossPattern[0], setValue: (v) => GAME_PARAMS.bossPattern[0] = v, min: 1, max: 4, step: 1, isPattern: true },
-      { label: "📋 Слот 2", getValue: () => GAME_PARAMS.bossPattern[1], setValue: (v) => GAME_PARAMS.bossPattern[1] = v, min: 1, max: 4, step: 1, isPattern: true },
-      { label: "📋 Слот 3", getValue: () => GAME_PARAMS.bossPattern[2], setValue: (v) => GAME_PARAMS.bossPattern[2] = v, min: 1, max: 4, step: 1, isPattern: true },
-      { label: "📋 Слот 4", getValue: () => GAME_PARAMS.bossPattern[3], setValue: (v) => GAME_PARAMS.bossPattern[3] = v, min: 1, max: 4, step: 1, isPattern: true },
-      { label: "📋 Слот 5", getValue: () => GAME_PARAMS.bossPattern[4], setValue: (v) => GAME_PARAMS.bossPattern[4] = v, min: 1, max: 4, step: 1, isPattern: true },
-      { label: "📋 Слот 6", getValue: () => GAME_PARAMS.bossPattern[5], setValue: (v) => GAME_PARAMS.bossPattern[5] = v, min: 1, max: 4, step: 1, isPattern: true },
+      // === ПУЛ СПОСОБНОСТЕЙ БОССА (рандом) ===
+      { label: "⚔️ Атак в пуле", getValue: () => this.countInPool(1), setValue: (v) => this.setPoolCount(1, v), min: 0, max: 6, step: 1 },
+      { label: "💣 Бомб в пуле", getValue: () => this.countInPool(2), setValue: (v) => this.setPoolCount(2, v), min: 0, max: 4, step: 1 },
+      { label: "🛡 Щитов в пуле", getValue: () => this.countInPool(3), setValue: (v) => this.setPoolCount(3, v), min: 0, max: 3, step: 1 },
+      { label: "⚡ Ульт в пуле", getValue: () => this.countInPool(4), setValue: (v) => this.setPoolCount(4, v), min: 0, max: 3, step: 1 },
     );
 
     // Добавляем параметры скиллов игрока
@@ -352,6 +350,18 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     const newVal = Phaser.Math.Clamp(Math.round(raw * precision) / precision, param.min, param.max);
     param.setValue(newVal);
     this.updateValues();
+  }
+
+  private countInPool(abilityNum: number): number {
+    return GAME_PARAMS.bossPattern.filter((n: number) => n === abilityNum).length;
+  }
+
+  private setPoolCount(abilityNum: number, count: number): void {
+    // Remove all of this ability type, then add 'count' copies
+    GAME_PARAMS.bossPattern = GAME_PARAMS.bossPattern.filter((n: number) => n !== abilityNum);
+    for (let i = 0; i < count; i++) {
+      GAME_PARAMS.bossPattern.push(abilityNum);
+    }
   }
 
   private formatParamValue(param: ParamRow): string {
