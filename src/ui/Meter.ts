@@ -272,10 +272,10 @@ export class Meter extends Phaser.GameObjects.Container {
     // Pulse fillGfx alpha for brightness effect + tiny scale on fillGfx
     this.dangerPulseTween = this.scene.tweens.add({
       targets: this.fillGfx,
-      alpha: { from: 0.95, to: 0.55 },
-      scaleX: { from: 1.0, to: 1.01 },
-      scaleY: { from: 1.0, to: 1.01 },
-      duration: 600,
+      alpha: { from: 0.7, to: 1.0 },
+      scaleX: { from: 1.0, to: 1.03 },
+      scaleY: { from: 1.0, to: 1.03 },
+      duration: 500,
       ease: "Sine.easeInOut",
       yoyo: true,
       repeat: -1,
