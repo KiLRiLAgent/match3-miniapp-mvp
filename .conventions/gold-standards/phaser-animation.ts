@@ -58,5 +58,5 @@
  * 7. GUARDED PULSE CONTROLLER
  *    - Use createPulseController() for repeatable pulse animations
  *    - Prevents overlapping pulses on the same target
- *    - Used by CooldownIcon and ShieldIcon
+ *    - Used by CooldownIcon
  */

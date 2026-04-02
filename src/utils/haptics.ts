@@ -13,20 +13,6 @@ export function loadHapticSettings(): void {
   }
 }
 
-export function isHapticEnabled(): boolean {
-  return enabled;
-}
-
-export function toggleHaptic(): boolean {
-  enabled = !enabled;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(enabled));
-  } catch {
-    // ignore
-  }
-  return enabled;
-}
-
 function vibrate(pattern: number | number[]): void {
   if (!enabled) return;
   try {

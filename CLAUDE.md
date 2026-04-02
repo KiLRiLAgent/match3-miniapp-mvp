@@ -37,7 +37,6 @@ src/
 │   ├── Meter.ts               # HP/MP bar component
 │   ├── SkillButton.ts         # Skill button UI component
 │   ├── CooldownIcon.ts        # Boss ability cooldown indicator with icons
-│   ├── ShieldIcon.ts          # Boss shield duration indicator
 │   ├── DamageNumber.ts        # Floating combat text
 │   └── FlyingTile.ts          # Animated tile trajectory effects
 ├── utils/
@@ -746,21 +745,6 @@ Boss ability countdown indicator with ability-specific icons.
 - `setAbility(type: BossAbilityType, cooldown: number)` - Set icon and countdown
 - Uses shared `createPulseController` for guarded pulse animation
 
-### ShieldIcon (`ShieldIcon.ts`)
-Boss shield duration indicator.
-
-**Display**:
-- Shield emoji (🛡) with duration number
-- Blue background (0x3366ff)
-- Pulses when activated
-- Hidden when shield inactive
-
-**API**:
-- `show(duration: number)` - Display with initial duration
-- `updateDuration(duration: number)` - Update countdown, auto-hides at 0
-- `hide()` - Manual hide
-- Uses shared `createPulseController` for guarded pulse animation
-
 ### DamageNumber (`DamageNumber.ts`)
 Floating combat text.
 
@@ -799,7 +783,7 @@ createPulseAnimation(scene, target, scale, duration)  // Single pulse effect
 createPulseController(scene, target, scale, duration) // Guarded pulse controller
 ```
 
-**`createPulseController`** - Returns a function that triggers pulse animation only if not already pulsing. Used by CooldownIcon and ShieldIcon to prevent overlapping pulse animations.
+**`createPulseController`** - Returns a function that triggers pulse animation only if not already pulsing. Used by CooldownIcon to prevent overlapping pulse animations.
 
 ---
 
@@ -889,7 +873,7 @@ Clear animations differentiate between "player" and "boss" actors:
 - Bombs explode at end of turn when cooldown reaches 0
 
 ### Shared Pulse Controller
-`createPulseController()` provides guarded pulse animation that prevents overlapping pulses. Used by CooldownIcon and ShieldIcon.
+`createPulseController()` provides guarded pulse animation that prevents overlapping pulses. Used by CooldownIcon.
 
 ### Code Reuse in Board.ts
 `applyClearOutcome()` delegates to `collapseGrid()` for collapse logic, avoiding code duplication.

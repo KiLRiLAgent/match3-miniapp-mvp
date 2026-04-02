@@ -3,12 +3,6 @@ export enum TileKind {
   Star = "star",
   Mana = "mana",
   Heal = "heal",
-  /** @deprecated No longer generated — kept for backward compatibility */
-  BoosterRow = "boosterRow",
-  /** @deprecated No longer generated — kept for backward compatibility */
-  BoosterCol = "boosterCol",
-  /** @deprecated No longer generated — kept for backward compatibility */
-  Ultimate = "ultimate",
   Bomb = "bomb",
 }
 

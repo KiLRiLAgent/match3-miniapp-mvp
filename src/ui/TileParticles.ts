@@ -8,12 +8,6 @@ const TILE_COLORS: Record<string, number> = {
   [TileKind.Mana]: 0x4488ff,
   [TileKind.Heal]: 0x44ff66,
   [TileKind.Bomb]: 0xff2222,
-  /** @deprecated No longer generated */
-  [TileKind.BoosterRow]: 0xf7c948,
-  /** @deprecated No longer generated */
-  [TileKind.BoosterCol]: 0xf17c67,
-  /** @deprecated No longer generated */
-  [TileKind.Ultimate]: 0xffffff,
 };
 
 export function emitTileParticles(

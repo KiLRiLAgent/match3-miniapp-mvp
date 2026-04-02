@@ -150,14 +150,6 @@ export class Match3Board {
     );
   }
 
-  isSpecial(kind: TileKind): boolean {
-    return (
-      kind === TileKind.BoosterRow ||
-      kind === TileKind.BoosterCol ||
-      kind === TileKind.Ultimate
-    );
-  }
-
   isBomb(kind: TileKind): boolean {
     return kind === TileKind.Bomb;
   }
@@ -288,7 +280,6 @@ export class Match3Board {
 
   computeClearOutcome(
     matches: Match[],
-    manualSpecials: Position[] = [],
     swapTargets: Position[] = []
   ): ClearOutcome {
     const clearSet = new Set<string>();
@@ -298,13 +289,6 @@ export class Match3Board {
         clearSet.add(this.key(pos));
       }
     };
-
-    manualSpecials.forEach((pos) => {
-      const tile = this.getTile(pos);
-      if (tile && this.isSpecial(tile.kind)) {
-        this.blastArea(pos, tile.kind).forEach(addPos);
-      }
-    });
 
     // Detect L-shape: row + col match of same kind sharing a position
     const usedInLShape = new Set<number>();
@@ -443,28 +427,6 @@ export class Match3Board {
     return { moves, newTiles };
   }
 
-  blastArea(pos: Position, kind: TileKind): Position[] {
-    if (kind === TileKind.BoosterRow) {
-      return this.buildRowPositions(pos.y);
-    }
-    if (kind === TileKind.BoosterCol) {
-      return this.buildColumnPositions(pos.x);
-    }
-    // Ultimate: row + column (plus pattern)
-    return [
-      ...this.buildRowPositions(pos.y),
-      ...this.buildColumnPositions(pos.x).filter((p) => p.y !== pos.y),
-    ];
-  }
-
-  private buildRowPositions(y: number): Position[] {
-    return Array.from({ length: this.width }, (_, x) => ({ x, y }));
-  }
-
-  private buildColumnPositions(x: number): Position[] {
-    return Array.from({ length: this.height }, (_, y) => ({ x, y }));
-  }
-
   private chooseSpecialAnchor(match: Match, swapTargets: Position[]): Position {
     const swappedPosition = swapTargets.find((target) =>
       match.positions.some((p) => this.positionsEqual(p, target))
@@ -515,13 +477,13 @@ export class Match3Board {
       for (let x = 0; x < this.width; x++) {
         const from = { x, y };
         const tile = this.getTile(from);
-        if (!tile || this.isBomb(tile.kind) || this.isSpecial(tile.kind)) continue;
+        if (!tile || this.isBomb(tile.kind)) continue;
 
         for (const dir of dirs) {
           const to = { x: x + dir.x, y: y + dir.y };
           if (!this.inBounds(to)) continue;
           const other = this.getTile(to);
-          if (!other || this.isBomb(other.kind) || this.isSpecial(other.kind)) continue;
+          if (!other || this.isBomb(other.kind)) continue;
 
           this.swap(from, to);
           const allMatches = this.findMatches();
@@ -583,7 +545,7 @@ export class Match3Board {
   } {
     const available: Position[] = [];
     this.forEachTile((pos, tile) => {
-      if (!this.isBomb(tile.kind) && !this.isSpecial(tile.kind)) {
+      if (!this.isBomb(tile.kind)) {
         available.push(pos);
       }
     });
@@ -642,7 +604,7 @@ export class Match3Board {
   shuffleBaseTiles(): void {
     const positions: Position[] = [];
     this.forEachTile((pos, tile) => {
-      if (!this.isBomb(tile.kind) && !this.isSpecial(tile.kind)) {
+      if (!this.isBomb(tile.kind)) {
         positions.push(pos);
       }
     });

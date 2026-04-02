@@ -780,7 +780,7 @@ export class GameScene extends Phaser.Scene {
           this.rebuildPositionMap();
           return this.animateSwap(tileA.id, tileB.id);
         }
-        return this.resolveBoard(matches, [], [a, b], true, "player");
+        return this.resolveBoard(matches, [a, b], true, "player");
       })
       .finally(() => {
         if (!this.gameOver && this.currentTurn === "player") {
@@ -792,20 +792,17 @@ export class GameScene extends Phaser.Scene {
 
   private async resolveBoard(
     matches: Match[],
-    manualSpecials: Position[],
     swapTargets: Position[],
     endTurnAfter = false,
     actor: "player" | "boss" = "player"
   ) {
     let loopMatches = matches;
-    let loopSpecials = manualSpecials;
     this.cascadeCount = 0;
     this.cascadeHitCount = 0;
 
-    while (loopMatches.length || loopSpecials.length) {
+    while (loopMatches.length) {
       const outcome = this.board.computeClearOutcome(
         loopMatches,
-        loopSpecials,
         swapTargets
       );
       if (!outcome.cleared.length && !outcome.transforms.length) break;
@@ -884,7 +881,6 @@ export class GameScene extends Phaser.Scene {
       await this.animateCollapse(collapse);
 
       loopMatches = this.board.findMatches();
-      loopSpecials = [];
       swapTargets = [];
     }
 
@@ -1906,7 +1902,7 @@ export class GameScene extends Phaser.Scene {
     // Проверить каскадные матчи
     const matches = this.board.findMatches();
     if (matches.length > 0) {
-      await this.resolveBoard(matches, [], [], false, "player");
+      await this.resolveBoard(matches, [], false, "player");
     }
 
     this.updateHud();
@@ -2532,7 +2528,7 @@ export class GameScene extends Phaser.Scene {
     // Check for cascade matches after bomb explosions (player benefits)
     const matches = this.board.findMatches();
     if (matches.length > 0) {
-      await this.resolveBoard(matches, [], [], false, "player");
+      await this.resolveBoard(matches, [], false, "player");
     }
   }
 
@@ -3459,7 +3455,7 @@ export class GameScene extends Phaser.Scene {
       // Check for accidental matches after shuffle and resolve them
       const matches = this.board.findMatches();
       if (matches.length > 0) {
-        await this.resolveBoard(matches, [], [], false, "player");
+        await this.resolveBoard(matches, [], false, "player");
       }
     }
   }

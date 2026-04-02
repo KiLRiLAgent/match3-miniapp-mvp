@@ -223,5 +223,3 @@ export class PerkManager {
     }
   }
 }
-
-export { PERK_DEFS };

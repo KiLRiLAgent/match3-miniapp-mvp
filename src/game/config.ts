@@ -384,7 +384,6 @@ export const UI_COLORS = {
 
 // Boss layered HP bar (dynamic from GAME_PARAMS)
 export const getBossLayerCount = () => GAME_PARAMS.boss.layerCount;
-export const getBossHpPerLayer = () => Math.ceil(GAME_PARAMS.boss.hpMax / GAME_PARAMS.boss.layerCount);
 
 /**
  * Returns HP for each layer (index 0 = bottom/last layer, index N-1 = top/first layer).
