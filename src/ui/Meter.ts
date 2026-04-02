@@ -40,6 +40,11 @@ export class Meter extends Phaser.GameObjects.Container {
   // Always-green option
   private alwaysGreen: boolean;
 
+  // Danger pulse
+  private dangerPulsing = false;
+  private dangerPulseTween?: Phaser.Tweens.Tween;
+  private savedColor?: number;
+
   // Bar offset (for icon)
   private barOffsetX = 0;
 
@@ -252,5 +257,48 @@ export class Meter extends Phaser.GameObjects.Container {
         this.deltaDrainTween = undefined;
       },
     });
+  }
+
+  /** Start danger pulse — fill turns red + brightness pulses on fillGfx only */
+  startDangerPulse() {
+    if (this.dangerPulsing) return;
+    this.dangerPulsing = true;
+
+    // Save original color and force red
+    this.savedColor = this.currentColor;
+    this.currentColor = 0xde3e3e;
+    this.drawFill(this.currentFillWidth);
+
+    // Pulse fillGfx alpha for brightness effect + tiny scale on fillGfx
+    this.dangerPulseTween = this.scene.tweens.add({
+      targets: this.fillGfx,
+      alpha: { from: 0.95, to: 0.55 },
+      scaleX: { from: 1.0, to: 1.01 },
+      scaleY: { from: 1.0, to: 1.01 },
+      duration: 600,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  /** Stop danger pulse — restore original color */
+  stopDangerPulse() {
+    if (!this.dangerPulsing) return;
+    this.dangerPulsing = false;
+
+    if (this.dangerPulseTween) {
+      this.dangerPulseTween.stop();
+      this.dangerPulseTween = undefined;
+    }
+
+    // Restore color and alpha
+    if (this.savedColor !== undefined) {
+      this.currentColor = this.savedColor;
+      this.savedColor = undefined;
+    }
+    this.fillGfx.setAlpha(0.95);
+    this.fillGfx.setScale(1);
+    this.drawFill(this.currentFillWidth);
   }
 }

@@ -989,7 +989,6 @@ export class GameScene extends Phaser.Scene {
   private readonly VIGNETTE_ALPHA_MIN = 0.25;
   private readonly VIGNETTE_ALPHA_MAX = 0.5;
   private readonly VIGNETTE_DEPTH = 5.5;
-  private hpBarPulseTween?: Phaser.Tweens.Tween;
 
   private updateVignette() {
     const hpRatio = this.playerHp / GAME_PARAMS.player.hpMax;
@@ -1036,18 +1035,8 @@ export class GameScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // Sync HP bar pulse — scale up slightly (looks "brighter"/more intense)
-    if (this.playerHpBar && !this.hpBarPulseTween) {
-      this.hpBarPulseTween = this.tweens.add({
-        targets: this.playerHpBar,
-        scaleX: { from: 1.0, to: 1.06 },
-        scaleY: { from: 1.0, to: 1.06 },
-        duration: 600,
-        ease: "Sine.easeInOut",
-        yoyo: true,
-        repeat: -1,
-      });
-    }
+    // HP bar danger pulse — fill turns red + brightness pulse
+    this.playerHpBar?.startDangerPulse();
   }
 
   private hideVignette() {
@@ -1059,12 +1048,8 @@ export class GameScene extends Phaser.Scene {
     this.vignetteGfx.destroy();
     this.vignetteGfx = undefined;
 
-    // Stop HP bar pulse and restore normal scale
-    if (this.hpBarPulseTween) {
-      this.hpBarPulseTween.stop();
-      this.hpBarPulseTween = undefined;
-      this.playerHpBar?.setScale(1);
-    }
+    // Stop HP bar danger pulse
+    this.playerHpBar?.stopDangerPulse();
   }
 
   // --- Perk selection UI ---
