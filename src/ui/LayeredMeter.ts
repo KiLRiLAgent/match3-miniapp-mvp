@@ -179,10 +179,12 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     if (fillWidth > 0) {
       const color = this.getLayerColor(layerIdx);
       this.fillGfx.fillStyle(color, 0.95);
-      const r = fillWidth >= this.widthPx
+      const isFull = fillWidth >= this.widthPx - 0.5;
+      const drawW = isFull ? this.widthPx : fillWidth;
+      const r = isFull
         ? this.radius
         : { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
-      this.fillGfx.fillRoundedRect(0, 0, fillWidth, this.heightPx, r);
+      this.fillGfx.fillRoundedRect(0, 0, drawW, this.heightPx, r);
     }
 
     this.currentFillWidth = fillWidth;
@@ -206,10 +208,12 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
     if (totalWidth <= 0) return;
     this.deltaGfx.fillStyle(0xffffff, 0.85);
-    const dr = totalWidth >= this.widthPx
+    const dFull = totalWidth >= this.widthPx - 0.5;
+    const dW = dFull ? this.widthPx : totalWidth;
+    const dr = dFull
       ? this.radius
       : { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
-    this.deltaGfx.fillRoundedRect(0, 0, totalWidth, this.heightPx, dr);
+    this.deltaGfx.fillRoundedRect(0, 0, dW, this.heightPx, dr);
   }
 
   /** Update displayed HP. Accepts (current) or (current, max) for Meter API compat. */
@@ -265,10 +269,12 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
 
     this.flashGfx.clear();
     this.flashGfx.fillStyle(0xffffff, 1);
-    const fr = this.currentFillWidth >= this.widthPx
+    const fFull = this.currentFillWidth >= this.widthPx - 0.5;
+    const fW = fFull ? this.widthPx : this.currentFillWidth;
+    const fr = fFull
       ? this.radius
       : { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
-    this.flashGfx.fillRoundedRect(0, 0, this.currentFillWidth, this.heightPx, fr);
+    this.flashGfx.fillRoundedRect(0, 0, fW, this.heightPx, fr);
     this.flashGfx.setAlpha(0);
 
     this.scene.tweens.add({
