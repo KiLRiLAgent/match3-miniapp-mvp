@@ -1429,7 +1429,7 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
-      if (this.busy || this.bossHp <= 0) return;
+      if (!this.canPlayerAct()) return;
 
       // Бомбы нельзя перемещать
       if (tile.kind === TileKind.Bomb) return;

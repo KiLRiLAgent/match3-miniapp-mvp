@@ -46,14 +46,34 @@ export class IntroScene extends Phaser.Scene {
     this.runIntroSequence();
   }
 
+  private skipRequested = false;
+
   private async runIntroSequence() {
     await document.fonts.ready;
+
+    // Tap anywhere to skip entire intro
+    const skipZone = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+      .setOrigin(0, 0)
+      .setDepth(999)
+      .setInteractive();
+    skipZone.once("pointerdown", () => {
+      this.skipRequested = true;
+      skipZone.destroy();
+    });
+
     await this.step1_backgroundAppear();
+    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
     await this.step2_safiraAppear();
+    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
     await this.step3_firstDialogue();
+    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
     await this.step4_poseChangeDialogue();
+    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
     await this.step5_zoomAndVS();
+    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
     await this.step6_transitionToGame();
+    skipZone.destroy();
   }
 
   // Scale фона для покрытия всего экрана (начало интро)
