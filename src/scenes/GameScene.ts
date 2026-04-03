@@ -1768,6 +1768,7 @@ export class GameScene extends Phaser.Scene {
           this.pendingPerkCount--;
           await this.showPerkSelection();
         }
+        this.busy = false; // restore after skill-triggered perk selection
         this.updateHud();
       };
       processPerks();
