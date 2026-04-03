@@ -1214,7 +1214,7 @@ export class GameScene extends Phaser.Scene {
     subBgGfx.destroy();
     subtitleText.destroy();
 
-    this.busy = false;
+    // Do NOT set busy = false here — caller (resolveBoard) manages busy state
   }
 
   private applyDamageToBoss(damage: number, skipSlash = false) {
