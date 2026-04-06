@@ -3,10 +3,15 @@
  * работает и toggle обратно в v1 функционирует. Будет переписан в Phase 1
  * в полноценный экран "кампуса" с точками входа в StoryMap, Inventory,
  * CharacterRoster.
+ *
+ * Layout uses physical pixel coordinates from `this.cameras.main` (matches
+ * BootScene convention). DPR multiplier is applied to font sizes and offsets
+ * for crisp rendering on high-DPI screens. GAME_WIDTH/GAME_HEIGHT (CSS pixels)
+ * are NOT used here — they don't match the canvas world size.
  */
 
 import Phaser from "phaser";
-import { GAME_WIDTH, GAME_HEIGHT, SAFE_AREA, DPR } from "../../game/config";
+import { DPR, SAFE_AREA } from "../../game/config";
 import { setActiveMode } from "../../game/version";
 import { gameState } from "../core/GameState";
 
@@ -23,15 +28,17 @@ export class HubScene extends Phaser.Scene {
   }
 
   create() {
-    const cx = GAME_WIDTH / 2;
-    const cy = GAME_HEIGHT / 2;
+    const camW = this.cameras.main.width;
+    const camH = this.cameras.main.height;
+    const cx = camW / 2;
+    const cy = camH / 2;
     const d = DPR;
 
     // Ensure SaveData is loaded — this is the first scene to actually use it
     const save = gameState.ensureLoaded();
 
-    // Gothic-pastel background
-    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, BG_COLOR).setOrigin(0);
+    // Gothic-pastel background — fill the entire camera viewport
+    this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
 
     // Title
     this.add
@@ -81,8 +88,8 @@ export class HubScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // "Back to v1" button
-    this.createBackButton(cx, GAME_HEIGHT - 80 * d - SAFE_AREA.bottom * d);
+    // "Back to v1" button — anchored to bottom of camera, respecting safe area
+    this.createBackButton(cx, camH - 80 * d - SAFE_AREA.bottom * d);
   }
 
   private createBackButton(x: number, y: number) {
