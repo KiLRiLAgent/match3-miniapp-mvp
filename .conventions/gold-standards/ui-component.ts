@@ -129,4 +129,92 @@
  *    - Public methods: camelCase (setValue, flash, drainDelta)
  *    - Private methods: camelCase with draw* prefix for rendering (drawFill, drawDelta)
  *    - Timing constants: UPPER_SNAKE at module level (FLASH_DURATION)
+ *
+ * 9. v2 CONTAINER CHILDREN: `new Phaser.GameObjects.X(scene, ...)` pattern
+ *
+ *    Phase 1A introduced 3 new Container components in `src/v2/ui/`
+ *    (DialogueChoiceButton, CharacterPortrait, RelationshipMeter). They use a
+ *    slightly different children-creation pattern than v1 Container components:
+ *
+ *      // v1 pattern (Meter.ts) — children created via scene.add.*
+ *      const borderGfx = scene.add.graphics();  // creates AND auto-adds to scene
+ *      children.push(borderGfx);
+ *      this.add(children);
+ *      scene.add.existing(this);
+ *
+ *      // v2 pattern (DialogueChoiceButton.ts, CharacterPortrait.ts, etc.)
+ *      const bg = new Phaser.GameObjects.Rectangle(scene, 0, 0, w, h, color);  // does NOT auto-add
+ *      const label = new Phaser.GameObjects.Text(scene, 0, 0, text, style);
+ *      this.add([bg, label]);
+ *      scene.add.existing(this);
+ *
+ *    Both patterns produce equivalent runtime behavior, but the v2 pattern is
+ *    cleaner because:
+ *    - Children are owned exclusively by the Container (not orphan scene-level objects)
+ *    - `scene.add.existing(this)` is the SOLE registration point — easier to grep
+ *    - Avoids the temporary "child added to scene then re-parented to container" race
+ *
+ *    `scene.add.existing(this)` is still REQUIRED — that's the canonical Container
+ *    self-registration call. The grep guideline "no scene.add.X children" applies
+ *    only to children, not to the Container's own registration.
+ *
+ *    Choose pattern based on which surrounding code uses. New v2 components in
+ *    `src/v2/ui/` use the v2 pattern. New v1 components extending existing v1 UI
+ *    use the v1 pattern. Don't mix within a single file.
+ *
+ * 10. INTERACTIVE CONTAINER with explicit hitArea
+ *
+ *     `Phaser.GameObjects.Container` does NOT support `setInteractive()` without
+ *     an explicit hitArea — Phaser cannot infer bounds from the children. Always
+ *     pass a Rectangle hitArea + the Contains hit-test:
+ *
+ *       this.setSize(opts.width, opts.height);
+ *       this.setInteractive(
+ *         new Phaser.Geom.Rectangle(-opts.width / 2, -opts.height / 2, opts.width, opts.height),
+ *         Phaser.Geom.Rectangle.Contains,
+ *       );
+ *       this.on("pointerover", () => bg.setFillStyle(BTN_BG_HOVER));
+ *       this.on("pointerout", () => bg.setFillStyle(BTN_BG));
+ *       this.on("pointerup", () => opts.onClick());
+ *
+ *     The hitArea origin assumes Container origin is `(0, 0)` (Phaser default for
+ *     Container). The negative offsets (`-w/2, -h/2`) center the rectangle on the
+ *     Container's origin. Without `setSize`, pointer events won't propagate.
+ *
+ *     Example: src/v2/ui/DialogueChoiceButton.ts
+ *
+ * 11. NEUTRAL-LOCATION MANAGER CLASSES (NOT Container)
+ *
+ *     For board-overlay state managers like ChainOverlay (which renders v2 chain
+ *     state on top of the v1 Match3 board), DO NOT extend Container. Use a plain
+ *     manager class that holds scene-direct game objects:
+ *
+ *       export class ChainOverlay {
+ *         constructor(
+ *           scene: Phaser.Scene,
+ *           boardOriginX: number,
+ *           boardOriginY: number,
+ *           cellSize: number,
+ *         ) { ... }
+ *         setChains(chains: Chain[]): void
+ *         async animateDamage(damaged: Chain[]): Promise<void>
+ *         async animateBroken(broken: Chain[]): Promise<void>
+ *         clear(): void
+ *         destroy(): void
+ *       }
+ *
+ *     Why a manager class instead of Container:
+ *     - GameScene needs to instantiate it via `new ChainOverlay(...)` synchronously
+ *       in `create()` — Container subscriptions and event-bus complications avoided
+ *     - The class lives in a NEUTRAL location (`src/ui/`, NOT `src/v2/ui/`) so v1
+ *       can runtime-import it without crossing the v1↔v2 boundary
+ *     - Animation methods use parallel batched tweens (Pattern A — single
+ *       `tweenPromise` with `targets: array`) to keep wall-clock O(1) regardless of
+ *       chain count (MITIGATION-5 / CRIT-1..6)
+ *     - `.active` guards on every sprite operation make animateDamage / animateBroken
+ *       idempotent (ADD-2)
+ *
+ *     Example: src/ui/ChainOverlay.ts (Phase 1A Task #8)
+ *     See REFINEMENT 3 in `.claude/teams/feature-v2-lilana/DECISIONS.md` for the
+ *     "neutral location, no v2 boundary cross" rationale.
  */

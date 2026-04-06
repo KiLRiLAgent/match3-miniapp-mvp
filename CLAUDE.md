@@ -16,9 +16,9 @@ This is a Match-3 boss fight game built as a Telegram Mini App using Phaser 3 an
 
 ---
 
-## v2 Architecture (work in progress)
+## v2 Architecture
 
-Параллельно с v1 (arena boss fight) разрабатывается **v2 — «Университет Падших»**: story-driven dating sim с механикой цепей в матч-3 боях, прогрессией в стиле Archero и будущей ИИ-интеграцией. v2 живёт в изолированной папке `src/v2/` и активируется **opt-in** через флаг в настройках.
+Параллельно с v1 (arena boss fight) разрабатывается **v2 — «Университет Падших»**: story-driven dating sim с механикой цепей в матч-3 боях, прогрессией в стиле Archero и будущей ИИ-интеграцией. v2 живёт в изолированной папке `src/v2/` и активируется **opt-in** через флаг в настройках. **Phase 1A (Lilana vertical slice) завершена** — полный story-loop от Hub до боя с цепями и обратно работает end-to-end.
 
 ### Переключение между версиями
 
@@ -36,42 +36,65 @@ This is a Match-3 boss fight game built as a Telegram Mini App using Phaser 3 an
 
 - `vite.config.ts` использует `manualChunks: { phaser: ["phaser"] }` — Phaser вынесен в отдельный vendor chunk.
 - `src/v2/*` грузится через **dynamic import** из BootScene только при активном v2 режиме. v1-игроки не качают v2 chunk.
-- Актуальные размеры: `phaser-*.js` ~1.2 MB, main `index-*.js` ~125 kB, v2 chunk ~5 kB (на Phase 0).
+- Актуальные размеры (после Phase 1A): `phaser-*.js` ~1.2 MB, v1 main `index-*.js` ~132 kB (≤135 kB budget per REFINEMENT 9), v2 chunk ~53 kB (содержит 6 сцен, DialogueRunner, EncounterBuilder, RelationshipSystem, content registry, 3 v2/ui компонента).
 
 ### v2 directory layout
 
 ```
 src/v2/
-├── index.ts              # lazy entry point — экспортирует registerV2Scenes(game)
+├── index.ts              # lazy entry point — registerV2Scenes(game)
 ├── core/                 # инфраструктура
 │   ├── SaveManager.ts    # единственная точка чтения/записи v2 state
 │   ├── SceneRouter.ts    # push/pop/replace стек над scene.start
 │   ├── EventBus.ts       # typed pub/sub для cross-scene событий
 │   ├── GameState.ts      # фасад над SaveManager + EventBus
 │   └── types.ts          # SaveData interface + вложенные типы
-├── scenes/               # Phaser сцены v2 (HubScene на Phase 0, остальные в Phase 1+)
-├── content/              # TS-объекты с данными (Phase 1+)
-├── systems/              # игровые системы (Phase 1+)
-├── ui/                   # v2-специфичные UI компоненты (Phase 1+)
-├── ai/                   # Phase 3 ИИ-интеграция
-└── config/               # константы v2
+├── scenes/               # Phaser сцены v2 (Phase 1A: 6 сцен)
+│   ├── HubScene.ts       # greeting + кнопка к карте кампуса
+│   ├── StoryMapScene.ts  # одна локация (Atrium) на Phase 1A
+│   ├── LocationScene.ts  # NPC hotspots + dialogue resolver
+│   ├── DialogueScene.ts  # рендер DialogueRunner + tap-to-advance
+│   ├── CombatBridgeScene.ts  # сборка CombatContext + scene.launch GameScene
+│   └── PostCombatScene.ts    # display result + RelationshipMeter before/after
+├── content/              # данные на TS (Phase 1A: Лилана)
+│   ├── types.ts          # CharacterDef, DialogueGraph, EncounterDef, CombatContext, ...
+│   ├── characters/       # lilana.ts + index.ts (CHARACTERS registry)
+│   ├── dialogues/        # lilana-act1/2/4.ts + index.ts (DIALOGUES registry)
+│   ├── encounters/       # lilana-act4.ts + index.ts (ENCOUNTERS registry)
+│   └── locations/        # atrium.ts + index.ts (LOCATIONS registry)
+├── systems/              # игровые системы
+│   ├── DialogueRunner.ts # pure-logic интерпретатор (zero Phaser deps)
+│   ├── RelationshipSystem.ts  # applyDelta/getState/logDecision на gameState.patch
+│   ├── StoryFlags.ts     # set/get/has/inc флаги в SaveData.story.flags
+│   ├── EncounterBuilder.ts    # build CombatContext + applyResult (SOLE mutation point)
+│   └── conditionEval.ts  # ConditionExpr evaluator (shared by Runner + LocationScene)
+├── ui/                   # v2-специфичные Container компоненты
+│   ├── DialogueChoiceButton.ts  # interactive Container с hitArea
+│   ├── CharacterPortrait.ts     # placeholder circle с initial
+│   └── RelationshipMeter.ts     # 3 axis bars с three-case fillRadius
+├── ai/                   # Phase 3 ИИ-интеграция (не реализовано)
+└── config/               # константы v2 (не реализовано)
 ```
+
+Дополнительно `src/ui/ChainOverlay.ts` (нейтральная локация per REFINEMENT 3) — manager class для рендера chain state поверх Match3 board, инстанцируется напрямую из GameScene при наличии encounterContext.chains.
 
 ### Изоляция и правила
 
 Правила описаны в **`.conventions/checks/v2-isolation.md`**. Кратко:
 
-1. `src/scenes/*` **НЕ импортирует** `src/v2/*`. Единственное исключение — динамический `await import("../v2")` в `BootScene`.
+1. `src/scenes/*` **НЕ импортирует** `src/v2/*` runtime-методами. Единственные исключения: динамический `await import("../v2")` в `BootScene` и `import type { CombatContext, GameSceneInitData, RawCombatResult } from "../v2/content/types"` в `GameScene` (type-only, стирается при компиляции).
 2. `src/v2/*` импортирует `src/match3/*`, `src/ui/*`, `src/game/*`, `src/utils/*`, `src/telegram/*`, `src/scenes/GameScene.ts` как библиотеку.
-3. Правки `GameScene.ts` ради v2 — **только** через `if (this.encounterContext) { ... }` feature-gated ветки с комментарием `// v2:`.
+3. Правки `GameScene.ts` ради v2 — **только** через `if (this.encounterContext) { ... }` feature-gated ветки с комментарием `// v2:`. См. `.conventions/gold-standards/feature-gated-patches.ts`.
 4. **Zero-disruption v1**: с чистым localStorage игра должна запускаться идентично тому, что было до внедрения v2. Любой smoke test v1 обязателен после v2-коммита.
 5. SaveData версионируется через `SAVE_VERSION` — при изменении схемы обязательна migration функция в `SaveManager.MIGRATIONS`.
 6. v2 не трогает legacy v1 localStorage ключи (`match3_params`, `match3_audio`, `match3_haptic`). SaveManager **зеркалит** аудио/haptic в `SaveData.settings` на первом запуске, не удаляя оригиналы.
+7. `ChainVariant` определён в `src/match3/types.ts` (REFINEMENT 7), а не в `src/v2/content/types.ts` — содержит `Chain` концепт Match3Board, не v2-специфичную метадату. v2 content импортирует тип type-only из match3.
 
 ### Текущий статус
 
-- **Phase 0 (Foundation)** — инфраструктура готова: bundle splitting, version flag, SaveManager skeleton, lazy v2 entry, HubScene stub, SettingsPanel toggle, conventions.
-- **Phase 1 (Vertical slice)** — не начата. Планируется: Лилана + Сафира арки, цепи, DialogueScene, PostCombatScene, базовый inventory.
+- **Phase 0 (Foundation)** ✅ completed — инфраструктура: bundle splitting, version flag, SaveManager skeleton, lazy v2 entry, HubScene stub, SettingsPanel toggle, conventions.
+- **Phase 1A (Lilana vertical slice)** ✅ completed (apr 2026) — Лилана с тремя актами диалогов, бой с 8 железными цепями, RelationshipSystem с тремя осями, EncounterBuilder, ChainOverlay, full end-to-end loop через все 6 сцен. Все 13 задач завершены, все code reviews approved. v1 chunk 132.30 kB (≤135 kB budget), v2 chunk 52.98 kB.
+- **Phase 1B (extended slice)** — не начата. Планируется: Сафира арка с rematch, equipment slots + InventoryScene, UI polish, smooth RelationshipMeter interpolation, perks-disable flag для v2 boss fights.
 - **Phase 2+** — не начаты. См. план `~/.claude/plans/iridescent-riding-pudding.md`.
 
 ---
@@ -132,13 +155,12 @@ Creates Phaser game instance with configuration:
    - Tile sprites: `tile_sword.png`, `tile_star.png`, `tile_mana.png`, `tile_heal.jpg`
 
 2. `create()` - Generates special tile textures programmatically:
-   - `BoosterRow` - Yellow rounded rectangle (0xf7c948)
-   - `BoosterCol` - Red-orange rounded rectangle (0xf17c67)
-   - `Ultimate` - White rounded rectangle (0xffffff)
    - `Bomb` - Black circle with red border, orange fuse, yellow spark
-   - All generated at `CELL_SIZE` (46px)
+   - Generated at `CELL_SIZE` (46px)
 
-3. Transitions to `GameScene` via `this.scene.start("GameScene")`
+3. `routeToActiveMode()` - Reads `getActiveMode()` and routes to v1 (`IntroScene`) or v2 (lazy `await import("../v2") → registerV2Scenes(game) → HubScene`).
+
+**Note**: special tiles BoosterRow / BoosterCol / Ultimate were removed during the CRIT-multiplier refactor — current Match-3 uses tile multipliers for 4+ matches instead of separate special tile types. See "Match-3 Logic" section below for the current behavior.
 
 ---
 
@@ -222,8 +244,7 @@ return !busy && !gameOver && currentTurn === "player" && playerHp > 0;
 ```
 
 **Tap Handling** (`handleTap`):
-- If tapped tile is special (BoosterRow/BoosterCol/Ultimate), activates it immediately
-- Triggers `resolveBoard()` with manual special activation
+- Tap-only paths (special tile activation) were removed during the CRIT refactor — taps no longer trigger immediate clears. Player must swipe to swap.
 
 **Swipe Handling** (`attemptSwap`):
 - Calculates direction from drag delta (4-directional)
@@ -415,9 +436,6 @@ enum TileKind {
   Star = "star",             // Magic damage
   Mana = "mana",             // Resource
   Heal = "heal",             // Health restoration
-  BoosterRow = "boosterRow", // Clears entire row
-  BoosterCol = "boosterCol", // Clears entire column
-  Ultimate = "ultimate",     // Clears row + column (cross)
   Bomb = "bomb",             // Explodes after cooldown
 }
 
@@ -426,8 +444,9 @@ type BaseTileKind = Sword | Star | Mana | Heal;  // Only these spawn naturally
 type Tile = {
   id: number;           // Unique identifier for sprite tracking
   kind: TileKind;       // Current visual/behavior type
-  base: BaseTileKind;   // Original base type (preserved for specials/bombs)
+  base: BaseTileKind;   // Original base type (preserved for bombs)
   cooldown?: number;    // For bombs: turns until explosion
+  multiplier?: number;  // For CRIT 4+ matches: 2x or 3x damage multiplier
 }
 
 type Match = {
@@ -435,11 +454,21 @@ type Match = {
   kind: BaseTileKind;
   direction: "row" | "col";
 }
+
+// v2 chain mechanics (Phase 1A — additive, no impact on v1)
+export type ChainVariant = "iron" | "thorn" | "gold";
+export interface Chain {
+  pos: Position;
+  hp: number;
+  variant: ChainVariant;
+}
 ```
 
 ### Board (`Board.ts`)
 
-**Constructor**: Creates `width x height` grid, fills with random tiles avoiding initial matches
+**Constructor**: Creates `width x height` grid, fills with random tiles avoiding initial matches.
+
+**v2 chain methods** (Phase 1A additive patch — no `// v2:` tags, generic Board capability): `placeChains`, `isChained`, `getChainAt`, `getAllChains`, `getDamagedChains` (returns snapshots), `damageChains` (lookup-and-mutate), `hasActiveChains` getter, `clearChains`. Tiles UNDER chains match normally — chains are positional overlay state, not match-exclusion. See Task #2 spec for details.
 
 #### Core Methods
 
@@ -453,30 +482,26 @@ type Match = {
 - Scans columns for vertical runs of 3+
 - Detects 2x2 square matches (4 same tiles in square)
 - **Bombs are excluded** - they don't start or participate in matches
+- **Chains do NOT exclude tiles** — chained positions match normally so the chain break mechanic works
 - Returns all matches found
 
-**`computeClearOutcome(matches, manualSpecials, swapTargets): ClearOutcome`**
+**`computeClearOutcome(matches, swapTargets): ClearOutcome`**
 
-Purpose: Determines what tiles to clear and what transforms to apply
+Purpose: Determines what tiles to clear and what CRIT transforms to apply.
 
-**Special Tile Creation Rules**:
-- **5-match** -> BoosterRow (horizontal) or BoosterCol (vertical)
-- **6+ match** -> Ultimate
-
-**Cascade Logic**:
-- If clearing hits a special tile, expands clear area
-- BoosterRow clears entire row
-- BoosterCol clears entire column
-- Ultimate clears both row AND column (cross pattern)
-- Recursive: if cleared special triggers another special
+**CRIT Multiplier Rules** (replaced legacy BoosterRow/BoosterCol/Ultimate special tile creation during the CRIT refactor):
+- **3-match** → normal clear, multiplier = 1
+- **4-match** → CRIT, multiplier = 2 (damage tiles deal 2x damage)
+- **5+ match (or L-shape)** → CRIT, multiplier = 3 (damage tiles deal 3x damage)
+- The multiplier is stored on a transform anchor tile (the swapped position or the centre of the run) and applied during `buildClearOutcome` damage calculation. CRIT tiles are also cleared — no special tiles remain on the board after match resolution.
 
 **`applyClearOutcome(outcome): CollapseResult`**
 
 Purpose: Modifies grid state after clearing
 
 **Steps**:
-1. Apply transforms (convert tiles to specials)
-2. Set cleared positions to `null`
+1. Apply transforms (CRIT multiplier display only — informational, no tile mutation)
+2. Set cleared positions to `null` (CRIT anchors are also in the cleared list)
 3. Call `collapseGrid()` for collapse and refill
 4. Return move/newTile data for animation
 
@@ -487,12 +512,7 @@ Public method for collapsing grid after removals:
 - Refill empty cells at top with new random tiles
 - Returns `{moves, newTiles}` for animation
 
-**`blastArea(pos, kind): Position[]`**
-
-Returns positions affected by special tile activation:
-- `BoosterRow`: All positions in row `pos.y`
-- `BoosterCol`: All positions in column `pos.x`
-- `Ultimate`: Union of row and column
+**Note**: `blastArea`, `expandSpecialsCascade`, `chooseSpecialAnchor` (special tile cascade methods) were removed during the CRIT refactor. Match cascades now happen via natural collapse + re-find loop in `resolveBoard`, not via explicit special tile activation.
 
 #### Bomb Methods
 
@@ -500,7 +520,7 @@ Returns positions affected by special tile activation:
 - Returns true if tile kind is Bomb
 
 **`placeBombs(count, bombCooldown): {placed, replaced}`**
-- Places `count` bombs on random non-special, non-bomb tiles
+- Places `count` bombs on random non-bomb tiles
 - Each bomb preserves the original tile's `base` property
 - Sets `cooldown` property for countdown
 - Returns `placed` (new bomb tiles) and `replaced` (original tiles)
@@ -862,13 +882,12 @@ ASSET_KEYS = {
     [TileKind.Star]: "tile_star",
     [TileKind.Mana]: "tile_mana",
     [TileKind.Heal]: "tile_heal",
-    [TileKind.BoosterRow]: "tile_booster_row",
-    [TileKind.BoosterCol]: "tile_booster_col",
-    [TileKind.Ultimate]: "tile_ultimate",
     [TileKind.Bomb]: "tile_bomb",
   }
 }
 ```
+
+(BoosterRow / BoosterCol / Ultimate keys were removed during the CRIT refactor along with the special tile types themselves.)
 
 ---
 
