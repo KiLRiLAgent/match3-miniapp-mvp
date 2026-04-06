@@ -161,7 +161,10 @@ export class BootScene extends Phaser.Scene {
       try {
         const v2 = await import("../v2");
         v2.registerV2Scenes(this.game);
-        await this.preloadV2Assets();
+        // v2 assets are loaded by HubScene.preload() — Phaser's standard
+        // scene-level loader handles the queue/start/complete cycle natively,
+        // avoiding the hang we'd hit if we tried to drive `this.load` again
+        // from BootScene after its initial preload already finished.
         this.scene.start("HubScene");
       } catch (err) {
         console.error("BootScene: failed to load v2 module, falling back to v1", err);
@@ -170,20 +173,6 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     this.scene.start("IntroScene");
-  }
-
-  /**
-   * Lazy-load v2-only assets after the user opts into v2 mode. v1 users
-   * never pay the bandwidth cost. Resolves on `complete` even if individual
-   * files fail (consumers fall back to placeholder rendering).
-   */
-  private preloadV2Assets(): Promise<void> {
-    return new Promise((resolve) => {
-      this.load.image("chain_iron", "v2/chains/chain_iron.png");
-      this.load.image("location_atrium", "v2/locations/location_atrium.jpg");
-      this.load.once("complete", () => resolve());
-      this.load.start();
-    });
   }
 
   private buildSpecialTileTextures() {

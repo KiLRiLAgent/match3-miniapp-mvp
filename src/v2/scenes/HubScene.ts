@@ -50,6 +50,24 @@ export class HubScene extends Phaser.Scene {
     super("HubScene");
   }
 
+  /**
+   * Lazy-load v2-only assets the first time HubScene starts. Phaser's scene
+   * loader natively handles the queue → start → complete cycle and blocks
+   * `create()` until everything finishes. Subsequent navigations skip the
+   * load (textures stay in cache for the rest of the session).
+   *
+   * v1 users never reach this scene, so v2 assets never enter their bundle
+   * or download path.
+   */
+  preload() {
+    if (!this.textures.exists("chain_iron")) {
+      this.load.image("chain_iron", "v2/chains/chain_iron.png");
+    }
+    if (!this.textures.exists("location_atrium")) {
+      this.load.image("location_atrium", "v2/locations/location_atrium.jpg");
+    }
+  }
+
   create() {
     const camW = this.cameras.main.width;
     const camH = this.cameras.main.height;
