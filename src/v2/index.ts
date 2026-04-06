@@ -12,16 +12,28 @@
 
 import type Phaser from "phaser";
 import { HubScene } from "./scenes/HubScene";
+import { StoryMapScene } from "./scenes/StoryMapScene";
+import { LocationScene } from "./scenes/LocationScene";
 
 /**
  * Register v2 scenes into the game. Call from BootScene AFTER
  * `await import("../v2")`. Idempotent — safe to call twice (second call is a
  * no-op because Phaser warns on duplicate keys).
+ *
+ * Phase 1A registers HubScene + StoryMapScene + LocationScene. Phase 1A
+ * task #12 will append DialogueScene / CombatBridgeScene / PostCombatScene
+ * once those are ready.
  */
 export function registerV2Scenes(game: Phaser.Game): void {
   // `false` = don't auto-start; BootScene will explicitly call scene.start.
   // Check first to avoid Phaser warning if somehow called twice.
   if (!game.scene.getScene("HubScene")) {
     game.scene.add("HubScene", HubScene, false);
+  }
+  if (!game.scene.getScene("StoryMapScene")) {
+    game.scene.add("StoryMapScene", StoryMapScene, false);
+  }
+  if (!game.scene.getScene("LocationScene")) {
+    game.scene.add("LocationScene", LocationScene, false);
   }
 }
