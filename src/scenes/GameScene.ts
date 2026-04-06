@@ -1107,114 +1107,116 @@ export class GameScene extends Phaser.Scene {
       .setDepth(200)
       .setAlpha(0);
 
-    // Show "Уровень повышен" banner first (without overlay)
-    await tweenPromise(this, {
-      targets: [bannerGfx, levelText],
-      alpha: 1,
-      duration: 300,
-      ease: "Quad.easeOut",
-    });
-
-    // Brief pause to let player read
-    await wait(this, 600);
-
-    // Then darken screen + show subtitle
-    await tweenPromise(this, {
-      targets: overlay,
-      alpha: 1,
-      duration: 200,
-      ease: "Quad.easeOut",
-    });
-    await tweenPromise(this, {
-      targets: [subBgGfx, subtitleText],
-      alpha: 1,
-      duration: 200,
-      ease: "Quad.easeOut",
-    });
-
-    // Create perk cards — adaptive size to fit screen
-    const cardSpacing = 8;
-    const sidePadding = 16;
-    const cardWidth = Math.floor((GAME_WIDTH - sidePadding * 2 - cardSpacing * (perks.length - 1)) / perks.length);
-    const cardHeight = Math.min(220, Math.floor(GAME_HEIGHT * 0.32));
-    const totalWidth = perks.length * cardWidth + (perks.length - 1) * cardSpacing;
-    const startX = GAME_WIDTH / 2 - totalWidth / 2 + cardWidth / 2;
-    const cardY = GAME_HEIGHT * 0.32 + cardHeight / 2 + 20;
-
-    const selectedPerk = await new Promise<PerkDef>((resolve) => {
-      const cards: PerkCard[] = [];
-
-      perks.forEach((perk, i) => {
-        const x = startX + i * (cardWidth + cardSpacing);
-        const level = this.perkManager.getLevel(perk.skillId);
-        const manaCost = this.perkManager.getManaCost(perk.skillId);
-        const desc = this.perkManager.getNextDescription(perk.skillId);
-
-        const card = new PerkCard(
-          this,
-          x,
-          cardY,
-          perk,
-          level,
-          manaCost,
-          desc,
-          async () => {
-            // Selected card scales up and fades
-            await card.playSelect();
-            // Dismiss other cards
-            await Promise.all(
-              cards.filter((c) => c !== card).map((c) => c.playDismiss())
-            );
-            // Cleanup
-            cards.forEach((c) => c.destroy());
-            resolve(perk);
-          },
-          { width: cardWidth, height: cardHeight },
-        );
-        card.setDepth(202);
-        cards.push(card);
+    try {
+      // Show "Уровень повышен" banner first (without overlay)
+      await tweenPromise(this, {
+        targets: [bannerGfx, levelText],
+        alpha: 1,
+        duration: 300,
+        ease: "Quad.easeOut",
       });
 
-      // Entrance animations
-      cards.forEach((card, i) => {
-        card.playEntrance(i * 100);
-      });
-    });
+      // Brief pause to let player read
+      await wait(this, 600);
 
-    // Apply perk
-    const result = this.perkManager.applyPerk(selectedPerk.skillId);
-
-    // Reposition buttons if new skill unlocked
-    if (result.isNewUnlock) {
-      this.repositionSkillButtons();
-    }
-
-    // Update skill button UI with new costs/values
-    this.updateHud();
-
-    // Fade out overlay and level text
-    await Promise.all([
-      tweenPromise(this, {
+      // Then darken screen + show subtitle
+      await tweenPromise(this, {
         targets: overlay,
-        alpha: 0,
+        alpha: 1,
         duration: 200,
-        ease: "Quad.easeIn",
-      }),
-      tweenPromise(this, {
-        targets: [bannerGfx, levelText, subBgGfx, subtitleText],
-        alpha: 0,
+        ease: "Quad.easeOut",
+      });
+      await tweenPromise(this, {
+        targets: [subBgGfx, subtitleText],
+        alpha: 1,
         duration: 200,
-        ease: "Quad.easeIn",
-      }),
-    ]);
+        ease: "Quad.easeOut",
+      });
 
-    overlay.destroy();
-    bannerGfx.destroy();
-    levelText.destroy();
-    subBgGfx.destroy();
-    subtitleText.destroy();
+      // Create perk cards — adaptive size to fit screen
+      const cardSpacing = 8;
+      const sidePadding = 16;
+      const cardWidth = Math.floor((GAME_WIDTH - sidePadding * 2 - cardSpacing * (perks.length - 1)) / perks.length);
+      const cardHeight = Math.min(220, Math.floor(GAME_HEIGHT * 0.32));
+      const totalWidth = perks.length * cardWidth + (perks.length - 1) * cardSpacing;
+      const startX = GAME_WIDTH / 2 - totalWidth / 2 + cardWidth / 2;
+      const cardY = GAME_HEIGHT * 0.32 + cardHeight / 2 + 20;
 
-    // Do NOT set busy = false here — caller (resolveBoard) manages busy state
+      const selectedPerk = await new Promise<PerkDef>((resolve) => {
+        const cards: PerkCard[] = [];
+
+        perks.forEach((perk, i) => {
+          const x = startX + i * (cardWidth + cardSpacing);
+          const level = this.perkManager.getLevel(perk.skillId);
+          const manaCost = this.perkManager.getManaCost(perk.skillId);
+          const desc = this.perkManager.getNextDescription(perk.skillId);
+
+          const card = new PerkCard(
+            this,
+            x,
+            cardY,
+            perk,
+            level,
+            manaCost,
+            desc,
+            async () => {
+              // Selected card scales up and fades
+              await card.playSelect();
+              // Dismiss other cards
+              await Promise.all(
+                cards.filter((c) => c !== card).map((c) => c.playDismiss())
+              );
+              // Cleanup
+              cards.forEach((c) => c.destroy());
+              resolve(perk);
+            },
+            { width: cardWidth, height: cardHeight },
+          );
+          card.setDepth(202);
+          cards.push(card);
+        });
+
+        // Entrance animations
+        cards.forEach((card, i) => {
+          card.playEntrance(i * 100);
+        });
+      });
+
+      // Apply perk
+      const result = this.perkManager.applyPerk(selectedPerk.skillId);
+
+      // Reposition buttons if new skill unlocked
+      if (result.isNewUnlock) {
+        this.repositionSkillButtons();
+      }
+
+      // Update skill button UI with new costs/values
+      this.updateHud();
+
+      // Fade out overlay and level text
+      await Promise.all([
+        tweenPromise(this, {
+          targets: overlay,
+          alpha: 0,
+          duration: 200,
+          ease: "Quad.easeIn",
+        }),
+        tweenPromise(this, {
+          targets: [bannerGfx, levelText, subBgGfx, subtitleText],
+          alpha: 0,
+          duration: 200,
+          ease: "Quad.easeIn",
+        }),
+      ]);
+    } finally {
+      // Guarantee UI cleanup even on exception in tweens / applyPerk / repositionSkillButtons
+      overlay.destroy();
+      bannerGfx.destroy();
+      levelText.destroy();
+      subBgGfx.destroy();
+      subtitleText.destroy();
+      // Do NOT set busy = false here — caller (resolveBoard / processPerks) manages busy state
+    }
   }
 
   private applyDamageToBoss(damage: number, skipSlash = false) {
@@ -1764,14 +1766,21 @@ export class GameScene extends Phaser.Scene {
     // Process pending perks from skill damage (layer transition)
     if (this.pendingPerkCount > 0 && !this.gameOver && this.bossHp > 0) {
       const processPerks = async () => {
-        while (this.pendingPerkCount > 0 && !this.gameOver) {
-          this.pendingPerkCount--;
-          await this.showPerkSelection();
+        try {
+          while (this.pendingPerkCount > 0 && !this.gameOver) {
+            this.pendingPerkCount--;
+            await this.showPerkSelection();
+          }
+        } finally {
+          this.busy = false; // restore after skill-triggered perk selection
+          this.updateHud();
         }
-        this.busy = false; // restore after skill-triggered perk selection
-        this.updateHud();
       };
-      processPerks();
+      processPerks().catch((err) => {
+        console.error("Skill-triggered perk selection failed:", err);
+        this.busy = false;
+        this.updateHud();
+      });
     }
 
     if (this.bossHp <= 0) {
@@ -2441,16 +2450,20 @@ export class GameScene extends Phaser.Scene {
       this.updateHud();
       await wait(this, 200);
 
-      await this.executeBossAbility();
-      this.bossAbilityManager.advance();
-      this.updateHud();
+      try {
+        await this.executeBossAbility();
+        this.bossAbilityManager.advance();
+        this.updateHud();
 
-      if (this.playerHp <= 0) {
-        this.showDefeat();
-        return;
+        if (this.playerHp <= 0) {
+          this.showDefeat();
+          return;
+        }
+
+        await wait(this, 300);
+      } catch (err) {
+        console.error("Boss ability failed:", err);
       }
-
-      await wait(this, 300);
     }
 
     this.currentTurn = "player";
@@ -2691,17 +2704,20 @@ export class GameScene extends Phaser.Scene {
     await tweenPromise(this, { targets: bossLayers, alpha: 0, duration: 200 });
 
     const { overlay, fullscreenBack, fullscreenBoss, abilityText } = this.createAbilityCutscene(abilityName, bossTextureKey, bossBackTextureKey);
-    await this.showAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
-    await wait(this, 600);
-    // Start fade-out, then run logic once art is mostly gone
-    const hidePromise = this.hideAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
-    await wait(this, 270);
-    await logic();
-    await hidePromise;
 
-    // Fade base boss art back in
-    await tweenPromise(this, { targets: bossLayers, alpha: 1, duration: 200 });
-    this.startBossGlowPulse();
+    try {
+      await this.showAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
+      await wait(this, 600);
+      // Start fade-out, then run logic once art is mostly gone
+      const hidePromise = this.hideAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
+      await wait(this, 270);
+      await logic();
+      await hidePromise;
+    } finally {
+      // Guarantee boss art restoration even if logic() throws
+      await tweenPromise(this, { targets: bossLayers, alpha: 1, duration: 200 });
+      this.startBossGlowPulse();
+    }
   }
 
   private async executeBombs() {
