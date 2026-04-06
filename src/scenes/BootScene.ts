@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { ASSET_KEYS } from "../game/assets";
 import { CELL_SIZE, BASE_TYPES, setScreenSize, updateScaledValues, loadGameParams, DPR } from "../game/config";
+import { getActiveMode } from "../game/version";
 import { TileKind } from "../match3/types";
 import { getSafeAreaInsets } from "../telegram/telegram";
 import { loadAudioSettings } from "../utils/audioSettings";
@@ -145,8 +146,29 @@ export class BootScene extends Phaser.Scene {
     });
     const timeout = new Promise<void>((resolve) => setTimeout(resolve, 3000));
     Promise.race([fontReady, timeout]).then(() => {
-      this.scene.start("IntroScene");
+      this.routeToActiveMode();
     });
+  }
+
+  /**
+   * Direct the player to the scene matching the active game mode.
+   * - v1 (default): IntroScene → GameScene (unchanged legacy flow)
+   * - v2: lazy-load v2 module, register its scenes, start HubScene
+   */
+  private async routeToActiveMode() {
+    const mode = getActiveMode();
+    if (mode === "v2") {
+      try {
+        const v2 = await import("../v2");
+        v2.registerV2Scenes(this.game);
+        this.scene.start("HubScene");
+      } catch (err) {
+        console.error("BootScene: failed to load v2 module, falling back to v1", err);
+        this.scene.start("IntroScene");
+      }
+      return;
+    }
+    this.scene.start("IntroScene");
   }
 
   private buildSpecialTileTextures() {
