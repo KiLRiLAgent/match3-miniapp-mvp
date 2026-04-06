@@ -160,7 +160,7 @@ export class StoryMapScene extends Phaser.Scene {
       circle.setFillStyle(NODE_FILL, 0.95);
       label.setColor(NODE_LABEL_COLOR);
     });
-    circle.on("pointerup", () => {
+    circle.on("pointerdown", () => {
       sceneRouter.push(this, "LocationScene", { locationId: loc.id });
     });
   }
@@ -205,6 +205,6 @@ export class StoryMapScene extends Phaser.Scene {
       bg.setFillStyle(BACK_BG, 0.95);
       text.setColor(BACK_TEXT);
     });
-    bg.on("pointerup", onClick);
+    bg.on("pointerdown", onClick);
   }
 }

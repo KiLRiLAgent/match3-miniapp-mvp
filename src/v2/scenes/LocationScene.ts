@@ -160,7 +160,7 @@ export class LocationScene extends Phaser.Scene {
       halo.setFillStyle(HOTSPOT_HALO_FILL, 0.45);
       label.setColor(HOTSPOT_LABEL_COLOR);
     });
-    halo.on("pointerup", () => this.handleHotspotTap(hotspot));
+    halo.on("pointerdown", () => this.handleHotspotTap(hotspot));
 
     // Portrait sits on top of halo — make it non-interactive so all taps land on halo.
     portrait.setDepth(halo.depth + 0.1);
@@ -246,6 +246,6 @@ export class LocationScene extends Phaser.Scene {
       bg.setFillStyle(BACK_BG, 0.95);
       text.setColor(BACK_TEXT);
     });
-    bg.on("pointerup", onClick);
+    bg.on("pointerdown", onClick);
   }
 }

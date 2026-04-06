@@ -132,7 +132,7 @@ export class HubScene extends Phaser.Scene {
       bg.setFillStyle(PRIMARY_BG, 0.95);
       text.setColor(PRIMARY_TEXT);
     });
-    bg.on("pointerup", onClick);
+    bg.on("pointerdown", onClick);
   }
 
   private createSecondaryButton(
@@ -167,6 +167,6 @@ export class HubScene extends Phaser.Scene {
       bg.setFillStyle(SECONDARY_BG, 0.95);
       text.setColor(SECONDARY_TEXT);
     });
-    bg.on("pointerup", onClick);
+    bg.on("pointerdown", onClick);
   }
 }

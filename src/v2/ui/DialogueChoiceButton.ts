@@ -55,13 +55,13 @@ export class DialogueChoiceButton extends Phaser.GameObjects.Container {
     this.add([this.bg, label]);
     scene.add.existing(this);
 
+    // Make the bg Rectangle directly interactive — covers the full visible
+    // area without relying on Container-local hitArea translation, which
+    // can mis-detect taps near edges on some Phaser/DPR combinations.
     this.setSize(opts.width, opts.height);
-    this.setInteractive(
-      new Phaser.Geom.Rectangle(-opts.width / 2, -opts.height / 2, opts.width, opts.height),
-      Phaser.Geom.Rectangle.Contains,
-    );
-    this.on("pointerover", () => this.bg.setFillStyle(BTN_BG_HOVER, BTN_BG_ALPHA));
-    this.on("pointerout", () => this.bg.setFillStyle(BTN_BG, BTN_BG_ALPHA));
-    this.on("pointerup", () => opts.onClick());
+    this.bg.setInteractive({ useHandCursor: true });
+    this.bg.on("pointerover", () => this.bg.setFillStyle(BTN_BG_HOVER, BTN_BG_ALPHA));
+    this.bg.on("pointerout", () => this.bg.setFillStyle(BTN_BG, BTN_BG_ALPHA));
+    this.bg.on("pointerdown", () => opts.onClick());
   }
 }

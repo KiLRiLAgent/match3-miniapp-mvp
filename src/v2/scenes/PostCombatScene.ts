@@ -185,7 +185,7 @@ export class PostCombatScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .on("pointerover", () => bg.setFillStyle(BTN_BG_HOVER, BTN_BG_ALPHA))
       .on("pointerout", () => bg.setFillStyle(BTN_BG, BTN_BG_ALPHA))
-      .on("pointerup", () => this.handleContinue());
+      .on("pointerdown", () => this.handleContinue());
 
     this.add
       .text(x, y, "Продолжить →", {
