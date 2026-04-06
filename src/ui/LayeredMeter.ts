@@ -161,6 +161,20 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     return hpInLayer / layerHp;
   }
 
+  /**
+   * Per-corner radius for partial fills.
+   * - width in right curve zone (>= widthPx - radius): snap to full width + uniform radius,
+   *   so the right edge does not poke past the rounded border curve.
+   * - width < 2 * radius: clamp left-corner radius to width/2 to avoid degenerate shapes.
+   * - otherwise: left corners rounded, right corners straight.
+   */
+  private fillRadius(width: number): number | Phaser.Types.GameObjects.Graphics.RoundedRectRadius {
+    const r = this.radius;
+    if (width >= this.widthPx - r) return r;
+    const eff = Math.min(r, width / 2);
+    return { tl: eff, tr: 0, bl: eff, br: 0 };
+  }
+
   private drawAll() {
     const layerIdx = this.getLayerIndex();
     const ratio = this.getLayerFillRatio();
@@ -179,12 +193,9 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     if (fillWidth > 0) {
       const color = this.getLayerColor(layerIdx);
       this.fillGfx.fillStyle(color, 0.95);
-      const isFull = fillWidth >= this.widthPx - 0.5;
-      const drawW = isFull ? this.widthPx : fillWidth;
-      const r = isFull
-        ? this.radius
-        : { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
-      this.fillGfx.fillRoundedRect(0, 0, drawW, this.heightPx, r);
+      const fr = this.fillRadius(fillWidth);
+      const drawW = typeof fr === "number" ? this.widthPx : fillWidth;
+      this.fillGfx.fillRoundedRect(0, 0, drawW, this.heightPx, fr);
     }
 
     this.currentFillWidth = fillWidth;
@@ -208,11 +219,8 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     const totalWidth = Math.min(this.currentFillWidth + this.deltaWidth, this.widthPx);
     if (totalWidth <= 0) return;
     this.deltaGfx.fillStyle(0xffffff, 0.85);
-    const dFull = totalWidth >= this.widthPx - 0.5;
-    const dW = dFull ? this.widthPx : totalWidth;
-    const dr = dFull
-      ? this.radius
-      : { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
+    const dr = this.fillRadius(totalWidth);
+    const dW = typeof dr === "number" ? this.widthPx : totalWidth;
     this.deltaGfx.fillRoundedRect(0, 0, dW, this.heightPx, dr);
   }
 
@@ -269,11 +277,8 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
 
     this.flashGfx.clear();
     this.flashGfx.fillStyle(0xffffff, 1);
-    const fFull = this.currentFillWidth >= this.widthPx - 0.5;
-    const fW = fFull ? this.widthPx : this.currentFillWidth;
-    const fr = fFull
-      ? this.radius
-      : { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
+    const fr = this.fillRadius(this.currentFillWidth);
+    const fW = typeof fr === "number" ? this.widthPx : this.currentFillWidth;
     this.flashGfx.fillRoundedRect(0, 0, fW, this.heightPx, fr);
     this.flashGfx.setAlpha(0);
 
