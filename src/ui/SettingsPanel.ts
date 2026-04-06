@@ -1,6 +1,10 @@
 import Phaser from "phaser";
 import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, SKILL_CONFIG, saveGameParams, SAFE_AREA, ABILITY_NAMES, recalcBossHpMax } from "../game/config";
 import type { SkillId } from "../game/config";
+import { getActiveMode, setActiveMode } from "../game/version";
+import type { GameMode } from "../game/version";
+
+const MODE_BLOCK_HEIGHT = 74;
 
 type ParamRow = {
   label: string;
@@ -185,8 +189,14 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     const buttonSize = 36;
     const startY = this.scrollAreaTop + 10;
 
+    // --- Game mode toggle (v1 arena / v2 Fallen University) ---
+    // Added at the very top of the scrollable container. All subsequent
+    // ParamRow entries are offset by MODE_BLOCK_HEIGHT.
+    this.createModeToggleBlock(scene, panelX, panelWidth, startY);
+    const paramsStartY = startY + MODE_BLOCK_HEIGHT;
+
     params.forEach((param, idx) => {
-      const y = startY + idx * rowHeight;
+      const y = paramsStartY + idx * rowHeight;
 
       const label = scene.add
         .text(panelX + 15, y, param.label, {
@@ -254,7 +264,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     });
 
     // Вычисляем максимальный скролл
-    this.contentHeight = params.length * rowHeight + 20;
+    this.contentHeight = MODE_BLOCK_HEIGHT + params.length * rowHeight + 20;
     this.maxScrollY = Math.max(0, this.contentHeight - this.scrollAreaHeight);
 
     this.add(this.scrollContainer);
@@ -383,6 +393,79 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     this.close();
     sceneRef.scene.stop("GameScene");
     sceneRef.scene.start("IntroScene");
+  }
+
+  /**
+   * Create the "Game Mode" toggle block at the top of the scrollable panel.
+   * Shows current mode and provides a single button that switches to the
+   * other mode, persists the flag and reloads the page — BootScene reads
+   * the flag on startup to route to the correct scene flow.
+   */
+  private createModeToggleBlock(
+    scene: Phaser.Scene,
+    panelX: number,
+    panelWidth: number,
+    blockY: number,
+  ) {
+    const currentMode: GameMode = getActiveMode();
+    const targetMode: GameMode = currentMode === "v1" ? "v2" : "v1";
+    const currentLabel = currentMode === "v1" ? "v1 Классика" : "v2 Университет (β)";
+    const buttonLabel =
+      targetMode === "v2"
+        ? "⟳ Переключить на v2 Университет (β)"
+        : "⟳ Переключить на v1 Классика";
+
+    // Row label (left side)
+    const label = scene.add
+      .text(panelX + 15, blockY + 6, "🔮 Режим игры", {
+        fontSize: "16px",
+        color: "#ffffff",
+        fontFamily: "'Exo 2', Arial, sans-serif",
+        fontStyle: "bold",
+        resolution: 2,
+      })
+      .setOrigin(0, 0);
+
+    // Current mode value on the right
+    const valueText = scene.add
+      .text(panelX + panelWidth - 15, blockY + 6, currentLabel, {
+        fontSize: "14px",
+        color: "#e6c068",
+        fontFamily: "'Exo 2', Arial, sans-serif",
+        fontStyle: "bold",
+        resolution: 2,
+      })
+      .setOrigin(1, 0);
+
+    // Switch button spanning the full row width
+    const btnY = blockY + 42;
+    const btnHeight = 30;
+    const btnWidth = panelWidth - 30;
+    const btnX = panelX + panelWidth / 2;
+
+    const btnBg = scene.add
+      .rectangle(btnX, btnY, btnWidth, btnHeight, 0x2a2358, 1)
+      .setOrigin(0.5)
+      .setStrokeStyle(2, 0x6e4ac8)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => {
+        setActiveMode(targetMode);
+        window.location.reload();
+      })
+      .on("pointerover", () => btnBg.setFillStyle(0x3a3078))
+      .on("pointerout", () => btnBg.setFillStyle(0x2a2358));
+
+    const btnText = scene.add
+      .text(btnX, btnY, buttonLabel, {
+        fontSize: "14px",
+        color: "#e6d4ff",
+        fontFamily: "'Exo 2', Arial, sans-serif",
+        fontStyle: "bold",
+        resolution: 2,
+      })
+      .setOrigin(0.5);
+
+    this.scrollContainer.add([label, valueText, btnBg, btnText]);
   }
 
   private close() {
