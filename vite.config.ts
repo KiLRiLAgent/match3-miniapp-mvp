@@ -5,5 +5,12 @@ export default defineConfig({
   base: "/match3-miniapp-mvp/",
   build: {
     outDir: "docs",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          phaser: ["phaser"],
+        },
+      },
+    },
   },
 });
