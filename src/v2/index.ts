@@ -14,26 +14,36 @@ import type Phaser from "phaser";
 import { HubScene } from "./scenes/HubScene";
 import { StoryMapScene } from "./scenes/StoryMapScene";
 import { LocationScene } from "./scenes/LocationScene";
+import { DialogueScene } from "./scenes/DialogueScene";
+import { CombatBridgeScene } from "./scenes/CombatBridgeScene";
+import { PostCombatScene } from "./scenes/PostCombatScene";
 
 /**
- * Register v2 scenes into the game. Call from BootScene AFTER
- * `await import("../v2")`. Idempotent — safe to call twice (second call is a
- * no-op because Phaser warns on duplicate keys).
+ * Register all v2 scenes into the game. Called from BootScene AFTER
+ * `await import("../v2")`. Idempotent — duplicate-key check guards against
+ * Phaser warnings if somehow called twice.
  *
- * Phase 1A registers HubScene + StoryMapScene + LocationScene. Phase 1A
- * task #12 will append DialogueScene / CombatBridgeScene / PostCombatScene
- * once those are ready.
+ * Phase 1A registers all 6 scenes that make up the v2 vertical slice:
+ * Hub (greeting/menu) → StoryMap (campus locations) → Location (NPC hotspots)
+ * → Dialogue (acts) → CombatBridge (assemble + launch GameScene) → PostCombat
+ * (display result + return to dialogue epilogue node).
+ *
+ * `false` second arg = don't auto-start; BootScene explicitly invokes
+ * `scene.start("HubScene")` after registration.
  */
 export function registerV2Scenes(game: Phaser.Game): void {
-  // `false` = don't auto-start; BootScene will explicitly call scene.start.
-  // Check first to avoid Phaser warning if somehow called twice.
-  if (!game.scene.getScene("HubScene")) {
-    game.scene.add("HubScene", HubScene, false);
-  }
-  if (!game.scene.getScene("StoryMapScene")) {
-    game.scene.add("StoryMapScene", StoryMapScene, false);
-  }
-  if (!game.scene.getScene("LocationScene")) {
-    game.scene.add("LocationScene", LocationScene, false);
+  const scenes: ReadonlyArray<{ key: string; scene: new () => Phaser.Scene }> = [
+    { key: "HubScene", scene: HubScene },
+    { key: "StoryMapScene", scene: StoryMapScene },
+    { key: "LocationScene", scene: LocationScene },
+    { key: "DialogueScene", scene: DialogueScene },
+    { key: "CombatBridgeScene", scene: CombatBridgeScene },
+    { key: "PostCombatScene", scene: PostCombatScene },
+  ];
+
+  for (const { key, scene } of scenes) {
+    if (!game.scene.getScene(key)) {
+      game.scene.add(key, scene, false);
+    }
   }
 }
