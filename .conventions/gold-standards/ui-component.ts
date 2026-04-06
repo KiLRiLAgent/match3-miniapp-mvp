@@ -34,16 +34,21 @@
  *         Otherwise sharp tr/br corners poke into borderGfx's curve
  *         and produce visible square overhangs above/below the bar.
  *      2. Narrow fill (width < 2 * radius):
- *         → clamp the effective radius to width/2, otherwise tl/bl
- *         arcs overlap and fillRoundedRect renders a degenerate shape.
+ *         → pill shape: all four corners = width/2.
+ *         If tr/br were left at 0, the narrow remainder would show a
+ *         visible vertical sharp line on the right. Clamping tl/bl
+ *         alone is not enough — both sides must be rounded.
  *      3. Normal middle (2*r <= width < widthPx - r):
  *         → { tl: r, tr: 0, bl: r, br: 0 } (left rounded, right straight).
  *
  *      private fillRadius(width: number): number | RoundedRectRadius {
  *        const r = this.radius;
  *        if (width >= this.widthPx - r) return r;       // snap in curve zone
- *        const eff = Math.min(r, width / 2);             // clamp narrow
- *        return { tl: eff, tr: 0, bl: eff, br: 0 };
+ *        if (width < 2 * r) {                            // narrow → pill shape
+ *          const eff = width / 2;
+ *          return { tl: eff, tr: eff, bl: eff, br: eff };
+ *        }
+ *        return { tl: r, tr: 0, bl: r, br: 0 };          // middle
  *      }
  *
  *    - Caller snaps drawW when helper returned a number:

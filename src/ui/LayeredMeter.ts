@@ -165,14 +165,18 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
    * Per-corner radius for partial fills.
    * - width in right curve zone (>= widthPx - radius): snap to full width + uniform radius,
    *   so the right edge does not poke past the rounded border curve.
-   * - width < 2 * radius: clamp left-corner radius to width/2 to avoid degenerate shapes.
+   * - width < 2 * radius: pill shape (all four corners rounded to width/2),
+   *   so the narrow remainder doesn't show a vertical sharp edge on the right.
    * - otherwise: left corners rounded, right corners straight.
    */
   private fillRadius(width: number): number | Phaser.Types.GameObjects.Graphics.RoundedRectRadius {
     const r = this.radius;
     if (width >= this.widthPx - r) return r;
-    const eff = Math.min(r, width / 2);
-    return { tl: eff, tr: 0, bl: eff, br: 0 };
+    if (width < 2 * r) {
+      const eff = width / 2;
+      return { tl: eff, tr: eff, bl: eff, br: eff };
+    }
+    return { tl: r, tr: 0, bl: r, br: 0 };
   }
 
   private drawAll() {

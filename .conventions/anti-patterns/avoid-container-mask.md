@@ -28,12 +28,15 @@ private fillRadius(width: number) {
   return { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
 }
 
-// CORRECT — three-case helper handles curve zone snap AND narrow clamp
+// CORRECT — three-case helper: curve zone snap, narrow pill, middle left-rounded
 private fillRadius(width: number): number | RoundedRectRadius {
   const r = this.radius;
-  if (width >= this.widthPx - r) return r;       // snap in right curve zone
-  const eff = Math.min(r, width / 2);             // clamp narrow degenerate
-  return { tl: eff, tr: 0, bl: eff, br: 0 };
+  if (width >= this.widthPx - r) return r;             // snap in right curve zone
+  if (width < 2 * r) {                                  // narrow → pill shape
+    const eff = width / 2;
+    return { tl: eff, tr: eff, bl: eff, br: eff };
+  }
+  return { tl: r, tr: 0, bl: r, br: 0 };                // middle
 }
 
 // Caller snaps drawW when helper returned a number
@@ -50,9 +53,9 @@ that handles all three width regimes:
 1. **Right curve zone** (`width >= widthPx - radius`): return uniform radius
    and snap drawW to `widthPx`. Sharp `tr/br` corners would otherwise extend
    beyond the rounded border curve and show as visible square overhangs.
-2. **Narrow fill** (`width < 2 * radius`): clamp left-corner radius to
-   `width / 2`. Otherwise `tl` and `bl` arcs overlap and `fillRoundedRect`
-   renders a degenerate shape.
+2. **Narrow fill** (`width < 2 * radius`): pill shape — all four corners set
+   to `width / 2`. Leaving `tr/br` at 0 produces a visible vertical sharp line
+   on the right as the fill shrinks. Both sides must round to form a clean capsule.
 3. **Normal middle**: `{ tl: r, tr: 0, bl: r, br: 0 }` for left-rounded,
    right-straight fills.
 
