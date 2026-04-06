@@ -20,7 +20,7 @@ export const atrium: LocationDef = {
   name: "Атриум",
   description:
     "Тёмно-фиолетовый зал с гаргульями и витражами. Высокие колонны с трещинами, разбитые витражи, выцветшая пастельная палитра. Эхо шагов гуляет здесь так, словно само пространство прислушивается.",
-  backgroundKey: "placeholder_atrium",
+  backgroundKey: "location_atrium",
   unlockedByDefault: true,
   hotspots: [
     {

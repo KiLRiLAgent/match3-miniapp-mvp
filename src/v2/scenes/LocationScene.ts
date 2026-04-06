@@ -87,8 +87,22 @@ export class LocationScene extends Phaser.Scene {
     const cx = camW / 2;
     const d = DPR;
 
-    const bgColor = LOCATION_BG_COLORS[loc.id] ?? FALLBACK_BG_COLOR;
-    this.add.rectangle(0, 0, camW, camH, bgColor).setOrigin(0);
+    // Background — real PNG/JPG if loaded, else solid color placeholder.
+    if (loc.backgroundKey && this.textures.exists(loc.backgroundKey)) {
+      const bg = this.add.image(camW / 2, camH / 2, loc.backgroundKey).setOrigin(0.5);
+      // Cover-fit: scale to fill the screen, may crop the longer dimension.
+      const tex = this.textures.get(loc.backgroundKey);
+      const src = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+      if (src.width > 0 && src.height > 0) {
+        const scale = Math.max(camW / src.width, camH / src.height);
+        bg.setScale(scale);
+      }
+      // Subtle dark overlay for text readability.
+      this.add.rectangle(0, 0, camW, camH, 0x000000, 0.35).setOrigin(0);
+    } else {
+      const bgColor = LOCATION_BG_COLORS[loc.id] ?? FALLBACK_BG_COLOR;
+      this.add.rectangle(0, 0, camW, camH, bgColor).setOrigin(0);
+    }
 
     this.add
       .text(cx, 70 * d + SAFE_AREA.top * d, loc.name, {
