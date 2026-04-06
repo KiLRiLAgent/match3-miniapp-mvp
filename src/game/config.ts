@@ -389,15 +389,19 @@ export const getBossLayerCount = () => GAME_PARAMS.boss.layerCount;
  * Returns HP for each layer (index 0 = bottom/last layer, index N-1 = top/first layer).
  * Each layer HP = baseHpPerLayer * layerMultipliers[i].
  * Array length = layerCount.
+ *
+ * v1 callers: invoke without args — uses GAME_PARAMS defaults.
+ * v2 callers (EncounterBuilder): pass encounter-specific values.
  */
-export function getBossLayerHpArray(): number[] {
-  const count = GAME_PARAMS.boss.layerCount;
-  const base = GAME_PARAMS.boss.baseHpPerLayer;
-  const mults = GAME_PARAMS.boss.layerMultipliers;
+export function getBossLayerHpArray(
+  layerCount: number = GAME_PARAMS.boss.layerCount,
+  baseHpPerLayer: number = GAME_PARAMS.boss.baseHpPerLayer,
+  multipliers: number[] = GAME_PARAMS.boss.layerMultipliers,
+): number[] {
   const arr: number[] = [];
-  for (let i = 0; i < count; i++) {
-    const m = i < mults.length ? mults[i] : 1.0;
-    arr.push(Math.ceil(base * m));
+  for (let i = 0; i < layerCount; i++) {
+    const m = i < multipliers.length ? multipliers[i] : 1.0;
+    arr.push(Math.ceil(baseHpPerLayer * m));
   }
   return arr;
 }
@@ -412,10 +416,18 @@ export function recalcBossHpMax() {
 /**
  * Given current boss HP, returns 1-based layer index using per-layer HP array.
  * Layer N (top) is first to deplete, layer 1 (bottom) is last.
+ *
+ * Optional params allow per-encounter override (used by GameScene v2 patch).
+ * Zero-arg invocation uses GAME_PARAMS defaults — backward-compatible with v1.
  */
-export function getBossLayerIndex(currentHp: number): number {
+export function getBossLayerIndex(
+  currentHp: number,
+  layerCount: number = GAME_PARAMS.boss.layerCount,
+  baseHpPerLayer: number = GAME_PARAMS.boss.baseHpPerLayer,
+  multipliers: number[] = GAME_PARAMS.boss.layerMultipliers,
+): number {
   if (currentHp <= 0) return 0;
-  const arr = getBossLayerHpArray();
+  const arr = getBossLayerHpArray(layerCount, baseHpPerLayer, multipliers);
   let cumulative = 0;
   for (let i = 0; i < arr.length; i++) {
     cumulative += arr[i];
