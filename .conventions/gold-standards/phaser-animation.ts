@@ -59,4 +59,59 @@
  *    - Use createPulseController() for repeatable pulse animations
  *    - Prevents overlapping pulses on the same target
  *    - Used by CooldownIcon
+ *
+ * 8. ASYNC ERROR RECOVERY (busy flag safety)
+ *    - Any async operation that sets `busy = true` MUST guarantee reset on
+ *      ALL paths, including thrown exceptions
+ *    - Three patterns are used in this project:
+ *
+ *      Pattern 1 — try/finally for UI cleanup (busy reset by caller):
+ *
+ *        this.busy = true;
+ *        const overlay = this.add.rectangle(...);
+ *        try {
+ *          await tweenPromise(...);
+ *          await someAsyncWork();
+ *        } finally {
+ *          overlay.destroy();
+ *          // Caller (cascade loop) manages busy reset
+ *        }
+ *
+ *      Pattern 2 — try/catch around non-critical async (continue happy path):
+ *
+ *        if (abilityReady) {
+ *          this.busy = true;
+ *          try {
+ *            await this.executeBossAbility();
+ *            // ... advance state
+ *          } catch (err) {
+ *            console.error("Boss ability failed:", err);
+ *          }
+ *        }
+ *        this.busy = false; // always reached
+ *
+ *      Pattern 3 — fire-and-forget with .catch() handler:
+ *
+ *        const processPerks = async () => {
+ *          try {
+ *            while (this.pendingPerkCount > 0 && !this.gameOver) {
+ *              this.pendingPerkCount--;
+ *              await this.showPerkSelection();
+ *            }
+ *          } finally {
+ *            this.busy = false;
+ *            this.updateHud();
+ *          }
+ *        };
+ *        processPerks().catch((err) => {
+ *          console.error("Skill-triggered perk selection failed:", err);
+ *          this.busy = false;
+ *          this.updateHud();
+ *        });
+ *
+ *    - NEVER call an async function without `await` AND without a `.catch()`
+ *      handler — silent failures will leave busy stuck and freeze the screen
+ *    - Every `busy = true` must have a guaranteed path to `busy = false`
+ *    - Exception: game over (showVictory / showDefeat) intentionally keeps
+ *      busy = true so input remains locked on the end-game modal
  */

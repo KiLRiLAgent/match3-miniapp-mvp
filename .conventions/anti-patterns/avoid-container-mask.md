@@ -21,21 +21,50 @@ this.fillGfx.setMask(maskGfx.createGeometryMask()); // broken inside Container
 // ALSO WRONG — container-level mask clips ALL children
 this.setMask(maskGfx.createGeometryMask());
 
-// CORRECT — use per-corner radius instead of masks
-private fillRadius(width: number): number | RoundedRectRadius {
-  if (width >= this.widthPx - 0.5) return this.radius;
+// ALSO WRONG — naive `widthPx - 0.5` threshold leaves square corners
+// poking into the border's curve zone at ~95% fill
+private fillRadius(width: number) {
+  if (width >= this.widthPx - 0.5) return this.radius;        // BUG
   return { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
 }
-this.fillGfx.fillRoundedRect(0, 0, fillWidth, height, this.fillRadius(fillWidth));
+
+// CORRECT — three-case helper handles curve zone snap AND narrow clamp
+private fillRadius(width: number): number | RoundedRectRadius {
+  const r = this.radius;
+  if (width >= this.widthPx - r) return r;       // snap in right curve zone
+  const eff = Math.min(r, width / 2);             // clamp narrow degenerate
+  return { tl: eff, tr: 0, bl: eff, br: 0 };
+}
+
+// Caller snaps drawW when helper returned a number
+const fr = this.fillRadius(fillWidth);
+const drawW = typeof fr === "number" ? this.widthPx : fillWidth;
+this.fillGfx.fillRoundedRect(0, 0, drawW, height, fr);
 ```
 
-## The Solution: Per-Corner Radius
+## The Solution: Per-Corner Radius with Three-Case Helper
 
-Instead of geometry masks, use `fillRoundedRect` with per-corner radius objects:
-- `{ tl: r, tr: 0, bl: r, br: 0 }` for left-rounded, right-straight fills
-- Uniform `r` when fill spans full width (all corners match border)
+Instead of geometry masks, use `fillRoundedRect` with a `fillRadius()` helper
+that handles all three width regimes:
 
-This is implemented in both Meter.ts and LayeredMeter.ts via the `fillRadius()` helper method.
+1. **Right curve zone** (`width >= widthPx - radius`): return uniform radius
+   and snap drawW to `widthPx`. Sharp `tr/br` corners would otherwise extend
+   beyond the rounded border curve and show as visible square overhangs.
+2. **Narrow fill** (`width < 2 * radius`): clamp left-corner radius to
+   `width / 2`. Otherwise `tl` and `bl` arcs overlap and `fillRoundedRect`
+   renders a degenerate shape.
+3. **Normal middle**: `{ tl: r, tr: 0, bl: r, br: 0 }` for left-rounded,
+   right-straight fills.
+
+The threshold MUST be `widthPx - radius`, NOT `widthPx - 0.5`. The tighter
+threshold only catches float precision at 100% fill — it does NOT catch the
+real artifact band where straight corners sit inside the border curve zone.
+
+The visual tradeoff (HP `widthPx - r .. widthPx` shows as full) is acceptable
+because the exact value is rendered in a centered text label inside the bar.
+
+This is implemented in both Meter.ts and LayeredMeter.ts via the `fillRadius()`
+helper method.
 
 ## When geometry masks ARE safe
 

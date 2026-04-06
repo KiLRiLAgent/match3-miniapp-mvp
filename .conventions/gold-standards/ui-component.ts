@@ -26,17 +26,40 @@
  *
  * 2a. PER-CORNER RADIUS FOR BAR FILLS
  *    - Background border uses fillRoundedRect with uniform radius
- *    - Fill, delta, highlight, flash use per-corner radius:
- *      - Full width: uniform radius (all corners match border)
- *      - Partial width: left corners rounded, right corners straight
- *    - Extract into a fillRadius() helper method:
+ *    - Fill, delta, highlight, flash use per-corner radius via the
+ *      fillRadius() helper, which handles THREE cases:
+ *
+ *      1. Inside right curve zone (width >= widthPx - radius):
+ *         → return uniform radius; caller draws full widthPx.
+ *         Otherwise sharp tr/br corners poke into borderGfx's curve
+ *         and produce visible square overhangs above/below the bar.
+ *      2. Narrow fill (width < 2 * radius):
+ *         → clamp the effective radius to width/2, otherwise tl/bl
+ *         arcs overlap and fillRoundedRect renders a degenerate shape.
+ *      3. Normal middle (2*r <= width < widthPx - r):
+ *         → { tl: r, tr: 0, bl: r, br: 0 } (left rounded, right straight).
  *
  *      private fillRadius(width: number): number | RoundedRectRadius {
- *        if (width >= this.widthPx - 0.5) return this.radius;
- *        return { tl: this.radius, tr: 0, bl: this.radius, br: 0 };
+ *        const r = this.radius;
+ *        if (width >= this.widthPx - r) return r;       // snap in curve zone
+ *        const eff = Math.min(r, width / 2);             // clamp narrow
+ *        return { tl: eff, tr: 0, bl: eff, br: 0 };
  *      }
  *
- *    - The -0.5 threshold handles float precision at 100% fill
+ *    - Caller snaps drawW when helper returned a number:
+ *
+ *        const fr = this.fillRadius(fillWidth);
+ *        const drawW = typeof fr === "number" ? this.widthPx : fillWidth;
+ *        this.fillGfx.fillRoundedRect(0, 0, drawW, this.heightPx, fr);
+ *
+ *    - WHY `widthPx - radius` threshold (NOT `widthPx - 0.5`):
+ *      - The naive `widthPx - 0.5` only catches float-precision at 100%.
+ *        For widths in [widthPx - r, widthPx), the right edge still sits
+ *        inside the border's curve zone, which is what produces the
+ *        "corner sticking out above the bar" artifact at ~95% HP.
+ *      - Tradeoff: HP between ~95-100% of a layer visually shows as full.
+ *        Acceptable because the exact value is in the centered text label.
+ *
  *    - Applied in both Meter.ts and LayeredMeter.ts
  *    - ANTI-PATTERN: Do NOT use geometry masks for bar clipping —
  *      masks don't work inside Containers (see anti-pattern doc)
