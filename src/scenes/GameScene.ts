@@ -31,7 +31,7 @@ import {
   VISUAL_EFFECTS,
   HINT_ANIMATION,
 } from "../game/animations";
-import type { SkillId } from "../game/config";
+import type { SkillId, BossAbilityType } from "../game/config";
 import { Match3Board } from "../match3/Board";
 import { TileKind } from "../match3/types";
 import type { BaseTileKind, Match, Position, PotentialMove, Tile, CountTotals } from "../match3/types";
@@ -54,6 +54,11 @@ import { hapticLight, hapticMedium, hapticHeavy, hapticVictory, hapticDefeat } f
 import { emitTileParticles } from "../ui/TileParticles";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { INTRO_ANIMATION } from "../game/animations";
+// v2: type-only imports — ZERO runtime imports from src/v2/
+import type { CombatContext, GameSceneInitData, RawCombatResult } from "../v2/content/types";
+import type { Chain, ChainVariant } from "../match3/types";
+// v2: ChainOverlay lives in src/ui/ (REFINEMENT 3 — neutral location, runtime import allowed, no v2 boundary cross)
+import { ChainOverlay } from "../ui/ChainOverlay";
 
 const SKILL_IDS: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 
@@ -195,6 +200,15 @@ export class GameScene extends Phaser.Scene {
   private prevBossLayerIdx = 0;
   private pendingPerkCount = 0;
 
+  // v2: encounter context — set via scene init data, undefined for v1 arena
+  private encounterContext?: CombatContext;
+  // v2: combat completion callback — passed via scene init data alongside encounterContext (REFINEMENT 1)
+  private onCombatComplete?: (raw: RawCombatResult) => void;
+  // v2: chain overlay — created in create() if encounter has chains
+  private chainOverlay?: ChainOverlay;
+  // v2: count of chains broken during this combat (for RawCombatResult)
+  private v2ChainsBroken = 0;
+
   constructor() {
     super("GameScene");
   }
@@ -213,13 +227,7 @@ export class GameScene extends Phaser.Scene {
 
   // Данные о состоянии фона/босса из интро (для плавного перехода)
 
-  create(data?: {
-    fromIntro?: boolean;
-    finalDialogue?: string;
-    startHidden?: boolean;
-    bgState?: { x: number; y: number; scale: number };
-    bossState?: { x: number; y: number; scale: number };
-  }) {
+  create(data?: GameSceneInitData) {
     // Очистить старые ссылки (важно при restart - Phaser переиспользует экземпляр)
     this.bossImage = undefined;
     this.bossImageGlow = undefined;
@@ -240,6 +248,11 @@ export class GameScene extends Phaser.Scene {
     this.vignetteTween = undefined;
     this.bgm = undefined;
 
+    // v2: capture encounter context AND callback (separate fields per REFINEMENT 1)
+    this.encounterContext = data?.encounterContext;
+    this.onCombatComplete = data?.onCombatComplete;
+    this.chainOverlay = undefined;
+
     this.cameras.main.setZoom(DPR);
     this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
     this.cameras.main.setBackgroundColor("#0d0f1a");
@@ -256,6 +269,22 @@ export class GameScene extends Phaser.Scene {
     this.buildSkills(startHidden);
     this.setupInputHandlers();
     this.updateHud();
+
+    // v2: place chains AFTER board built, create ChainOverlay overlay sprites
+    if (this.encounterContext?.encounterDef.chains) {
+      const placements: Chain[] = this.encounterContext.encounterDef.chains.initial.map(c => ({
+        pos: { x: c.x, y: c.y },
+        hp: c.hp,
+        variant: (c.variant ?? "iron") as ChainVariant,
+      }));
+      this.board.placeChains(placements);
+      this.chainOverlay = new ChainOverlay(this, this.boardOrigin.x, this.boardOrigin.y, CELL_SIZE);
+      this.chainOverlay.setChains(this.board.getAllChains());
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        this.chainOverlay?.destroy();
+        this.chainOverlay = undefined;
+      });
+    }
 
     // BGM starts in IntroScene; on restart, resume if it exists in the global sound manager
     if (!this.bgm) {
@@ -331,8 +360,9 @@ export class GameScene extends Phaser.Scene {
 
   private resetState() {
     this.stopHintTimer();
-    this.bossHp = GAME_PARAMS.boss.hpMax;
-    this.playerHp = GAME_PARAMS.player.hpMax;
+    // v2: initial bossHp/playerHp from encounterContext if present, otherwise GAME_PARAMS (v1)
+    this.bossHp = this.encounterContext?.derived.bossHpMax ?? GAME_PARAMS.boss.hpMax;
+    this.playerHp = this.encounterContext?.playerStats.hpMax ?? GAME_PARAMS.player.hpMax;
     this.mana = 0;
     this.currentTurn = "player";
     this.gameOver = false;
@@ -349,15 +379,25 @@ export class GameScene extends Phaser.Scene {
       totalDamageDealt: 0, totalDamageReceived: 0, totalHealDone: 0,
       maxCascade: 0, turnsPlayed: 0, skillsUsed: 0, bombsDefused: 0,
     };
-    this.tutorialActive = true;
+    // v2: skip tutorial flow when launched from CombatBridgeScene
+    this.tutorialActive = !this.encounterContext;
+    // v2: reset chain counter
+    this.v2ChainsBroken = 0;
     this.tutorialHandChain = undefined;
     this.tutorialHintOverlays = [];
     this.tutorialHintTweens = [];
-    this.board = Match3Board.fromGrid(BOARD_WIDTH, BOARD_HEIGHT, TUTORIAL_BOARD);
-    this.bossAbilityManager = new BossAbilityManager();
+    // v2: random board for v2 encounters (no scripted tutorial), tutorial board for v1
+    if (this.encounterContext) {
+      this.board = new Match3Board(BOARD_WIDTH, BOARD_HEIGHT);
+    } else {
+      this.board = Match3Board.fromGrid(BOARD_WIDTH, BOARD_HEIGHT, TUTORIAL_BOARD);
+    }
+    // v2: pass typed bossPattern directly to BossAbilityManager (REFINEMENT 8: no number conversion)
+    const patternOverride = this.encounterContext?.encounterDef.bossPattern as BossAbilityType[] | undefined;
+    this.bossAbilityManager = new BossAbilityManager(patternOverride);
     this.perkManager = new PerkManager();
     this.perkManager.reset(); // Restore SKILL_CONFIG to baseline values
-    this.prevBossLayerIdx = getBossLayerCount();
+    this.prevBossLayerIdx = this.effectiveBossLayerCount(); // v2: use effective getter
     this.pendingPerkCount = 0;
     this.tileSprites.clear();
     this.tilePositions.clear();
@@ -366,6 +406,34 @@ export class GameScene extends Phaser.Scene {
     this.rebuildPositionMap();
     this.hideBossShieldOverlay(true);
     this.hideVignette();
+  }
+
+  // v2: effective player/boss stat getters — preserve v1 live-read semantics
+  // (SettingsPanel mid-fight edits still apply via GAME_PARAMS), v2 stable from
+  // frozen encounterContext. Per MITIGATION-1: getters NOT a snapshot field.
+  private getEffectivePlayerHpMax(): number {
+    return this.encounterContext?.playerStats.hpMax ?? GAME_PARAMS.player.hpMax;
+  }
+  private getEffectivePlayerManaMax(): number {
+    return this.encounterContext?.playerStats.manaMax ?? GAME_PARAMS.player.manaMax;
+  }
+  private getEffectiveBossHpMax(): number {
+    return this.encounterContext?.derived.bossHpMax ?? GAME_PARAMS.boss.hpMax;
+  }
+
+  // v2: layered HP helpers — branch on encounterContext, fall through to v1 config helpers
+  private effectiveBossLayerCount(): number {
+    return this.encounterContext?.encounterDef.bossStats.layerCount ?? getBossLayerCount();
+  }
+  private effectiveBossLayerHpArray(): readonly number[] {
+    return this.encounterContext?.derived.bossLayerHpArray ?? getBossLayerHpArray();
+  }
+  private effectiveBossLayerIndex(currentHp: number): number {
+    if (this.encounterContext) {
+      const def = this.encounterContext.encounterDef.bossStats;
+      return getBossLayerIndex(currentHp, def.layerCount, def.baseHpPerLayer, def.layerMultipliers as number[]);
+    }
+    return getBossLayerIndex(currentHp);
   }
 
   private clearBombCooldownTexts() {
@@ -473,7 +541,8 @@ export class GameScene extends Phaser.Scene {
     this.bossHpBar = new LayeredMeter(
       this, L.bossHpBarX, L.bossHpBarY - 2,
       L.hpBarWidth, bossBarHeight,
-      getBossLayerHpArray(), [...BOSS_LAYER_COLORS]
+      // v2: effective layer HP array — uses encounterContext.derived.bossLayerHpArray when set
+      [...this.effectiveBossLayerHpArray()], [...BOSS_LAYER_COLORS]
     ).setDepth(4).setAlpha(initialAlpha);
 
     // === ИКОНКА КУЛДАУНА ===
@@ -876,6 +945,22 @@ export class GameScene extends Phaser.Scene {
         await this.defuseBombs(adjacentBombs);
       }
 
+      // v2: damage chains adjacent to cleared positions — animate-before-mutate
+      // (snapshot captured BEFORE mutation, then real chains mutated, then broken animated)
+      if (this.encounterContext && this.board.hasActiveChains) {
+        const damaged = this.board.getDamagedChains(allMatchPositions);
+        if (damaged.length > 0) {
+          if (this.chainOverlay) {
+            await this.chainOverlay.animateDamage(damaged);
+          }
+          const result = this.board.damageChains(damaged);
+          if (this.chainOverlay && result.broken.length > 0) {
+            await this.chainOverlay.animateBroken(result.broken);
+          }
+          this.v2ChainsBroken += result.broken.length;
+        }
+      }
+
       const collapse = this.board.applyClearOutcome(outcome);
       this.rebuildPositionMap();
       await this.animateCollapse(collapse);
@@ -991,7 +1076,7 @@ export class GameScene extends Phaser.Scene {
   private readonly VIGNETTE_DEPTH = 5.5;
 
   private updateVignette() {
-    const hpRatio = this.playerHp / GAME_PARAMS.player.hpMax;
+    const hpRatio = this.playerHp / this.getEffectivePlayerHpMax(); // v2:
     if (hpRatio < this.VIGNETTE_HP_THRESHOLD && this.playerHp > 0) {
       this.showVignette();
     } else {
@@ -1234,21 +1319,40 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.bossHp = Math.max(0, this.bossHp - damage);
-    this.stats.totalDamageDealt += damage;
+    // v2: chain threshold guard — boss HP cannot drop below floor while chains active.
+    // Use LOCAL var, do NOT mutate the `damage` parameter.
+    let effectiveDamage = damage;
+    if (this.encounterContext && this.board.hasActiveChains) {
+      const ratio = this.encounterContext.encounterDef.chains?.chainBlockedHpRatio ?? 0;
+      const minHp = Math.ceil(this.getEffectiveBossHpMax() * ratio);
+      if (this.bossHp - effectiveDamage < minHp) {
+        const allowed = this.bossHp - minHp;
+        if (allowed <= 0) {
+          showDamageNumber(this, this.bossTarget.x, this.bossTarget.y, 0, "shield");
+          if (this.bossImage) this.shakeTarget(this.bossLayers, VISUAL_EFFECTS.damageShakeOffset * 0.3);
+          return;
+        }
+        effectiveDamage = allowed;
+        showDamageNumber(this, this.bossTarget.x + 30, this.bossTarget.y - 30, 0, "shield");
+      }
+    }
+
+    this.bossHp = Math.max(0, this.bossHp - effectiveDamage);
+    this.stats.totalDamageDealt += effectiveDamage;
     this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticMedium();
-    this.bossHpBar?.setValue(this.bossHp, GAME_PARAMS.boss.hpMax);
+    this.bossHpBar?.setValue(this.bossHp, this.getEffectiveBossHpMax()); // v2:
     this.bossHpBar?.flash();
     if (this.bossImage) {
       const dmgTarget = this.bossTarget;
-      showDamageNumber(this, dmgTarget.x, dmgTarget.y, damage, "damage");
+      showDamageNumber(this, dmgTarget.x, dmgTarget.y, effectiveDamage, "damage");
       this.flashBoss(); // fire-and-forget: instant texture swap + white flash + shake
       if (!skipSlash) this.showSlashEffect(this.bossTarget, false);
     }
 
     // Track boss layer transition for perk system
-    const newLayerIdx = getBossLayerIndex(this.bossHp);
+    // v2: effective layer index respects encounterContext bossStats override
+    const newLayerIdx = this.effectiveBossLayerIndex(this.bossHp);
     if (newLayerIdx < this.prevBossLayerIdx && newLayerIdx > 0) {
       // Count how many layers were crossed (supports multi-layer skip from CRIT)
       this.pendingPerkCount += this.prevBossLayerIdx - newLayerIdx;
@@ -1262,8 +1366,9 @@ export class GameScene extends Phaser.Scene {
     this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticHeavy();
     this.stats.totalDamageReceived += damage;
-    this.playerHp = clamp(this.playerHp - damage, 0, GAME_PARAMS.player.hpMax);
-    this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
+    // v2: paired clamp + setValue MUST use SAME getter (MITIGATION-1 critical pairing)
+    this.playerHp = clamp(this.playerHp - damage, 0, this.getEffectivePlayerHpMax());
+    this.playerHpBar?.setValue(this.playerHp, this.getEffectivePlayerHpMax());
     this.playerHpBar?.flash();
     if (this.playerAvatar) {
       showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 30, damage, "damage");
@@ -1275,12 +1380,13 @@ export class GameScene extends Phaser.Scene {
     if (manaGain <= 0) return;
 
     const oldMana = this.mana;
-    this.mana = clamp(this.mana + manaGain, 0, GAME_PARAMS.player.manaMax);
+    // v2: paired clamp + setValue MUST use SAME getter (MITIGATION-1 critical pairing)
+    this.mana = clamp(this.mana + manaGain, 0, this.getEffectivePlayerManaMax());
     const actualGain = this.mana - oldMana;
 
     if (actualGain > 0) {
       this.sfx(ASSET_KEYS.sfx.gemDestroy, 0.3);
-      this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
+      this.manaBar?.setValue(this.mana, this.getEffectivePlayerManaMax());
       this.manaBar?.flash();
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 20, actualGain, "mana");
@@ -1293,13 +1399,14 @@ export class GameScene extends Phaser.Scene {
     if (healGain <= 0) return;
 
     const oldHp = this.playerHp;
-    this.playerHp = clamp(this.playerHp + healGain, 0, GAME_PARAMS.player.hpMax);
+    // v2: paired clamp + setValue MUST use SAME getter (MITIGATION-1 critical pairing)
+    this.playerHp = clamp(this.playerHp + healGain, 0, this.getEffectivePlayerHpMax());
     const actualHeal = this.playerHp - oldHp;
 
     if (actualHeal > 0) {
       this.stats.totalHealDone += actualHeal;
       this.sfx(ASSET_KEYS.sfx.gemDestroy);
-      this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
+      this.playerHpBar?.setValue(this.playerHp, this.getEffectivePlayerHpMax());
       this.playerHpBar?.flash();
       if (this.playerAvatar) {
         showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 40, actualHeal, "heal");
@@ -1310,7 +1417,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyHealToBoss(healGain: number) {
     if (healGain <= 0) return;
-    this.bossHp = clamp(this.bossHp + healGain, 0, GAME_PARAMS.boss.hpMax);
+    this.bossHp = clamp(this.bossHp + healGain, 0, this.getEffectiveBossHpMax()); // v2:
   }
 
   private shakeTarget(target: Phaser.GameObjects.Image | (Phaser.GameObjects.Image | undefined)[], offset: number) {
@@ -1664,9 +1771,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateHud() {
-    this.bossHpBar?.setValue(this.bossHp, GAME_PARAMS.boss.hpMax);
-    this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
-    this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
+    // v2: effective getters for HUD sync
+    this.bossHpBar?.setValue(this.bossHp, this.getEffectiveBossHpMax());
+    this.playerHpBar?.setValue(this.playerHp, this.getEffectivePlayerHpMax());
+    this.manaBar?.setValue(this.mana, this.getEffectivePlayerManaMax());
     this.updateBossArt();
 
     // Обновляем иконку кулдауна босса (показываем тип следующей атаки)
@@ -1696,7 +1804,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateBossArt() {
     if (!this.bossImage || this.bossDamageArtActive) return;
-    const ratio = this.bossHp / GAME_PARAMS.boss.hpMax;
+    const ratio = this.bossHp / this.getEffectiveBossHpMax(); // v2:
     const isBattle = ratio >= BOSS_DAMAGED_HP_THRESHOLD;
     const backKey = isBattle ? ASSET_KEYS.boss.mainBack : ASSET_KEYS.boss.lowhpBack;
     this.bossImage.setTexture(isBattle ? ASSET_KEYS.boss.main : ASSET_KEYS.boss.lowhp);
@@ -1732,7 +1840,7 @@ export class GameScene extends Phaser.Scene {
     if (this.mana < cfg.cost) return;
 
     this.mana -= cfg.cost;
-    this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
+    this.manaBar?.setValue(this.mana, this.getEffectivePlayerManaMax()); // v2:
     this.manaBar?.flash();
     this.skillCooldowns[id] = cfg.cooldown; // Ставим на кулдаун
     this.stats.skillsUsed++;
@@ -1919,7 +2027,32 @@ export class GameScene extends Phaser.Scene {
     this.busy = true;
     this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticVictory();
+    // v2: in encounter mode, emit RawCombatResult via callback and skip game-end modal
+    if (this.emitV2CombatResult(true)) return;
+    // v2: do NOT add statements after showGameEndModal — v2 callback early-returns before this line
     this.showGameEndModal("Victory!", "#44ff66", "Restart", true);
+  }
+
+  /**
+   * v2: emit RawCombatResult via callback. Returns true if v2 mode handled it.
+   * Caller (showVictory/showDefeat) should early-return on true to skip v1 game-end modal.
+   * REFINEMENT 2: emits RawCombatResult, NOT enriched CombatResult — enrichment happens
+   * in CombatBridgeScene.handleCombatComplete via encounterBuilder.applyResult.
+   * MITIGATION-4 RISK-1 hardening: callee tolerates pre-modal flag state (gameOver=true, busy=true).
+   */
+  private emitV2CombatResult(victory: boolean): boolean {
+    if (!this.encounterContext || !this.onCombatComplete) return false;
+    const raw: RawCombatResult = {
+      encounterId: this.encounterContext.encounterId,
+      characterId: this.encounterContext.characterId,
+      victory,
+      damageDealt: this.stats.totalDamageDealt,
+      damageReceived: this.stats.totalDamageReceived,
+      chainsBroken: this.v2ChainsBroken,
+      turnsPlayed: this.stats.turnsPlayed,
+    };
+    this.onCombatComplete(raw);
+    return true;
   }
 
   private toWorld(pos: Position) {
@@ -2675,9 +2808,10 @@ export class GameScene extends Phaser.Scene {
     this.flashPlayerAvatar();
     this.showSlashEffect(this.boardCenter, false);
     // Update only bars, NOT updateBossArt() which would reset the attack texture
-    this.bossHpBar?.setValue(this.bossHp, GAME_PARAMS.boss.hpMax);
-    this.playerHpBar?.setValue(this.playerHp, GAME_PARAMS.player.hpMax);
-    this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
+    // v2: effective getters for HUD sync
+    this.bossHpBar?.setValue(this.bossHp, this.getEffectiveBossHpMax());
+    this.playerHpBar?.setValue(this.playerHp, this.getEffectivePlayerHpMax());
+    this.manaBar?.setValue(this.mana, this.getEffectivePlayerManaMax());
     this.playerHpBar?.drainDelta();
 
     await wait(this, 1500);
@@ -2793,7 +2927,7 @@ export class GameScene extends Phaser.Scene {
       if (manaDrain > 0) {
         this.sfx(ASSET_KEYS.sfx.enemyAttack);
         this.mana -= manaDrain;
-        this.manaBar?.setValue(this.mana, GAME_PARAMS.player.manaMax);
+        this.manaBar?.setValue(this.mana, this.getEffectivePlayerManaMax()); // v2:
         this.manaBar?.flash();
         if (this.playerAvatar) {
           showDamageNumber(this, this.playerAvatar.x, this.playerAvatar.y - 10, manaDrain, "mana_loss");
@@ -3117,6 +3251,9 @@ export class GameScene extends Phaser.Scene {
     this.busy = true;
     this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticDefeat();
+    // v2: in encounter mode, emit RawCombatResult via callback and skip game-end modal
+    if (this.emitV2CombatResult(false)) return;
+    // v2: do NOT add statements after showGameEndModal — v2 callback early-returns before this line
     this.showGameEndModal("Defeat", "#ff6666", "Retry", false);
   }
 

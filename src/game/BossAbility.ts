@@ -36,20 +36,29 @@ export class BossAbilityManager {
   private _currentType: BossAbilityType = "attack";
   private currentCooldown: number;
 
-  constructor() {
+  // v2: stored override pool — typed BossAbilityType[] (REFINEMENT 8: no number conversion)
+  private patternOverride?: BossAbilityType[];
+
+  constructor(patternOverride?: BossAbilityType[]) {
+    this.patternOverride = patternOverride;
     this.refillPool();
     this.drawNext();
     this.currentCooldown = this.getCurrentAbilityCooldown();
   }
 
-  /** Fill pool from config or default, then shuffle */
+  /** Fill pool from override / config / default, then shuffle */
   private refillPool(): void {
     const configPool = this.getConfigPool();
     this.pool = shuffle(configPool);
   }
 
-  /** Get pool definition from GAME_PARAMS.bossPattern or default */
+  /** Get pool definition from override, GAME_PARAMS.bossPattern, or default */
   private getConfigPool(): BossAbilityType[] {
+    // v2: encounter override takes priority over GAME_PARAMS.bossPattern (REFINEMENT 8: typed strings, zero conversion)
+    if (this.patternOverride && this.patternOverride.length > 0) {
+      return [...this.patternOverride];
+    }
+
     const ABILITY_MAP: Record<number, BossAbilityType> = {
       1: "attack",
       2: "bombs",
