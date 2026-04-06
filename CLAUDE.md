@@ -16,6 +16,66 @@ This is a Match-3 boss fight game built as a Telegram Mini App using Phaser 3 an
 
 ---
 
+## v2 Architecture (work in progress)
+
+Параллельно с v1 (arena boss fight) разрабатывается **v2 — «Университет Падших»**: story-driven dating sim с механикой цепей в матч-3 боях, прогрессией в стиле Archero и будущей ИИ-интеграцией. v2 живёт в изолированной папке `src/v2/` и активируется **opt-in** через флаг в настройках.
+
+### Переключение между версиями
+
+- **Default поведение** (чистый `localStorage`) — как было: `BootScene → IntroScene → GameScene`. Никакого меню, никакого визуального изменения. v2 полностью невидим.
+- **Переключение на v2** — через существующий `SettingsPanel` (шестерёнка в GameScene). В самом верху панели блок «🔮 Режим игры» с кнопкой `⟳ Переключить на v2 Университет (β)`. Кнопка пишет флаг в `localStorage["match3_active_mode"]` и делает `window.location.reload()`.
+- **Обратный путь** — из любого v2 экрана кнопка «← Вернуться в v1» → тот же `setActiveMode("v1") + reload`.
+- **Dev-shortcut** — `?mode=v2` или `?mode=v1` в URL **временно** переопределяет флаг на одну сессию, без записи в localStorage.
+
+### Routing
+
+- `src/game/version.ts` — единственный источник истины для текущего режима (`getActiveMode()` / `setActiveMode()`).
+- `BootScene.routeToActiveMode()` — единственная точка принятия решения о направлении игрока. v1 → `scene.start("IntroScene")`. v2 → `await import("../v2") → registerV2Scenes(game) → scene.start("HubScene")`.
+
+### Bundle strategy
+
+- `vite.config.ts` использует `manualChunks: { phaser: ["phaser"] }` — Phaser вынесен в отдельный vendor chunk.
+- `src/v2/*` грузится через **dynamic import** из BootScene только при активном v2 режиме. v1-игроки не качают v2 chunk.
+- Актуальные размеры: `phaser-*.js` ~1.2 MB, main `index-*.js` ~125 kB, v2 chunk ~5 kB (на Phase 0).
+
+### v2 directory layout
+
+```
+src/v2/
+├── index.ts              # lazy entry point — экспортирует registerV2Scenes(game)
+├── core/                 # инфраструктура
+│   ├── SaveManager.ts    # единственная точка чтения/записи v2 state
+│   ├── SceneRouter.ts    # push/pop/replace стек над scene.start
+│   ├── EventBus.ts       # typed pub/sub для cross-scene событий
+│   ├── GameState.ts      # фасад над SaveManager + EventBus
+│   └── types.ts          # SaveData interface + вложенные типы
+├── scenes/               # Phaser сцены v2 (HubScene на Phase 0, остальные в Phase 1+)
+├── content/              # TS-объекты с данными (Phase 1+)
+├── systems/              # игровые системы (Phase 1+)
+├── ui/                   # v2-специфичные UI компоненты (Phase 1+)
+├── ai/                   # Phase 3 ИИ-интеграция
+└── config/               # константы v2
+```
+
+### Изоляция и правила
+
+Правила описаны в **`.conventions/checks/v2-isolation.md`**. Кратко:
+
+1. `src/scenes/*` **НЕ импортирует** `src/v2/*`. Единственное исключение — динамический `await import("../v2")` в `BootScene`.
+2. `src/v2/*` импортирует `src/match3/*`, `src/ui/*`, `src/game/*`, `src/utils/*`, `src/telegram/*`, `src/scenes/GameScene.ts` как библиотеку.
+3. Правки `GameScene.ts` ради v2 — **только** через `if (this.encounterContext) { ... }` feature-gated ветки с комментарием `// v2:`.
+4. **Zero-disruption v1**: с чистым localStorage игра должна запускаться идентично тому, что было до внедрения v2. Любой smoke test v1 обязателен после v2-коммита.
+5. SaveData версионируется через `SAVE_VERSION` — при изменении схемы обязательна migration функция в `SaveManager.MIGRATIONS`.
+6. v2 не трогает legacy v1 localStorage ключи (`match3_params`, `match3_audio`, `match3_haptic`). SaveManager **зеркалит** аудио/haptic в `SaveData.settings` на первом запуске, не удаляя оригиналы.
+
+### Текущий статус
+
+- **Phase 0 (Foundation)** — инфраструктура готова: bundle splitting, version flag, SaveManager skeleton, lazy v2 entry, HubScene stub, SettingsPanel toggle, conventions.
+- **Phase 1 (Vertical slice)** — не начата. Планируется: Лилана + Сафира арки, цепи, DialogueScene, PostCombatScene, базовый inventory.
+- **Phase 2+** — не начаты. См. план `~/.claude/plans/iridescent-riding-pudding.md`.
+
+---
+
 ## Project Structure
 
 ```
