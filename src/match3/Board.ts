@@ -177,7 +177,7 @@ export class Match3Board {
     for (let y = 0; y < this.height - 1; y++) {
       for (let x = 0; x < this.width - 1; x++) {
         const tile = this.getTile({ x, y });
-        if (!tile || this.isBomb(tile.kind)) continue;
+        if (!tile || this.isBomb(tile.kind) || this.isChained({ x, y })) continue;
 
         const positions: Position[] = [
           { x, y },
@@ -188,8 +188,8 @@ export class Match3Board {
 
         const allSame = positions.every(pos => {
           const t = this.getTile(pos);
-          // Бомбы не участвуют в квадратных матчах
-          return t && t.base === tile.base && !this.isBomb(t.kind);
+          // Бомбы и зацепленные тайлы не участвуют в квадратных матчах
+          return t && t.base === tile.base && !this.isBomb(t.kind) && !this.isChained(pos);
         });
 
         if (allSame) {
@@ -217,8 +217,8 @@ export class Match3Board {
           direction === "row" ? { x: inner, y: outer } : { x: outer, y: inner };
         const tile = this.getTile(pos);
 
-        // Бомбы не начинают матчи
-        if (!tile || this.isBomb(tile.kind)) {
+        // Бомбы и зацепленные тайлы не начинают матчи (тайл под цепью заблокирован)
+        if (!tile || this.isBomb(tile.kind) || this.isChained(pos)) {
           inner++;
           continue;
         }
@@ -257,8 +257,8 @@ export class Match3Board {
           : { x: start.x, y: runEnd };
       const tile = this.getTile(pos);
 
-      // Бомбы не участвуют в матчах
-      if (!tile || tile.base !== base || this.isBomb(tile.kind)) break;
+      // Бомбы и зацепленные тайлы не участвуют в матчах
+      if (!tile || tile.base !== base || this.isBomb(tile.kind) || this.isChained(pos)) break;
       runEnd++;
     }
 

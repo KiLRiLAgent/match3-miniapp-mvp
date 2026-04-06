@@ -813,6 +813,9 @@ export class GameScene extends Phaser.Scene {
     // Бомбы нельзя перемещать
     if (tileA.kind === TileKind.Bomb || tileB.kind === TileKind.Bomb) return;
 
+    // v2: зацепленные тайлы заблокированы цепью — нельзя свапать
+    if (this.encounterContext && (this.board.isChained(a) || this.board.isChained(b))) return;
+
     // Tutorial: only allow the specific swap
     if (this.tutorialActive) {
       const correctFwd = a.x === TUTORIAL_FROM.x && a.y === TUTORIAL_FROM.y &&
