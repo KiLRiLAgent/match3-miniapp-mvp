@@ -42,3 +42,11 @@ export type PotentialMove = {
   maxMatchLength: number;
 };
 
+export type ChainVariant = "iron" | "thorn" | "gold";
+
+export interface Chain {
+  pos: Position;
+  hp: number;
+  variant: ChainVariant;
+}
+

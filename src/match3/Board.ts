@@ -1,6 +1,6 @@
 import { BASE_TYPES, CRIT_MULTIPLIERS } from "../game/config";
 import { TileKind } from "./types";
-import type { BaseTileKind, Match, Position, PotentialMove, Tile } from "./types";
+import type { BaseTileKind, Chain, Match, Position, PotentialMove, Tile } from "./types";
 
 export type SpecialTransform = {
   pos: Position;
@@ -52,6 +52,7 @@ export class Match3Board {
   grid: (Tile | null)[][];
   private nextId = 1;
   private rng: () => number;
+  private chains: Map<string, Chain> = new Map();
 
   constructor(width: number, height: number, rng: () => number = Math.random) {
     this.width = width;
@@ -67,6 +68,7 @@ export class Match3Board {
     board.height = height;
     board.rng = Math.random;
     board.nextId = 1;
+    board.chains = new Map();
     board.grid = kinds.map(row =>
       row.map(kind => ({ id: board.nextId++, kind, base: kind }))
     );
@@ -639,5 +641,95 @@ export class Match3Board {
     }
 
     return bombsToRemove;
+  }
+
+  // === Chain methods ===
+
+  private chainKey(pos: Position): string {
+    return `${pos.x},${pos.y}`;
+  }
+
+  /**
+   * Place chains on the board. Replaces any existing chains (idempotent).
+   * Chains are positional overlay state — tiles UNDER chains match normally.
+   */
+  placeChains(placements: Chain[]): void {
+    this.chains.clear();
+    for (const c of placements) {
+      this.chains.set(this.chainKey(c.pos), { ...c });
+    }
+  }
+
+  isChained(pos: Position): boolean {
+    return this.chains.has(this.chainKey(pos));
+  }
+
+  getChainAt(pos: Position): Chain | undefined {
+    return this.chains.get(this.chainKey(pos));
+  }
+
+  getAllChains(): Chain[] {
+    return Array.from(this.chains.values()).map(c => ({ ...c }));
+  }
+
+  /**
+   * Returns chains adjacent to (or AT) any of the cleared positions.
+   * Returns SHALLOW COPIES (snapshots) — caller can hold them across async
+   * boundaries without risk of mutation. Adjacency = orthogonal 4-directional
+   * + position itself (chain "lives on top of" a tile).
+   */
+  getDamagedChains(clearedPositions: Position[]): Chain[] {
+    const seen = new Set<string>();
+    const damaged: Chain[] = [];
+    for (const pos of clearedPositions) {
+      const candidates: Position[] = [
+        pos,
+        { x: pos.x - 1, y: pos.y },
+        { x: pos.x + 1, y: pos.y },
+        { x: pos.x, y: pos.y - 1 },
+        { x: pos.x, y: pos.y + 1 },
+      ];
+      for (const c of candidates) {
+        const key = this.chainKey(c);
+        if (seen.has(key)) continue;
+        const chain = this.chains.get(key);
+        if (chain) {
+          damaged.push({ ...chain });
+          seen.add(key);
+        }
+      }
+    }
+    return damaged;
+  }
+
+  /**
+   * Reduces HP by 1 of chains matching the given snapshot positions.
+   * Looks up REAL chain in internal map by pos, mutates HP in place.
+   * Caller's array NOT mutated. Returns broken (removed) and remaining.
+   */
+  damageChains(chains: Chain[]): { broken: Chain[]; remaining: Chain[] } {
+    const broken: Chain[] = [];
+    const remaining: Chain[] = [];
+    for (const snapshot of chains) {
+      const key = this.chainKey(snapshot.pos);
+      const real = this.chains.get(key);
+      if (!real) continue;
+      real.hp -= 1;
+      if (real.hp <= 0) {
+        this.chains.delete(key);
+        broken.push({ ...real });
+      } else {
+        remaining.push({ ...real });
+      }
+    }
+    return { broken, remaining };
+  }
+
+  get hasActiveChains(): boolean {
+    return this.chains.size > 0;
+  }
+
+  clearChains(): void {
+    this.chains.clear();
   }
 }
