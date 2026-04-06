@@ -34,7 +34,33 @@ import { sceneRouter } from "../core/SceneRouter";
 import { DialogueRunner } from "../systems/DialogueRunner";
 import { CharacterPortrait } from "../ui/CharacterPortrait";
 import { DialogueChoiceButton } from "../ui/DialogueChoiceButton";
-import type { DialogueLine, DialogueNode } from "../content/types";
+import type {
+  CharacterDef,
+  DialogueLine,
+  DialogueNode,
+  Emotion,
+} from "../content/types";
+
+/**
+ * Build the emotion → texture key map that CharacterPortrait consumes.
+ * Falls back gracefully — emotions without an asset entry simply omit that
+ * key, and CharacterPortrait then resolves to neutral / placeholder mode.
+ */
+function buildEmotionTextureMap(
+  character: CharacterDef,
+): Partial<Record<Emotion, string>> {
+  const a = character.assets;
+  const map: Partial<Record<Emotion, string>> = {
+    neutral: a.portraitNeutral,
+  };
+  if (a.portraitCold) map.cold = a.portraitCold;
+  if (a.portraitAngry) map.angry = a.portraitAngry;
+  if (a.portraitSurprised) map.surprised = a.portraitSurprised;
+  if (a.portraitSeductive) map.seductive = a.portraitSeductive;
+  if (a.portraitHappy) map.happy = a.portraitHappy;
+  if (a.portraitSad) map.sad = a.portraitSad;
+  return map;
+}
 
 const BG_COLOR = 0x0d0820;
 
@@ -135,10 +161,12 @@ export class DialogueScene extends Phaser.Scene {
         camH * PORTRAIT_MAX_HEIGHT_RATIO,
       );
       const portraitY = camH * PORTRAIT_CENTER_Y_RATIO + SAFE_AREA.top * d;
+      const textures = character ? buildEmotionTextureMap(character) : undefined;
       this.portrait = new CharacterPortrait(this, camW / 2, portraitY, {
         size: portraitSize,
         initial: character?.name?.charAt(0) ?? "?",
         emotion: "neutral",
+        textures,
       });
 
       this.speakerNameText = this.add

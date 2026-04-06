@@ -11,9 +11,14 @@
 
 import type { CharacterDef } from "../types";
 
+// NOTE: Phase 1A test swap — character ID stays "lilana" internally to keep
+// dialogue/encounter/location references stable, but display name and visual
+// assets are swapped to Safira (12 existing portraits) to skip art generation.
+// Dialogue text still references the Lilana arc — this is a SYSTEM TEST, not
+// a narrative-coherent run. Real Lilana art will land in a follow-up patch.
 export const lilana: CharacterDef = {
   id: "lilana",
-  name: "Лилана",
+  name: "Сафира",
   age: 21,
   pronouns: "she",
   faction: "fallen-angel",
@@ -45,14 +50,18 @@ export const lilana: CharacterDef = {
     romance: 60,
     hostileViaCynicism: 60,
   },
+  // Phase 1A test swap → maps to existing Safira textures preloaded in
+  // BootScene v1 (`src/scenes/BootScene.ts:63-74`). Front layer only — _back
+  // variants are GameScene-specific glow layers, not portrait-friendly.
   assets: {
-    portraitNeutral: "placeholder_lilana_neutral",
-    portraitCold: "placeholder_lilana_cold",
-    portraitAngry: "placeholder_lilana_angry",
-    portraitSurprised: "placeholder_lilana_surprised",
-    portraitSeductive: "placeholder_lilana_seductive",
-    portraitSad: "placeholder_lilana_sad",
-    demonForm: "placeholder_lilana_seraphim",
+    portraitNeutral: "safira_main",      // calm, composed
+    portraitCold: "safira_intro",        // judging, distant
+    portraitAngry: "safira_attack",      // aggressive, focused
+    portraitSurprised: "safira_lowhp",   // vulnerable, off-balance
+    portraitSeductive: "safira_intro",   // alluring (reuse intro pose)
+    portraitHappy: "safira_intro",       // pleased
+    portraitSad: "safira_lowhp",         // hurt, withdrawn
+    demonForm: "safira_ulta",            // ultimate / true form
   },
   defaultDialogueId: "lilana-act1",
 };

@@ -137,10 +137,14 @@ export class LocationScene extends Phaser.Scene {
 
     const character = hotspot.characterId ? CHARACTERS[hotspot.characterId] : undefined;
     const initial = character?.name.charAt(0) ?? hotspot.label.charAt(0);
+    const textures = character?.assets.portraitNeutral
+      ? { neutral: character.assets.portraitNeutral }
+      : undefined;
     const portrait = new CharacterPortrait(this, x, y, {
       size: HOTSPOT_PORTRAIT_SIZE * d,
       initial,
       emotion: "neutral",
+      textures,
     });
 
     const label = this.add
