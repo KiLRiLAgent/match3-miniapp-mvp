@@ -13,7 +13,7 @@
 
 import type { BossAbilityType } from "../../game/config";
 import type { ChainVariant } from "../../match3/types";
-import type { RelationshipDelta, RelationshipState } from "../core/types";
+import type { ItemStats, RelationshipDelta, RelationshipState } from "../core/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Primitives
@@ -215,6 +215,47 @@ export interface EffectExpr {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Inventory / Progression (Phase 1B)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Equipment slot for an item — matches `InventorySave.equipped` keys. */
+export type ItemSlot = "weapon" | "armor" | "accessory";
+
+/** Rarity tier — drives UI color and drop weighting. */
+export type ItemRarity = "common" | "rare" | "epic";
+
+/**
+ * Authored item definition — pure data, lives in `ItemDatabase` (Phase 1B).
+ * `ItemInstance.itemDefId` references `ItemDef.id`. Runtime state (level,
+ * rolledStats) lives on the `ItemInstance`, never on the def.
+ */
+export interface ItemDef {
+  id: string;
+  name: string;
+  description: string;
+  slot: ItemSlot;
+  rarity: ItemRarity;
+  /** Base stat contribution — additive with `ItemInstance.rolledStats`. */
+  baseStats: Partial<ItemStats>;
+  /** Optional sprite/icon asset key — falls back to placeholder if missing. */
+  iconKey?: string;
+}
+
+/**
+ * Fully-materialized player stats after applying equipment bonuses on top of
+ * `SaveData.player.stats`. All fields required (unlike `ItemStats` which is
+ * partial). Computed by InventorySystem/ProgressionSystem on demand — NEVER
+ * stored in SaveData.
+ */
+export interface EffectivePlayerStats {
+  hp: number;
+  mp: number;
+  physAttack: number;
+  magAttack: number;
+  crit: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Encounter
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -265,8 +306,14 @@ export interface EncounterDef {
   rewards: {
     xp: number;
     gold: number;
-    /** Phase 1A loot is text-only — full ItemDatabase comes in Phase 1B. */
+    /** Phase 1A loot is text-only — kept for backward compat with legacy encounters. */
     lootText?: string;
+    /**
+     * Phase 1B item loot drops. Each entry is an `ItemDef.id` reference plus a
+     * drop chance in range [0..1]. Rolled by `EncounterBuilder.applyResult()`
+     * on victory — results surfaced on `CombatResult.lootedItems`.
+     */
+    loot?: Array<{ itemDefId: string; chance: number }>;
   };
   relationshipImpact?: {
     winDelta: RelationshipDelta;
@@ -353,6 +400,12 @@ export interface CombatResult extends RawCombatResult {
   appliedDelta: RelationshipDelta;
   xpGained: number;
   goldGained: number;
+  /** Phase 1B — true when the player crossed an XP threshold this encounter. */
+  leveledUp?: boolean;
+  /** Phase 1B — player level AFTER this encounter (only set when leveledUp). */
+  newLevel?: number;
+  /** Phase 1B — ItemDef ids rolled from `EncounterDef.rewards.loot`. */
+  lootedItems?: string[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
