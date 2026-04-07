@@ -2013,12 +2013,7 @@ export class GameScene extends Phaser.Scene {
     } else if (!this.gameOver) {
       await this.finishPlayerTurn();
     }
-
-    this.updateHud();
-    if (!this.gameOver && this.currentTurn === "player") {
-      this.busy = false;
-      this.startHintTimer();
-    }
+    // busy + startHintTimer управляются внутри finishPlayerTurn (через resolveBoard или напрямую)
   }
 
   private tickSkillCooldowns() {
