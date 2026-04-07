@@ -94,7 +94,7 @@ src/v2/
 
 - **Phase 0 (Foundation)** ✅ completed — инфраструктура: bundle splitting, version flag, SaveManager skeleton, lazy v2 entry, HubScene stub, SettingsPanel toggle, conventions.
 - **Phase 1A (Lilana vertical slice)** ✅ completed (apr 2026) — Лилана с тремя актами диалогов, бой с 8 железными цепями, RelationshipSystem с тремя осями, EncounterBuilder, ChainOverlay, full end-to-end loop через все 6 сцен. Все 13 задач завершены, все code reviews approved. v1 chunk 132.30 kB (≤135 kB budget), v2 chunk 52.98 kB.
-- **Phase 1B (extended slice)** — не начата. Планируется: Сафира арка с rematch, equipment slots + InventoryScene, UI polish, smooth RelationshipMeter interpolation, perks-disable flag для v2 boss fights.
+- **Phase 1B (Progression, Gallery, Bug Fixes)** ✅ completed (apr 2026) — ProgressionSystem с XP-таблицей на 11 уровней и автоматическим level-up stat growth (+20 hp / +10 mp / +1 phys / +1 mag), InventorySystem + ItemDatabase из 6 предметов в 3 слотах, PlayerStatsScene с XP-баром и менеджментом снаряжения, CharacterGalleryScene с модальным окном персонажа, реорганизованный HubScene с 4 кнопками, post-arc gate в DialogueRunner, fix для hammer turn (v1 bug). Все 10 задач завершены, все code reviews approved. v1 chunk 132.77 kB (≤135 kB budget), v2 chunk 73.74 kB (≤80 kB budget).
 - **Phase 2+** — не начаты. См. план `~/.claude/plans/iridescent-riding-pudding.md`.
 
 ---

@@ -217,4 +217,90 @@
  *     Example: src/ui/ChainOverlay.ts (Phase 1A Task #8)
  *     See REFINEMENT 3 in `.claude/teams/feature-v2-lilana/DECISIONS.md` for the
  *     "neutral location, no v2 boundary cross" rationale.
+ *
+ * 12. MODAL OVERLAY: backdrop closes, panel absorbs (RISK-6)
+ *
+ *     The canonical pattern for tappable modal overlays in v2 scenes uses TWO
+ *     separate interactive objects: a fullscreen backdrop that closes the modal
+ *     on `pointerdown`, and a panel above it that registers an empty `pointerdown`
+ *     handler so taps on the panel are absorbed instead of bubbling through.
+ *
+ *     Phaser delivers each pointer event to the topmost interactive object at
+ *     the pointer position. By making the panel interactive (even with a no-op
+ *     handler), pointerdowns landing inside the panel rect never reach the
+ *     backdrop's close handler. Pointerdowns outside the panel hit the backdrop
+ *     and close the modal as expected.
+ *
+ *       // Backdrop — full screen, closes modal on tap
+ *       const backdrop = this.add
+ *         .rectangle(0, 0, camW, camH, MODAL_BG_COLOR, MODAL_BG_ALPHA)
+ *         .setOrigin(0)
+ *         .setInteractive({ useHandCursor: false });
+ *       backdrop.on("pointerdown", () => this.closeModal());
+ *       layer.add(backdrop);
+ *
+ *       // Panel — drawn ABOVE the backdrop, absorbs pointerdown so it does
+ *       // NOT bubble down to the backdrop close handler.
+ *       const panel = this.add
+ *         .rectangle(cx, cy, panelWidth, panelHeight, MODAL_PANEL_COLOR, MODAL_PANEL_ALPHA)
+ *         .setStrokeStyle(MODAL_PANEL_STROKE_WIDTH * d, MODAL_PANEL_STROKE)
+ *         .setInteractive({ useHandCursor: false });
+ *       panel.on("pointerdown", () => {}); // intentional no-op — absorbs
+ *       layer.add(panel);
+ *
+ *     The close button (or any other interactive control inside the panel) is
+ *     just another interactive object stacked above the panel. Order is:
+ *     backdrop → panel → content → close button. All four sit inside one
+ *     `modalLayer` Container so `closeModal()` is a single `destroy()` call.
+ *
+ *     ANTI-PATTERN: do NOT try to use `setActive(false)` on the backdrop while
+ *     the panel is open, or stop event propagation manually. Phaser's input
+ *     system already does the right thing if you stack interactive objects.
+ *
+ *     Example: src/v2/scenes/CharacterGalleryScene.ts → openModal()
+ *
+ * 13. RE-RENDER VIA TEAR-DOWN CONTAINER (Phase 1B default)
+ *
+ *     For v2 scenes that need to re-render after a state mutation (equip an
+ *     item, level up, change a flag), the simple-default pattern is to keep
+ *     a single managed `rootLayer` Container and rebuild it from scratch on
+ *     each refresh. The immutable background + title are drawn ONCE in
+ *     `create()`; everything that depends on save state lives inside the
+ *     teardown layer.
+ *
+ *       private rootLayer?: Phaser.GameObjects.Container;
+ *
+ *       create() {
+ *         // Immutable scaffolding — background, title, back button
+ *         this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
+ *         this.add.text(cx, titleY, "Статистика", titleStyle).setOrigin(0.5);
+ *         this.createBackButton(cx, backY, () => sceneRouter.pop(this));
+ *         this.refresh();
+ *       }
+ *
+ *       private refresh(): void {
+ *         if (this.rootLayer) {
+ *           this.rootLayer.destroy();
+ *           this.rootLayer = undefined;
+ *         }
+ *         const layer = this.add.container(0, 0);
+ *         this.rootLayer = layer;
+ *         // Re-render every state-driven section into `layer`
+ *         this.renderAvatarAndLevel(layer, ...);
+ *         this.renderXpBar(layer, ...);
+ *         // ...
+ *       }
+ *
+ *     When to use it:
+ *     - Mutations are infrequent (taps on equipment slots, post-combat refresh)
+ *     - Per-mutation diff would be more complex than a full rebuild
+ *     - The scene has a clear "data → UI" projection with no animation state
+ *       that must survive the rebuild
+ *
+ *     When NOT to use it:
+ *     - Continuous animations (use targeted setValue/setText updates)
+ *     - 60fps re-renders (too much GC pressure)
+ *     - Scenes with persistent UI state (drag offsets, scroll position)
+ *
+ *     Example: src/v2/scenes/PlayerStatsScene.ts → refresh()
  */
