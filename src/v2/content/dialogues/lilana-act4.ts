@@ -153,7 +153,7 @@ export const lilanaAct4: DialogueGraph = {
           ],
         },
       ],
-      next: "end",
+      next: "end_victory",
     },
     epilogue_defeat: {
       type: "line",
@@ -165,12 +165,16 @@ export const lilanaAct4: DialogueGraph = {
           text: "Ты не готов. Уходи, пока я ещё помню, что когда-то была милосердна. И не возвращайся, пока не научишься выдерживать чужой огонь.",
         },
       ],
-      next: "end",
+      next: "end_defeat",
     },
-    end: {
+    end_victory: {
       type: "end",
-      id: "end",
+      id: "end_victory",
       effects: [{ type: "setFlag", key: "lilana:act4:done", value: true }],
+    },
+    end_defeat: {
+      type: "end",
+      id: "end_defeat",
     },
   },
 };

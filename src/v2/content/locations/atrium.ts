@@ -8,6 +8,7 @@
  * Hotspot Лиланы использует декларативный массив `dialogues` с приоритетами
  * (REFINEMENT 4): LocationScene фильтрует по `condition`, сортирует по
  * `priority` desc и берёт первый матч. Это даёт цепочку:
+ *   `lilana:act4:done` → Postarc (priority 5)
  *   `lilana:act2:done` → Act 4 (priority 4)
  *   `lilana:act1:done` → Act 2 (priority 2)
  *   default            → Act 1 (priority 1)
@@ -29,6 +30,11 @@ export const atrium: LocationDef = {
       characterId: "lilana",
       position: { x: 0.35, y: 0.55 },
       dialogues: [
+        {
+          dialogueId: "lilana-postarc",
+          condition: { flag: "lilana:act4:done", flagEquals: true },
+          priority: 5,
+        },
         {
           dialogueId: "lilana-act4",
           condition: { flag: "lilana:act2:done", flagEquals: true },
