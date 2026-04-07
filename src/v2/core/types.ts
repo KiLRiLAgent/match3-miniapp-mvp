@@ -23,6 +23,20 @@ export interface PlayerStats {
   crit: number;
 }
 
+/**
+ * Fully-materialized player stats after applying equipment bonuses on top of
+ * `SaveData.player.stats`. All fields required (unlike `ItemStats` which is
+ * partial). Computed by InventorySystem/ProgressionSystem on demand — NEVER
+ * stored in SaveData.
+ */
+export interface EffectivePlayerStats {
+  hp: number;
+  mp: number;
+  physAttack: number;
+  magAttack: number;
+  crit: number;
+}
+
 export interface PlayerSave {
   id: string;
   name: string;

@@ -14,8 +14,12 @@
  */
 
 import { gameState } from "../core/GameState";
-import type { ItemStats, PlayerStats, SaveData } from "../core/types";
-import type { EffectivePlayerStats } from "../content/types";
+import type {
+  EffectivePlayerStats,
+  ItemStats,
+  PlayerStats,
+  SaveData,
+} from "../core/types";
 
 /**
  * Cumulative XP required to reach each level.
