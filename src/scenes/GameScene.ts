@@ -1974,6 +1974,7 @@ export class GameScene extends Phaser.Scene {
   private async removeWithHammer(pos: Position) {
     const positions = this.getHammerPositions(pos);
 
+    this.busy = true;
     this.sfx(ASSET_KEYS.sfx.gemTap);
 
     // Remove all tiles in pattern
@@ -2008,11 +2009,16 @@ export class GameScene extends Phaser.Scene {
     // Проверить каскадные матчи
     const matches = this.board.findMatches();
     if (matches.length > 0) {
-      await this.resolveBoard(matches, [], false, "player");
+      await this.resolveBoard(matches, [], true, "player");
+    } else if (!this.gameOver) {
+      await this.finishPlayerTurn();
     }
 
     this.updateHud();
-    this.startHintTimer();
+    if (!this.gameOver && this.currentTurn === "player") {
+      this.busy = false;
+      this.startHintTimer();
+    }
   }
 
   private tickSkillCooldowns() {
