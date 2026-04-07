@@ -26,7 +26,6 @@ import { encounterBuilder } from "../systems/EncounterBuilder";
 import { ENCOUNTERS } from "../content/encounters";
 import type {
   CombatContext,
-  CombatResult,
   EncounterDef,
   GameSceneInitData,
   RawCombatResult,
@@ -116,20 +115,16 @@ export class CombatBridgeScene extends Phaser.Scene {
     // RISK-2 caveat 3: defer router push via delayedCall(0) to ensure wake is processed
     // before the next ops (Phaser scene queue runs on next update tick).
     this.time.delayedCall(0, () => {
-      const appliedDelta = encounterBuilder.applyResult(raw, encounterDef);
+      // RISK-5: applyResult is now the SOLE enrichment path — it returns a
+      // fully-populated CombatResult (XP, gold, level-up, loot). No further
+      // spreading here — passthrough only.
+      const enriched = encounterBuilder.applyResult(raw, encounterDef);
 
       // MITIGATION-3 / RISK-9: explicit flush bypasses 2-second autosave debounce.
       // beforeunload is unreliable on mobile Telegram WebView (iOS WKWebView doesn't
       // fire on swipe-away). Without this, force-quit immediately after victory would
       // lose XP/gold/relationship rewards.
       gameState.flush();
-
-      const enriched: CombatResult = {
-        ...raw,
-        appliedDelta,
-        xpGained: raw.victory ? encounterDef.rewards.xp : 0,
-        goldGained: raw.victory ? encounterDef.rewards.gold : 0,
-      };
 
       sceneRouter.replace(this, "PostCombatScene", {
         result: enriched,

@@ -21,9 +21,12 @@
 
 import { gameState } from "../core/GameState";
 import { relationshipSystem } from "./RelationshipSystem";
+import { progressionSystem } from "./ProgressionSystem";
+import { inventorySystem } from "./InventorySystem";
 import { getBossLayerHpArray } from "../../game/config";
 import type {
   CombatContext,
+  CombatResult,
   EncounterDef,
   PlayerCombatStats,
   RawCombatResult,
@@ -108,15 +111,32 @@ class EncounterBuilder {
   }
 
   /**
-   * Apply combat result to SaveData. SOLE point of combat reward mutation.
-   * Called from CombatBridgeScene.handleCombatComplete after GameScene emits
-   * RawCombatResult. Returns the relationship delta that was applied (for
-   * caller to enrich into CombatResult).
+   * Apply combat result to SaveData and return the fully-enriched CombatResult.
+   *
+   * SOLE point of combat reward mutation. Called from
+   * CombatBridgeScene.handleCombatComplete after GameScene emits
+   * RawCombatResult. Handles all victory-side effects in a deterministic
+   * order so consumers never see partial state:
+   *
+   *   1. Relationship delta + decision log entry (if impact defined)
+   *   2. Gold / combatsWon / completedEncounters (single gameState.patch)
+   *   3. XP gain via progressionSystem.applyXpGain — handles multi-level
+   *      overflow atomically in its own patch. RISK-2: this is the ONLY
+   *      place combat XP is applied — the legacy `save.player.xp +=` line
+   *      was removed in Phase 1B.
+   *   4. Loot roll from rewards.loot — first entry whose random check
+   *      passes wins (per Phase 1B spec). Uses inventorySystem.add which
+   *      returns null on full backpack → item silently dropped, caller
+   *      informed via lootedItems array.
+   *
+   * Returns a complete CombatResult so CombatBridgeScene can pass it
+   * through to PostCombatScene without further spreading (RISK-5: single
+   * enrichment path).
    *
    * MITIGATION-3: caller MUST call `gameState.flush()` immediately after
    * this returns to bypass the 2-second autosave debounce on mobile WebView.
    */
-  applyResult(raw: RawCombatResult, encounterDef: EncounterDef): RelationshipDelta {
+  applyResult(raw: RawCombatResult, encounterDef: EncounterDef): CombatResult {
     const delta: RelationshipDelta = encounterDef.relationshipImpact
       ? raw.victory
         ? { ...encounterDef.relationshipImpact.winDelta }
@@ -136,22 +156,63 @@ class EncounterBuilder {
       );
     }
 
+    let xpGained = 0;
+    let goldGained = 0;
+    let leveledUp = false;
+    let newLevel = gameState.get().player.level;
+    const lootedItems: string[] = [];
+
     if (raw.victory) {
+      // Non-XP victory bookkeeping in one atomic patch.
       gameState.patch((save) => {
-        save.player.xp += encounterDef.rewards.xp;
         save.inventory.gold += encounterDef.rewards.gold;
         save.stats.combatsWon += 1;
         if (!save.story.completedEncounters.includes(encounterDef.id)) {
           save.story.completedEncounters.push(encounterDef.id);
         }
       });
+      goldGained = encounterDef.rewards.gold;
+
+      // XP gain via ProgressionSystem — sole combat-XP entry point.
+      const xpResult = progressionSystem.applyXpGain(encounterDef.rewards.xp);
+      xpGained = encounterDef.rewards.xp;
+      leveledUp = xpResult.leveledUp;
+      newLevel = xpResult.newLevel;
+
+      // Loot roll — first entry whose chance passes wins (spec). Failed
+      // inventorySystem.add (backpack full, unknown def) drops the item.
+      const lootTable = encounterDef.rewards.loot;
+      if (lootTable && lootTable.length > 0) {
+        for (const entry of lootTable) {
+          if (Math.random() < entry.chance) {
+            const instance = inventorySystem.add(entry.itemDefId);
+            if (instance) {
+              lootedItems.push(entry.itemDefId);
+            }
+            break;
+          }
+        }
+      }
     } else {
       gameState.patch((save) => {
         save.stats.combatsLost += 1;
       });
     }
 
-    return delta;
+    const result: CombatResult = {
+      ...raw,
+      appliedDelta: delta,
+      xpGained,
+      goldGained,
+    };
+    if (leveledUp) {
+      result.leveledUp = true;
+      result.newLevel = newLevel;
+    }
+    if (lootedItems.length > 0) {
+      result.lootedItems = lootedItems;
+    }
+    return result;
   }
 }
 

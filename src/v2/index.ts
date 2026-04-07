@@ -17,6 +17,8 @@ import { LocationScene } from "./scenes/LocationScene";
 import { DialogueScene } from "./scenes/DialogueScene";
 import { CombatBridgeScene } from "./scenes/CombatBridgeScene";
 import { PostCombatScene } from "./scenes/PostCombatScene";
+import { progressionSystem } from "./systems/ProgressionSystem";
+import { inventorySystem } from "./systems/InventorySystem";
 
 /**
  * Register all v2 scenes into the game. Called from BootScene AFTER
@@ -46,4 +48,11 @@ export function registerV2Scenes(game: Phaser.Game): void {
       game.scene.add(key, scene, false);
     }
   }
+
+  // Wire the ProgressionSystem ↔ InventorySystem edge once at v2 boot, before
+  // any scene calls computeEffectiveStats(). Idempotent — re-registration on
+  // subsequent registerV2Scenes calls overwrites with the same closure.
+  progressionSystem.setInventoryProvider(() =>
+    inventorySystem.computeAggregateStats(),
+  );
 }

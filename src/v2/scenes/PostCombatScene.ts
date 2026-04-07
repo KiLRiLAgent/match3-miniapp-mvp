@@ -18,6 +18,7 @@ import { sceneRouter } from "../core/SceneRouter";
 import { relationshipSystem } from "../systems/RelationshipSystem";
 import { ENCOUNTERS } from "../content/encounters";
 import { CHARACTERS } from "../content/characters";
+import { ITEMS } from "../content/items";
 import { RelationshipMeter } from "../ui/RelationshipMeter";
 import type { CharacterDef, CombatContext, CombatResult, EncounterDef } from "../content/types";
 
@@ -26,11 +27,15 @@ const TITLE_COLOR_VICTORY = "#4caf50";
 const TITLE_COLOR_DEFEAT = "#c83e3e";
 const SUBTITLE_COLOR = "#b8a8d0";
 const STAT_COLOR = "#ffffff";
+const LEVEL_UP_COLOR = "#ffd54a";
+const LOOT_COLOR = "#b8e994";
 const STAT_FONT_SIZE = 18;
+const LEVEL_UP_FONT_SIZE = 32;
 const TITLE_FONT_SIZE = 48;
 const SUBTITLE_FONT_SIZE = 20;
 const TITLE_STROKE_COLOR = "#000000";
 const TITLE_STROKE_WIDTH = 5;
+const LEVEL_UP_STROKE_WIDTH = 4;
 const FONT = "'Exo 2', Arial, sans-serif";
 
 const BTN_BG = 0x4a2d6e;
@@ -128,7 +133,17 @@ export class PostCombatScene extends Phaser.Scene {
       y += STAT_LINE_HEIGHT * d;
       this.addStat(cx, y, `+ ${result.goldGained} осколков`);
       y += STAT_LINE_HEIGHT * d;
-      if (encounter.rewards.lootText) {
+      if (result.leveledUp && result.newLevel !== undefined) {
+        this.addLevelUp(cx, y, `Уровень ${result.newLevel}!`);
+        y += LEVEL_UP_FONT_SIZE * d + 6 * d;
+      }
+      if (result.lootedItems && result.lootedItems.length > 0) {
+        for (const itemId of result.lootedItems) {
+          const itemName = ITEMS[itemId]?.name ?? itemId;
+          this.addLoot(cx, y, `Получен предмет: ${itemName}`);
+          y += STAT_LINE_HEIGHT * d;
+        }
+      } else if (encounter.rewards.lootText) {
         this.addStat(cx, y, encounter.rewards.lootText);
         y += STAT_LINE_HEIGHT * d;
       }
@@ -173,6 +188,30 @@ export class PostCombatScene extends Phaser.Scene {
         fontSize: `${STAT_FONT_SIZE * DPR}px`,
         color: STAT_COLOR,
         fontFamily: FONT,
+      })
+      .setOrigin(0.5);
+  }
+
+  private addLevelUp(x: number, y: number, text: string) {
+    this.add
+      .text(x, y, text, {
+        fontSize: `${LEVEL_UP_FONT_SIZE * DPR}px`,
+        color: LEVEL_UP_COLOR,
+        fontFamily: FONT,
+        fontStyle: "bold",
+        stroke: TITLE_STROKE_COLOR,
+        strokeThickness: LEVEL_UP_STROKE_WIDTH * DPR,
+      })
+      .setOrigin(0.5);
+  }
+
+  private addLoot(x: number, y: number, text: string) {
+    this.add
+      .text(x, y, text, {
+        fontSize: `${STAT_FONT_SIZE * DPR}px`,
+        color: LOOT_COLOR,
+        fontFamily: FONT,
+        fontStyle: "bold",
       })
       .setOrigin(0.5);
   }

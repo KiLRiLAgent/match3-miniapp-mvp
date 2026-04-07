@@ -42,7 +42,12 @@ export const lilanaAct4Encounter: EncounterDef = {
   rewards: {
     xp: 150,
     gold: 50,
-    lootText: "Перо Лиланы (placeholder, Phase 1B introduces real items)",
+    lootText: "Серебряный кинжал, деревянный клинок или мантия",
+    loot: [
+      { itemDefId: "silver_dagger", chance: 0.3 },
+      { itemDefId: "wooden_blade", chance: 0.5 },
+      { itemDefId: "student_robes", chance: 0.7 },
+    ],
   },
   relationshipImpact: {
     winDelta: { empathy: 10, dominance: 5 },
