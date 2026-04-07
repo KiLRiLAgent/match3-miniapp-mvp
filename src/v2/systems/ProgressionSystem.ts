@@ -90,6 +90,19 @@ class ProgressionSystem {
   }
 
   /**
+   * Cumulative XP that was required to enter the player's current level.
+   * Returns `0` for level 1 (entry threshold is zero). Used by UI bars to
+   * compute progress *within* the current level: `player.xp - getLevelEntryXp()`
+   * is the XP earned since the last level-up.
+   */
+  getLevelEntryXp(): number {
+    const level = gameState.get().player.level;
+    if (level <= 1) return 0;
+    // XP_TABLE[level-1] is the threshold the player crossed to reach `level`.
+    return XP_TABLE[level - 1];
+  }
+
+  /**
    * Grant XP and process any level-ups that result. Handles multi-level
    * overflow: a large XP award can jump the player from level 1 to level 3
    * in a single call, applying stat growth per level gained.

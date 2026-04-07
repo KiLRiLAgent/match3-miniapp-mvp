@@ -1,15 +1,23 @@
 /**
  * HubScene — главный экран v2 «Университет Падших».
  *
- * Phase 1A: полноценная реализация поверх Phase 0 stub. Греет SaveData,
- * показывает приветствие игроку и две основные кнопки:
- *   1. «К карте кампуса» → StoryMapScene
- *   2. «← Вернуться в v1 (Арена)» → setActiveMode("v1") + reload
+ * Phase 1B: расширен до 4 кнопок навигации:
+ *   1. «🗺 Карта» → StoryMapScene (кампус, существующая локация)
+ *   2. «👤 Персонаж» → PlayerStatsScene (статы, уровень, экипировка)
+ *   3. «📖 Галерея» → CharacterGalleryScene (встреченные души)
+ *   4. «← Назад в v1» → setActiveMode("v1") + reload
  *
- * Layout правила (унаследованы из Phase 0 fix 20b70c4):
+ * Приветствие расширено уровнем: "Добро пожаловать, {name}! Уровень {level}".
+ *
+ * Layout правила (non-zoomed v2 scene):
  * — Использовать `this.cameras.main.width / height`, НЕ `GAME_WIDTH/HEIGHT`.
- * — DPR-множитель только на font sizes / offsets / strokes, не на координаты.
+ * — Множить координаты/размеры/fontSize/stroke на DPR.
  * — Bottom-anchored controls респектят `SAFE_AREA.bottom`.
+ *
+ * RISK-7: `progressionSystem.getCurrentLevel()` вызывается ТОЛЬКО внутри
+ * `create()` ПОСЛЕ `gameState.ensureLoaded()` — никогда на module level и
+ * никогда в конструкторе. ProgressionSystem читает save через GameState,
+ * поэтому preload-порядок обязателен.
  *
  * v2-isolation: импорты только из `src/v2/*` + `src/game/config` (DPR/SAFE_AREA)
  * + `src/game/version` (setActiveMode). НИКАКИХ импортов из `src/scenes/*`,
@@ -21,6 +29,7 @@ import { DPR, SAFE_AREA } from "../../game/config";
 import { setActiveMode } from "../../game/version";
 import { gameState } from "../core/GameState";
 import { sceneRouter } from "../core/SceneRouter";
+import { progressionSystem } from "../systems/ProgressionSystem";
 
 const BG_COLOR = 0x1a0f2e;
 const TITLE_COLOR = "#e6c068";
@@ -40,8 +49,9 @@ const SECONDARY_STROKE = 0x9f7fc7;
 const SECONDARY_TEXT = "#b8a8d0";
 const SECONDARY_TEXT_HOVER = "#e6c068";
 
-const PRIMARY_BUTTON_WIDTH = 320;
-const PRIMARY_BUTTON_HEIGHT = 72;
+const PRIMARY_BUTTON_WIDTH = 300;
+const PRIMARY_BUTTON_HEIGHT = 64;
+const PRIMARY_BUTTON_GAP = 18;
 const SECONDARY_BUTTON_WIDTH = 260;
 const SECONDARY_BUTTON_HEIGHT = 52;
 
@@ -74,13 +84,18 @@ export class HubScene extends Phaser.Scene {
     const cx = camW / 2;
     const d = DPR;
 
+    // RISK-7: ensureLoaded() must run BEFORE progressionSystem.getCurrentLevel().
+    // ProgressionSystem reads `gameState.get().player.level`, and `.get()`
+    // throws if SaveManager has not been loaded. Keep these two lines adjacent
+    // and never hoist the getCurrentLevel() call above ensureLoaded().
     const save = gameState.ensureLoaded();
+    const level = progressionSystem.getCurrentLevel();
 
     this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
 
     this.add
-      .text(cx, 110 * d + SAFE_AREA.top * d, "Университет Падших", {
-        fontSize: `${36 * d}px`,
+      .text(cx, 90 * d + SAFE_AREA.top * d, "Университет Падших", {
+        fontSize: `${34 * d}px`,
         color: TITLE_COLOR,
         fontFamily: FONT,
         fontStyle: "bold",
@@ -90,7 +105,7 @@ export class HubScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(cx, 158 * d + SAFE_AREA.top * d, "v2 · β", {
+      .text(cx, 134 * d + SAFE_AREA.top * d, "v2 · β", {
         fontSize: `${16 * d}px`,
         color: SUBTITLE_COLOR,
         fontFamily: FONT,
@@ -99,20 +114,36 @@ export class HubScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(cx, 220 * d + SAFE_AREA.top * d, `Добро пожаловать, ${save.player.name}`, {
-        fontSize: `${22 * d}px`,
-        color: GREETING_COLOR,
-        fontFamily: FONT,
-      })
+      .text(
+        cx,
+        184 * d + SAFE_AREA.top * d,
+        `Добро пожаловать, ${save.player.name}! Уровень ${level}`,
+        {
+          fontSize: `${20 * d}px`,
+          color: GREETING_COLOR,
+          fontFamily: FONT,
+        },
+      )
       .setOrigin(0.5);
 
-    const primaryY = camH * 0.55;
-    this.createPrimaryButton(cx, primaryY, "К карте кампуса", () => {
+    // Primary buttons stacked vertically, centered between greeting and
+    // bottom-anchored "back to v1" button. Step = height + gap.
+    const buttonStep = (PRIMARY_BUTTON_HEIGHT + PRIMARY_BUTTON_GAP) * d;
+    const stackCenterY = camH * 0.55;
+    const firstY = stackCenterY - buttonStep;
+
+    this.createPrimaryButton(cx, firstY, "🗺 Карта", () => {
       sceneRouter.push(this, "StoryMapScene");
+    });
+    this.createPrimaryButton(cx, firstY + buttonStep, "👤 Персонаж", () => {
+      sceneRouter.push(this, "PlayerStatsScene");
+    });
+    this.createPrimaryButton(cx, firstY + buttonStep * 2, "📖 Галерея", () => {
+      sceneRouter.push(this, "CharacterGalleryScene");
     });
 
     const secondaryY = camH - 80 * d - SAFE_AREA.bottom * d;
-    this.createSecondaryButton(cx, secondaryY, "← Вернуться в v1 (Арена)", () => {
+    this.createSecondaryButton(cx, secondaryY, "← Назад в v1", () => {
       setActiveMode("v1");
       window.location.reload();
     });

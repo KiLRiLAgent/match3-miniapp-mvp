@@ -18,6 +18,7 @@ import { DialogueScene } from "./scenes/DialogueScene";
 import { CombatBridgeScene } from "./scenes/CombatBridgeScene";
 import { PostCombatScene } from "./scenes/PostCombatScene";
 import { PlayerStatsScene } from "./scenes/PlayerStatsScene";
+import { CharacterGalleryScene } from "./scenes/CharacterGalleryScene";
 import { progressionSystem } from "./systems/ProgressionSystem";
 import { inventorySystem } from "./systems/InventorySystem";
 
@@ -31,9 +32,8 @@ import { inventorySystem } from "./systems/InventorySystem";
  * → Dialogue (acts) → CombatBridge (assemble + launch GameScene) → PostCombat
  * (display result + return to dialogue epilogue node).
  *
- * Phase 1B adds PlayerStatsScene (self-registered here per task #7).
- * CharacterGalleryScene registration is handled in task #9 (HubScene
- * reorganize) along with the navigation button wiring.
+ * Phase 1B adds PlayerStatsScene (task #7) and CharacterGalleryScene
+ * (task #8, wired by task #9 alongside the HubScene 4-button reorganize).
  *
  * `false` second arg = don't auto-start; BootScene explicitly invokes
  * `scene.start("HubScene")` after registration.
@@ -47,6 +47,7 @@ export function registerV2Scenes(game: Phaser.Game): void {
     { key: "CombatBridgeScene", scene: CombatBridgeScene },
     { key: "PostCombatScene", scene: PostCombatScene },
     { key: "PlayerStatsScene", scene: PlayerStatsScene },
+    { key: "CharacterGalleryScene", scene: CharacterGalleryScene },
   ];
 
   for (const { key, scene } of scenes) {

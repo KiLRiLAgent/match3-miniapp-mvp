@@ -32,6 +32,10 @@
  * Container and rebuilds it. Keeps diffs simple and avoids hand-rolled
  * child-update tracking. The `create()` hook draws the immutable
  * background + title, then delegates the rest to `refresh()`.
+ *
+ * TODO Phase 2: add a scroll/clipping container for the backpack section once
+ * players regularly carry > 4 items. Phase 1B inventories are tiny so the
+ * single-page layout is fine for now.
  */
 
 import Phaser from "phaser";
@@ -291,14 +295,18 @@ export class PlayerStatsScene extends Phaser.Scene {
     barBg.setStrokeStyle(1 * d, XP_BAR_STROKE, 0.8);
     layer.add(barBg);
 
-    // Fill ratio. If xpToNext == 0 and level >= MAX, we're at cap — show full.
-    // Otherwise derive ratio from player.xp and total required (xp + xpToNext).
+    // Fill ratio measures progress *within the current level*, not against
+    // the absolute zero baseline. We get level-entry XP from ProgressionSystem
+    // (cumulative XP that was required to reach the current level) and divide
+    // earned-this-level by the level span. At MAX level we show a full bar.
     let fillRatio = 1;
     let label = "МАКС";
     if (xpToNext > 0) {
-      const required = player.xp + xpToNext;
-      fillRatio = required > 0 ? Math.max(0, Math.min(1, player.xp / required)) : 0;
-      label = `${player.xp} / ${required} XP до ${level + 1} уровня`;
+      const levelEntryXp = progressionSystem.getLevelEntryXp();
+      const levelProgress = Math.max(0, player.xp - levelEntryXp);
+      const levelSpan = levelProgress + xpToNext;
+      fillRatio = levelSpan > 0 ? Math.max(0, Math.min(1, levelProgress / levelSpan)) : 0;
+      label = `${levelProgress} / ${levelSpan} XP до ${level + 1} уровня`;
     }
 
     if (fillRatio > 0) {
@@ -564,11 +572,14 @@ export class PlayerStatsScene extends Phaser.Scene {
   /**
    * Backpack row tap: equip into the matching slot. If the slot is already
    * taken, the existing item is auto-replaced by `equip()` (InventorySystem
-   * overwrites on re-assignment).
+   * overwrites on re-assignment). No-op if the tapped item is already in its
+   * slot — avoids a redundant rebuild.
    */
   private handleBackpackTap(instance: ItemInstance): void {
     const def = ITEMS[instance.itemDefId];
     if (!def) return;
+    const currentlyEquipped = inventorySystem.getEquipped(def.slot);
+    if (currentlyEquipped?.id === instance.id) return;
     if (inventorySystem.equip(def.slot, instance.id)) {
       this.refresh();
     }
