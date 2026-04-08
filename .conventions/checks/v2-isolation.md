@@ -124,3 +124,33 @@ v1 механики.
 5. В DevTools Network tab: должен быть загружен `phaser-*.js` +
    `index-*.js`, но **не** v2 chunk (пока переключение не сделано).
 6. Если любой из этих пунктов нарушен — v2 ломает v1, немедленный revert.
+
+## EventBus shared event types (Phase 1C)
+
+`src/v2/core/EventBus.ts` declares a single `V2Events` interface that is the
+**shared contract** between SaveManager, DialogueRunner, scenes, and the Toast
+wiring. When adding a new event type:
+
+1. Add the entry to `V2Events` in `EventBus.ts` first. Emitters and
+   subscribers across `src/v2/systems/`, `src/v2/scenes/`, and
+   `src/v2/index.ts` rely on the typed keys — if two coders extend the
+   interface in parallel, they MUST serialize through one commit that locks
+   the final shape (DECISIONS §2 — first-claimer rule).
+2. Use kebab-case `source` discriminators inside payloads
+   (`"dialogue-effect"`, `"missing-encounter"`) so the Toast wiring can switch
+   on a stable string set without touching the event name itself.
+3. Never introduce a second event bus. The single singleton is wired once at
+   boot via `wireToastSubscriptions(game)` in `src/v2/index.ts` — per-scene
+   subscriptions duplicate on Vite HMR.
+
+Current Phase 1C events (see `EventBus.ts` for the exact shape):
+
+| Event         | Emitter                                       | Consumer                 |
+|---------------|-----------------------------------------------|--------------------------|
+| `saveError`   | SaveManager.save catch block                  | Toast wiring → red toast |
+| `contentError`| DialogueRunner.applyEffects, CombatBridgeScene| Toast wiring → amber toast|
+| `assetError`  | LocationScene texture load failure            | Console only (LocationScene shows its own toast in-place)|
+
+Adding an event without adding a corresponding `wireToastSubscriptions`
+handler is a valid choice — for telemetry-only signals, `console.warn` is
+enough. Don't toast everything.
