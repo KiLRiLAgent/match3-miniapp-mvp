@@ -24,6 +24,7 @@ import { sceneRouter } from "../core/SceneRouter";
 import { gameState } from "../core/GameState";
 import { eventBus } from "../core/EventBus";
 import { encounterBuilder } from "../systems/EncounterBuilder";
+import { arenaEncounterGenerator } from "../systems/ArenaEncounterGenerator";
 import { ENCOUNTERS } from "../content/encounters";
 import type {
   CombatContext,
@@ -77,10 +78,19 @@ export class CombatBridgeScene extends Phaser.Scene {
   }
 
   create() {
-    const encounterDef = ENCOUNTERS[this.encounterId];
+    // Phase 2A R3: fallback chain — `ENCOUNTERS[id]` first, then synthetic
+    // `arenaEncounterGenerator.generate(id)` for `arena_floor_*` ids, then
+    // `handleMissingEncounter()` for everything else. The generator returns
+    // `null` for non-arena ids so the chain falls through naturally.
+    let encounterDef: EncounterDef | undefined = ENCOUNTERS[this.encounterId];
     if (!encounterDef) {
-      this.handleMissingEncounter();
-      return;
+      const generated = arenaEncounterGenerator.generate(this.encounterId);
+      if (generated) {
+        encounterDef = generated;
+      } else {
+        this.handleMissingEncounter();
+        return;
+      }
     }
 
     // CLOSURE CAPTURE — encounterDef and context live in the callback closure
