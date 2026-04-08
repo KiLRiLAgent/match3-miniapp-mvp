@@ -29,6 +29,8 @@ import { DPR, SAFE_AREA } from "../../game/config";
 import { sceneRouter } from "../core/SceneRouter";
 import { eventBus } from "../core/EventBus";
 import { relationshipSystem } from "../systems/RelationshipSystem";
+import { arenaEncounterGenerator } from "../systems/ArenaEncounterGenerator";
+import { arenaSystem } from "../systems/ArenaSystem";
 import { ENCOUNTERS } from "../content/encounters";
 import { CHARACTERS } from "../content/characters";
 import { DIALOGUES } from "../content/dialogues";
@@ -110,6 +112,9 @@ interface PostCombatData {
 
 export class PostCombatScene extends Phaser.Scene {
   private sceneData!: PostCombatData;
+  // Phase 2A: prevent double-tap on Continue (FE-V10) — arena routing path
+  // calls arenaSystem.advanceFloor which is NOT idempotent.
+  private continueClicked = false;
 
   constructor() {
     super("PostCombatScene");
@@ -117,6 +122,7 @@ export class PostCombatScene extends Phaser.Scene {
 
   init(data: PostCombatData) {
     this.sceneData = data;
+    this.continueClicked = false;
   }
 
   create() {
@@ -135,6 +141,13 @@ export class PostCombatScene extends Phaser.Scene {
         type: "error",
         durationMs: TOAST_DURATION_MS,
       });
+    }
+
+    // Phase 2A: arena fights have synthetic enemies with no real relationship
+    // state — render the fallback summary path (no relationship meter).
+    if (arenaEncounterGenerator.isArenaEncounter(result.encounterId)) {
+      this.renderFallback();
+      return;
     }
 
     const encounter = ENCOUNTERS[result.encounterId];
@@ -305,7 +318,37 @@ export class PostCombatScene extends Phaser.Scene {
   }
 
   private handleContinue() {
-    const targetNode = this.sceneData.result.victory
+    // Phase 2A FE-V10: first-click guard — arenaSystem.advanceFloor is not
+    // idempotent, double-tap would double-accumulate rewards.
+    if (this.continueClicked) return;
+    this.continueClicked = true;
+
+    const result = this.sceneData.result;
+
+    // Phase 2A: arena fights route back to ArenaRunScene / ArenaScene via
+    // arenaSystem state transitions. Detected by encounterId pattern, no new
+    // PostCombatData fields needed.
+    if (arenaEncounterGenerator.isArenaEncounter(result.encounterId)) {
+      if (result.victory) {
+        arenaSystem.advanceFloor({
+          xp: result.xpGained,
+          gold: result.goldGained,
+          items: result.lootedItems ?? [],
+        });
+        // advanceFloor returns null when boss floor cleared (run finalized).
+        if (arenaSystem.getActiveRun()) {
+          sceneRouter.replace(this, "ArenaRewardScene");
+        } else {
+          sceneRouter.replace(this, "ArenaScene", { runJustCompleted: true });
+        }
+      } else {
+        arenaSystem.abortRun();
+        sceneRouter.replace(this, "ArenaScene", { runJustFailed: true });
+      }
+      return;
+    }
+
+    const targetNode = result.victory
       ? this.sceneData.onVictoryNode
       : this.sceneData.onDefeatNode;
     // Phase 1C: defensive — if the dialogue is missing (content was edited
