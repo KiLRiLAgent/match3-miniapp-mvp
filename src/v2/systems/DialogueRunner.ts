@@ -22,6 +22,7 @@
  */
 
 import { gameState } from "../core/GameState";
+import { eventBus } from "../core/EventBus";
 import { relationshipSystem } from "./RelationshipSystem";
 import type {
   ConditionExpr,
@@ -247,9 +248,27 @@ export class DialogueRunner {
 
   // ─── private helpers ───────────────────────────────────────────────────
 
+  /**
+   * Phase 1C R1: per-effect try-catch. Failed effects log + emit contentError;
+   * loop continues (partial-apply is documented Phase 1C behaviour).
+   * R15: uses this.graph.id / this.currentNodeId — no dialogueId field.
+   */
   private applyEffects(effects: EffectExpr[]): void {
     for (const effect of effects) {
-      this.applySingleEffect(effect);
+      try {
+        this.applySingleEffect(effect);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(
+          `DialogueRunner: effect '${effect.type}' failed in dialogue '${this.graph.id}' node '${this.currentNodeId}': ${message}`,
+        );
+        eventBus.emit("contentError", {
+          source: "dialogue-effect",
+          dialogueId: this.graph.id,
+          nodeId: this.currentNodeId,
+          detail: `${effect.type}: ${message}`,
+        });
+      }
     }
   }
 

@@ -29,6 +29,7 @@ import { DPR, SAFE_AREA } from "../../game/config";
 import { SpeechBubble } from "../../ui/SpeechBubble";
 import { CHARACTERS } from "../content/characters";
 import { DIALOGUES } from "../content/dialogues";
+import { eventBus } from "../core/EventBus";
 import { gameState } from "../core/GameState";
 import { sceneRouter } from "../core/SceneRouter";
 import { DialogueRunner } from "../systems/DialogueRunner";
@@ -320,6 +321,13 @@ export class DialogueScene extends Phaser.Scene {
       console.warn(
         `DialogueScene: choice node "${node.id}" has zero available choices`,
       );
+      eventBus.emit("contentError", {
+        source: "dialogue-empty-choices",
+        dialogueId: this.dialogueId,
+        nodeId: node.id,
+        detail: "all choices gated by conditions that evaluate to false",
+      });
+      this.renderEmptyChoicesFallback(camW, camH);
       return;
     }
 
@@ -445,5 +453,31 @@ export class DialogueScene extends Phaser.Scene {
       button.destroy();
     }
     this.choiceButtons = [];
+  }
+
+  /**
+   * Phase 1C C1 / R2: fallback when getAvailableChoices() is empty. Uses
+   * setRoot+scene.start (NOT replace) to fully reset the stack.
+   */
+  private renderEmptyChoicesFallback(camW: number, camH: number): void {
+    const d = DPR;
+    this.add
+      .text(camW / 2, camH * 0.55, "Нет доступных вариантов в этой ветке", {
+        fontSize: `${14 * d}px`,
+        color: "#9f7fc7",
+        fontFamily: FONT,
+        fontStyle: "italic",
+      })
+      .setOrigin(0.5);
+    const button = new DialogueChoiceButton(this, camW / 2, camH * 0.65, {
+      width: camW * 0.7,
+      height: 56 * d,
+      text: "← Вернуться в Hub",
+      onClick: () => {
+        sceneRouter.setRoot("HubScene");
+        this.scene.start("HubScene");
+      },
+    });
+    this.choiceButtons.push(button);
   }
 }

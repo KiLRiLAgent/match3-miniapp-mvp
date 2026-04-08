@@ -21,6 +21,18 @@ const RELATIONSHIP_MAX = 100;
 /** Hard cap on `RelationshipState.decisionLog` length to keep SaveData small. */
 const DECISION_LOG_LIMIT = 50;
 
+/**
+ * Maximum age of a `decisionLog` entry, in milliseconds. Entries older than
+ * this are dropped on the next `logDecision` call. Combined with the count
+ * cap, this keeps SaveData bounded across long-lived saves where the player
+ * may interact with one character occasionally over many real-world days.
+ *
+ * 30 days. Known limitation per DECISIONS Open Risks: device clock skew is
+ * NOT defended against — manual clock rollback or NTP drift can resurrect
+ * trimmed entries or wipe valid history. Accepted edge case for Phase 1C.
+ */
+const DECISION_LOG_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
 /** Three relationship axes — used by `hasReached` for gating checks. */
 export type RelationshipAxis = "empathy" | "dominance" | "cynicism";
 
@@ -108,10 +120,16 @@ class RelationshipSystem {
   }
 
   /**
-   * Append a decision log entry for AI prompt context (Phase 3). Capped at
-   * DECISION_LOG_LIMIT entries — older entries are dropped via `slice(-N)`
-   * so SaveData size stays bounded across long playthroughs. No-op if the
-   * character record does not yet exist (caller should `applyDelta` first).
+   * Append a decision log entry for AI prompt context (Phase 3). Trimmed by
+   * BOTH age (entries older than `DECISION_LOG_MAX_AGE_MS`) and count
+   * (`DECISION_LOG_LIMIT` cap) so SaveData stays bounded across long
+   * playthroughs. No-op if the character record does not yet exist (caller
+   * should `applyDelta` first).
+   *
+   * Order matters: age-trim runs BEFORE the new push so the freshly-appended
+   * entry is never eligible for age-eviction in the same call. Count-trim
+   * runs AFTER the push so the new entry is preserved when the cap kicks in
+   * — `slice(-N)` keeps the tail.
    */
   logDecision(
     characterId: string,
@@ -123,10 +141,21 @@ class RelationshipSystem {
     gameState.patch((save) => {
       const rel = save.relationships[characterId];
       if (!rel) return;
-      rel.decisionLog.push({ ts: Date.now(), kind, ref, summary, delta });
-      if (rel.decisionLog.length > DECISION_LOG_LIMIT) {
-        rel.decisionLog = rel.decisionLog.slice(-DECISION_LOG_LIMIT);
-      }
+
+      // Defensive: existing relationship records from saves predating
+      // decisionLog may not have the field — fall back to a fresh array.
+      const existingLog = rel.decisionLog ?? [];
+
+      const now = Date.now();
+      const minTs = now - DECISION_LOG_MAX_AGE_MS;
+      const ageTrimmed = existingLog.filter((entry) => entry.ts >= minTs);
+
+      ageTrimmed.push({ ts: now, kind, ref, summary, delta });
+
+      rel.decisionLog =
+        ageTrimmed.length > DECISION_LOG_LIMIT
+          ? ageTrimmed.slice(-DECISION_LOG_LIMIT)
+          : ageTrimmed;
     });
   }
 }
