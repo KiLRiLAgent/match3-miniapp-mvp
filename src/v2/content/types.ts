@@ -221,8 +221,13 @@ export interface EffectExpr {
 /** Equipment slot for an item — matches `InventorySave.equipped` keys. */
 export type ItemSlot = "weapon" | "armor" | "accessory";
 
-/** Rarity tier — drives UI color and drop weighting. */
-export type ItemRarity = "common" | "rare" | "epic";
+/**
+ * Rarity tier — drives UI color, drop weighting, and shop pricing.
+ * Phase 2A: extended with `"legendary"` (R6). Legendary items ALWAYS contain a
+ * `crit` stat field per DECISIONS.md. Existing Phase 1B items (common/rare)
+ * are untouched.
+ */
+export type ItemRarity = "common" | "rare" | "epic" | "legendary";
 
 /**
  * Authored item definition — pure data, lives in `ItemDatabase` (Phase 1B).
@@ -239,6 +244,48 @@ export interface ItemDef {
   baseStats: Partial<ItemStats>;
   /** Optional sprite/icon asset key — falls back to placeholder if missing. */
   iconKey?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Arena buffs (Phase 2A) — run-only modifiers picked between fights.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Buff effect type — enumerates HOW a buff modifies player state during an
+ * arena run. Phase 2A scope is intentionally narrow: the first five effect
+ * types (`addPhysAttack`, `addMagAttack`, `addMaxHp`, `addMaxMp`, `addCrit`)
+ * are applied via `BuffSystem.applyToStats()` hook in `EncounterBuilder.build`
+ * and have full runtime support. The remainder are content-only definitions
+ * shipped for Phase 2B follow-up — `BuffSystem` may stub or partially handle
+ * them (e.g. `extraReward` is a simple counter check in ArenaRewardScene).
+ */
+export type BuffEffectType =
+  | "addPhysAttack"
+  | "addMagAttack"
+  | "addMaxHp"
+  | "addMaxMp"
+  | "addCrit"
+  | "addMpRegen"
+  | "damageReduction"
+  | "physPerFightSurvived"
+  | "extraReward"
+  | "reviveOnDeath";
+
+/**
+ * Authored buff definition — pure data, lives in `BUFFS` registry. `value`
+ * is the magnitude (units depend on `effectType`: integer stat for stat-adds,
+ * percent for `damageReduction` / `addCrit`). `rarity` here is the BUFF rarity
+ * (drives reward-scene weighting), distinct from `ItemRarity`.
+ */
+export interface BuffDef {
+  id: string;
+  name: string;
+  description: string;
+  effectType: BuffEffectType;
+  value: number;
+  rarity: "common" | "rare" | "epic";
+  /** When true, multiple instances stack (e.g. `physPerFightSurvived`). */
+  stackable?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
