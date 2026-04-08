@@ -9,13 +9,34 @@
  */
 
 export interface V2Events {
-  // Phase 0 — no events yet. Examples for future phases:
-  // "combat:complete": { encounterId: string; victory: boolean };
-  // "dialogue:choice": { dialogueId: string; choiceId: string };
-  // "inventory:changed": { slot: "weapon" | "armor" | "accessory" };
-  // "relationship:changed": { characterId: string };
-  // Placeholder so the type is non-empty until first real event is added:
+  // Phase 0 placeholder — kept for future "v2 fully booted" signal
   "v2:ready": void;
+
+  // Phase 1C — Save/data errors (SaveManager → Toast subscriber)
+  saveError: {
+    reason: "quota" | "unknown";
+    error: string;
+  };
+
+  // Phase 1C — Content authoring errors (validator, dialogue effects, missing entities)
+  contentError: {
+    source:
+      | "dialogue-effect"
+      | "dialogue-empty-choices"
+      | "post-combat"
+      | "validator"
+      | "missing-encounter";
+    dialogueId?: string;
+    nodeId?: string;
+    detail: string;
+  };
+
+  // Phase 1C — Asset load failures
+  assetError: {
+    source: "location-background" | "character-portrait" | "scene-background";
+    assetKey: string;
+    detail: string;
+  };
 }
 
 type EventName = keyof V2Events;
