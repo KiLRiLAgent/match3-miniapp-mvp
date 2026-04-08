@@ -63,6 +63,11 @@ class ArenaSystem {
   }): ArenaRunState | null {
     const run = gameState.get().arena.activeRun;
     if (!run) return null;
+    // Snapshot the pre-patch floor explicitly. Defensive: today the patch
+    // below only mutates accumulatedRewards, but the snapshot insulates the
+    // boss-floor decision from any future patch additions that might touch
+    // floor (B4 nitpick on review #5).
+    const currentFloor = run.floor;
 
     // Accumulate rewards from the fight we just won. Single patch keeps
     // persistence atomic — one write per advance.
@@ -75,7 +80,7 @@ class ArenaSystem {
     });
 
     // Boss floor cleared → run complete.
-    if (run.floor >= BOSS_FLOOR) {
+    if (currentFloor >= BOSS_FLOOR) {
       this.completeRun();
       return null;
     }
@@ -110,6 +115,11 @@ class ArenaSystem {
     for (const itemDefId of run.accumulatedRewards.items) {
       inventorySystem.add(itemDefId);
     }
+    // Force-persist all reward mutations atomically. Bypasses the autosave
+    // debounce so a Telegram WebView background suspend / scene re-mount
+    // cannot lose accumulated XP / gold / loot mid-flush (M5 mandate, mirrors
+    // CombatBridgeScene MITIGATION-3 pattern).
+    gameState.flush();
   }
 
   /**
@@ -134,6 +144,10 @@ class ArenaSystem {
     for (const itemDefId of run.accumulatedRewards.items) {
       inventorySystem.add(itemDefId);
     }
+    // Same M5 force-persist as completeRun — defeat is the most likely
+    // moment for the player to background the app, so the flush window
+    // matters most here.
+    gameState.flush();
   }
 
   /**
