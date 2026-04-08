@@ -47,7 +47,7 @@ import { sceneRouter } from "../core/SceneRouter";
 import { progressionSystem } from "../systems/ProgressionSystem";
 import { inventorySystem } from "../systems/InventorySystem";
 import { ITEMS } from "../content/items";
-import type { ItemSlot } from "../content/types";
+import type { ItemRarity, ItemSlot } from "../content/types";
 import type { ItemInstance } from "../core/types";
 
 // Palette — mirrors HubScene / CharacterGalleryScene "dark purple" theme.
@@ -60,6 +60,19 @@ const VALUE_COLOR = "#f4e4c1";
 const BONUS_COLOR = "#4caf50";
 const EMPTY_SLOT_COLOR = "#8a7ab0";
 const FONT = "'Exo 2', Arial, sans-serif";
+
+/**
+ * Phase 2A — rarity colour coding for equipment + backpack rows. Applied
+ * to the value text (equipped slot) and item name (backpack row). Empty slots
+ * keep `EMPTY_SLOT_COLOR`. Order matches Phase 1B → Phase 2A introduction:
+ * common → rare → epic → legendary (DECISIONS R6).
+ */
+const RARITY_COLOR_BY_TIER: Record<ItemRarity, string> = {
+  common: "#9f8a7a",
+  rare: "#5b8fe6",
+  epic: "#a070d8",
+  legendary: "#e6c068",
+};
 
 // Avatar placeholder.
 const AVATAR_RADIUS = 36;
@@ -443,11 +456,16 @@ export class PlayerStatsScene extends Phaser.Scene {
     layer.add(bg);
 
     const equipped = inventorySystem.getEquipped(slot);
+    const equippedDef = equipped ? ITEMS[equipped.itemDefId] : undefined;
     const slotLabel = SLOT_LABELS[slot];
     const valueText = equipped
-      ? ITEMS[equipped.itemDefId]?.name ?? equipped.itemDefId
+      ? equippedDef?.name ?? equipped.itemDefId
       : "пусто";
-    const valueColor = equipped ? VALUE_COLOR : EMPTY_SLOT_COLOR;
+    // Phase 2A: rarity colour for equipped item, EMPTY_SLOT_COLOR otherwise.
+    // Falls back to common colour if a stale itemDefId points at a missing def.
+    const valueColor = equipped
+      ? RARITY_COLOR_BY_TIER[equippedDef?.rarity ?? "common"]
+      : EMPTY_SLOT_COLOR;
 
     const labelText = this.add
       .text(rowCx - width / 2 + 14 * d, rowCy, slotLabel, {
@@ -614,10 +632,12 @@ export class PlayerStatsScene extends Phaser.Scene {
     layer.add(bg);
 
     const isEquipped = equippedIds.has(instance.id);
+    // Phase 2A: backpack item name uses the def's rarity colour.
+    const nameColor = RARITY_COLOR_BY_TIER[def.rarity];
     const nameText = this.add
       .text(rowCx - width / 2 + 14 * d, rowCy, def.name, {
         fontSize: `${14 * d}px`,
-        color: VALUE_COLOR,
+        color: nameColor,
         fontFamily: FONT,
         fontStyle: "bold",
       })
