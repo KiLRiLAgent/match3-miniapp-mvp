@@ -148,7 +148,26 @@ export class ItemCardModal {
       .rectangle(0, 0, camW, camH, BACKDROP_COLOR, BACKDROP_ALPHA)
       .setOrigin(0)
       .setInteractive({ useHandCursor: false });
-    backdrop.on("pointerdown", () => this.close());
+    // BUG-2 fix (event propagation race): stopPropagation halts the
+    // Phaser dispatch cascade at GAMEOBJECT_POINTER_DOWN (step 1) so the
+    // scene-global POINTER_DOWN (step 3) never fires. Without this,
+    // scene-level pointerdown handlers in the HOST scene would still
+    // receive the tap AFTER close() has already torn down state — they
+    // would see `isOpen() = false`, skip their modal-open bail, and
+    // record a stale dragStart from the backdrop tap. See tech-lead
+    // Task #2 review round 2 for the full trace.
+    backdrop.on(
+      "pointerdown",
+      (
+        _p: Phaser.Input.Pointer,
+        _x: number,
+        _y: number,
+        event: Phaser.Types.Input.EventData,
+      ) => {
+        event.stopPropagation();
+        this.close();
+      },
+    );
     layer.add(backdrop);
 
     const panelWidth = camW * PANEL_WIDTH_RATIO;
@@ -165,45 +184,57 @@ export class ItemCardModal {
     let y = cy - maxPanelHeight / 2 + PADDING_TOP * d;
     const panelTopY = y - PADDING_TOP * d;
 
+    // Local text factory — one shared implementation for all ~10 text
+    // objects in this modal. Smaller bundle than 10 inline style object
+    // literals. Every caller composes a partial style object that
+    // extends the shared defaults (FONT family, BODY_COLOR). Origin is
+    // `(0.5, 0)` by default; explicit overrides via the `originX` arg.
+    const mkText = (
+      x: number,
+      ty: number,
+      str: string,
+      style: Partial<Phaser.Types.GameObjects.Text.TextStyle>,
+      originX = 0.5,
+      originY = 0,
+    ): Phaser.GameObjects.Text => {
+      const t = scene.add
+        .text(x, ty, str, {
+          fontFamily: FONT,
+          color: BODY_COLOR,
+          ...style,
+        })
+        .setOrigin(originX, originY);
+      contentLayer.add(t);
+      return t;
+    };
+
     // Title — item name in rarity color.
     const rarityColor = RARITY_COLOR_BY_TIER[opts.item.rarity];
-    const titleText = scene.add
-      .text(cx, y, opts.item.name, {
-        fontSize: `${20 * d}px`,
-        color: rarityColor,
-        fontFamily: FONT,
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 3 * d,
-        align: "center",
-        wordWrap: { width: innerWidth },
-      })
-      .setOrigin(0.5, 0);
-    contentLayer.add(titleText);
+    const titleText = mkText(cx, y, opts.item.name, {
+      fontSize: `${20 * d}px`,
+      color: rarityColor,
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 3 * d,
+      align: "center",
+      wordWrap: { width: innerWidth },
+    });
     y += titleText.height + TITLE_GAP * d;
 
     // Slot + rarity subtitle.
     const subtitle = `${SLOT_LABELS[opts.item.slot]} • ${RARITY_LABEL[opts.item.rarity]}`;
-    const subtitleText = scene.add
-      .text(cx, y, subtitle, {
-        fontSize: `${14 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "italic",
-      })
-      .setOrigin(0.5, 0);
-    contentLayer.add(subtitleText);
+    const subtitleText = mkText(cx, y, subtitle, {
+      fontSize: `${14 * d}px`,
+      color: SUBTITLE_COLOR,
+      fontStyle: "italic",
+    });
     y += subtitleText.height + SUBTITLE_GAP * d;
 
     // ── Статы ── section.
-    const statsHeader = scene.add
-      .text(cx, y, "── Статы ──", {
-        fontSize: `${14 * d}px`,
-        color: SECTION_HEADER_COLOR,
-        fontFamily: FONT,
-      })
-      .setOrigin(0.5, 0);
-    contentLayer.add(statsHeader);
+    const statsHeader = mkText(cx, y, "── Статы ──", {
+      fontSize: `${14 * d}px`,
+      color: SECTION_HEADER_COLOR,
+    });
     y += statsHeader.height + STATS_HEADER_GAP * d;
 
     // Stat rows — single pass over `buildUnifiedStatView` which merges the
@@ -215,71 +246,51 @@ export class ItemCardModal {
     // A row with `delta` undefined is the non-comparison path (viewing an
     // equipped item's own stats, no comparisonBase provided).
     const unifiedRows = buildUnifiedStatView(opts.item, opts.comparisonBase);
+    const rowStyle: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {
+      fontSize: `${14 * d}px`,
+    };
+    const valueStyle: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {
+      fontSize: `${14 * d}px`,
+      color: rarityColor,
+      fontStyle: "bold",
+    };
 
     if (unifiedRows.length === 0) {
-      const emptyStatsText = scene.add
-        .text(cx, y, "нет статов", {
-          fontSize: `${13 * d}px`,
-          color: BODY_COLOR,
-          fontFamily: FONT,
-          fontStyle: "italic",
-        })
-        .setOrigin(0.5, 0);
-      contentLayer.add(emptyStatsText);
+      const emptyStatsText = mkText(cx, y, "нет статов", {
+        fontSize: `${13 * d}px`,
+        fontStyle: "italic",
+      });
       y += emptyStatsText.height + 8 * d;
     } else {
       const labelX = cx - innerWidth / 2 + 8 * d;
       const valueX = cx + innerWidth / 2 - 8 * d;
       for (const row of unifiedRows) {
-        const labelText = scene.add
-          .text(labelX, y, row.label, {
-            fontSize: `${14 * d}px`,
-            color: BODY_COLOR,
-            fontFamily: FONT,
-          })
-          .setOrigin(0, 0);
-        contentLayer.add(labelText);
+        mkText(labelX, y, row.label, rowStyle, 0);
 
         if (row.delta !== undefined) {
           // Render delta FIRST at valueX (right edge) so we know its width,
           // then right-align the value text to `valueX - deltaWidth - gap`.
           const deltaStr = `(${row.delta >= 0 ? "+" : ""}${row.delta})`;
-          const deltaText = scene.add
-            .text(valueX, y, deltaStr, {
+          const deltaText = mkText(
+            valueX,
+            y,
+            deltaStr,
+            {
               fontSize: `${13 * d}px`,
-              color:
-                row.delta >= 0 ? POSITIVE_DELTA_COLOR : NEGATIVE_DELTA_COLOR,
-              fontFamily: FONT,
+              color: row.delta >= 0 ? POSITIVE_DELTA_COLOR : NEGATIVE_DELTA_COLOR,
               fontStyle: "bold",
-            })
-            .setOrigin(1, 0);
-          contentLayer.add(deltaText);
+            },
+            1,
+          );
 
           // Only render the value column when the candidate still carries
           // this stat. For lost stats (value === 0) the red delta alone
           // conveys the loss — no misleading "+0" printed.
           if (row.value > 0) {
-            const valueText = scene.add
-              .text(valueX - deltaText.width - 6 * d, y, `+${row.value}`, {
-                fontSize: `${14 * d}px`,
-                color: rarityColor,
-                fontFamily: FONT,
-                fontStyle: "bold",
-              })
-              .setOrigin(1, 0);
-            contentLayer.add(valueText);
+            mkText(valueX - deltaText.width - 6 * d, y, `+${row.value}`, valueStyle, 1);
           }
         } else {
-          // Non-comparison path — value only, in rarity color.
-          const valueText = scene.add
-            .text(valueX, y, `+${row.value}`, {
-              fontSize: `${14 * d}px`,
-              color: rarityColor,
-              fontFamily: FONT,
-              fontStyle: "bold",
-            })
-            .setOrigin(1, 0);
-          contentLayer.add(valueText);
+          mkText(valueX, y, `+${row.value}`, valueStyle, 1);
         }
 
         y += STAT_ROW_GAP * d;
@@ -289,27 +300,18 @@ export class ItemCardModal {
     y += STATS_TO_DESCRIPTION_GAP * d;
 
     // ── Описание ── section.
-    const descriptionHeader = scene.add
-      .text(cx, y, "── Описание ──", {
-        fontSize: `${14 * d}px`,
-        color: SECTION_HEADER_COLOR,
-        fontFamily: FONT,
-      })
-      .setOrigin(0.5, 0);
-    contentLayer.add(descriptionHeader);
+    const descriptionHeader = mkText(cx, y, "── Описание ──", {
+      fontSize: `${14 * d}px`,
+      color: SECTION_HEADER_COLOR,
+    });
     y += descriptionHeader.height + DESCRIPTION_HEADER_GAP * d;
 
-    const descriptionText = scene.add
-      .text(cx, y, opts.item.description, {
-        fontSize: `${13 * d}px`,
-        color: BODY_COLOR,
-        fontFamily: FONT,
-        fontStyle: "italic",
-        wordWrap: { width: innerWidth },
-        align: "center",
-      })
-      .setOrigin(0.5, 0);
-    contentLayer.add(descriptionText);
+    const descriptionText = mkText(cx, y, opts.item.description, {
+      fontSize: `${13 * d}px`,
+      fontStyle: "italic",
+      wordWrap: { width: innerWidth },
+      align: "center",
+    });
     y += descriptionText.height + DESCRIPTION_GAP * d;
 
     // Close button position (bottom of content).
@@ -330,7 +332,22 @@ export class ItemCardModal {
       .rectangle(cx, panelFinalCenterY, panelWidth, panelHeight, PANEL_COLOR, PANEL_ALPHA)
       .setStrokeStyle(PANEL_STROKE_WIDTH * d, PANEL_STROKE_COLOR)
       .setInteractive({ useHandCursor: false });
-    panel.on("pointerdown", () => {}); // intentional no-op — absorbs taps
+    // Absorbs taps that land on the panel area (prevents the backdrop
+    // below from receiving them). BUG-2 fix: ALSO stopPropagation so the
+    // scene-global POINTER_DOWN cascade is halted — otherwise host-scene
+    // pointerdown handlers would fire for panel-area taps even though the
+    // panel "absorbed" them at the GameObject event layer.
+    panel.on(
+      "pointerdown",
+      (
+        _p: Phaser.Input.Pointer,
+        _x: number,
+        _y: number,
+        event: Phaser.Types.Input.EventData,
+      ) => {
+        event.stopPropagation();
+      },
+    );
     // Insert panel BETWEEN backdrop and content so content renders on top.
     layer.addAt(panel, 1);
 
@@ -430,7 +447,22 @@ export class ItemCardModal {
       bg.setFillStyle(CLOSE_BG, 0.95);
       text.setColor(CLOSE_TEXT);
     });
-    bg.on("pointerdown", () => this.close());
+    // BUG-2 fix (event propagation race): same rationale as backdrop and
+    // panel handlers. Without stopPropagation, tapping "Закрыть" fires
+    // the close() path, then cascades to the scene-global POINTER_DOWN
+    // which records a spurious dragStart after the modal is gone.
+    bg.on(
+      "pointerdown",
+      (
+        _p: Phaser.Input.Pointer,
+        _x: number,
+        _y: number,
+        event: Phaser.Types.Input.EventData,
+      ) => {
+        event.stopPropagation();
+        this.close();
+      },
+    );
 
     return { bg, text };
   }

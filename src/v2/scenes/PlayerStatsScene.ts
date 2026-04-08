@@ -47,7 +47,13 @@ import { sceneRouter } from "../core/SceneRouter";
 import { progressionSystem } from "../systems/ProgressionSystem";
 import { inventorySystem } from "../systems/InventorySystem";
 import { ITEMS } from "../content/items";
-import type { ItemRarity, ItemSlot } from "../content/types";
+import { itemCardModal } from "../ui/ItemCardModal";
+import {
+  RARITY_COLOR_BY_TIER,
+  SLOT_LABELS,
+  buildStatsSummary,
+} from "../ui/itemFormat";
+import type { ItemDef, ItemSlot } from "../content/types";
 import type { ItemInstance } from "../core/types";
 
 // Palette — mirrors HubScene / CharacterGalleryScene "dark purple" theme.
@@ -60,19 +66,6 @@ const VALUE_COLOR = "#f4e4c1";
 const BONUS_COLOR = "#4caf50";
 const EMPTY_SLOT_COLOR = "#8a7ab0";
 const FONT = "'Exo 2', Arial, sans-serif";
-
-/**
- * Phase 2A — rarity colour coding for equipment + backpack rows. Applied
- * to the value text (equipped slot) and item name (backpack row). Empty slots
- * keep `EMPTY_SLOT_COLOR`. Order matches Phase 1B → Phase 2A introduction:
- * common → rare → epic → legendary (DECISIONS R6).
- */
-const RARITY_COLOR_BY_TIER: Record<ItemRarity, string> = {
-  common: "#9f8a7a",
-  rare: "#5b8fe6",
-  epic: "#a070d8",
-  legendary: "#e6c068",
-};
 
 // Avatar placeholder.
 const AVATAR_RADIUS = 36;
@@ -90,9 +83,22 @@ const XP_BAR_HEIGHT = 14;
 const ROW_BG = 0x231436;
 const ROW_BG_HOVER = 0x33224c;
 const ROW_STROKE = 0x4a2d6e;
-const ROW_WIDTH = 320;
+/**
+ * Phase 2B widened from 320 → 360 to make room for the inline stats summary
+ * column + info icon on equipment and backpack rows. Item-info-display feature.
+ */
+const ROW_WIDTH = 360;
 const ROW_HEIGHT = 40;
 const ROW_GAP = 8;
+
+// Phase 2B — info icon layout (logical units, × DPR at render time).
+const INFO_ICON_RADIUS = 10;
+const INFO_ICON_PADDING_RIGHT = 8;
+const INFO_ICON_BG = 0x2a1845;
+const INFO_ICON_STROKE = 0xe6c068;
+const INFO_ICON_TEXT_COLOR = "#e6c068";
+const STATS_SUMMARY_COLOR = "#d4b8e8";
+const STATS_SUMMARY_FONT_SIZE = 12;
 
 // Back button.
 const BACK_BG = 0x2a1845;
@@ -112,11 +118,6 @@ const CONTENT_TOP_Y = 160;
 const SCROLL_DRAG_THRESHOLD = 6;
 
 const SLOT_ORDER: readonly ItemSlot[] = ["weapon", "armor", "accessory"];
-const SLOT_LABELS: Record<ItemSlot, string> = {
-  weapon: "Оружие",
-  armor: "Броня",
-  accessory: "Аксессуар",
-};
 
 interface AggregatedStats {
   hp: number;
@@ -179,26 +180,84 @@ export class PlayerStatsScene extends Phaser.Scene {
 
     this.setupScroll();
     this.refresh();
+
+    // Scene-level safety net: if the user pops this scene while the info
+    // modal is open, close it so the layer cannot leak into a subsequent
+    // scene. Task #1 EDIT 7 also installs a modal-level SHUTDOWN handler
+    // as layered defense — `.once()` on both sides means whichever fires
+    // first is a no-op for the other.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      if (itemCardModal.isOpen()) itemCardModal.close();
+    });
   }
 
   /**
    * Install scene-wide pointer drag handlers for vertical scroll of
    * `rootLayer`. Uses a movement threshold so short taps on backpack/slot
    * rows still fire their own `pointerdown` handlers cleanly.
+   *
+   * `dragStartRecorded` gates pointermove against gestures where
+   * pointerdown was halted by `event.stopPropagation()` on a modal-internal
+   * interactive GameObject (backdrop, panel, close button). Without this
+   * guard, a backdrop tap-and-slide that closes the modal would leave
+   * `dragStartY = 0` (initial closure value) — the subsequent pointermove
+   * in the same gesture would compute `delta = p.y - 0 = p.y` (a large
+   * absolute screen Y), cross the SCROLL_DRAG_THRESHOLD, and set
+   * `scrollDraggedThisGesture = true` stale, suppressing the next info
+   * icon tap (first-tap-ignored UX regression). Pointer events do NOT
+   * cancel across event types — stopPropagation on pointerdown does not
+   * stop subsequent pointermove events for the same gesture, so we need
+   * an explicit gate here. `dragStartRecorded` is also reset on pointerup
+   * so a finger-lift between gestures invalidates the record even if the
+   * next pointerdown is itself stopPropagation'd.
    */
   private setupScroll(): void {
     let dragStartY = 0;
     let dragStartScrollY = 0;
     let dragging = false;
+    // BUG-2 hardening (see JSDoc above for full rationale): set in the
+    // scene-level pointerdown handler after the modal-open bail; cleared
+    // on pointerup. Gates pointermove against gestures whose pointerdown
+    // was stopPropagation'd by modal-internal handlers.
+    let dragStartRecorded = false;
 
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      // EDIT 10 (RISK-3 mitigation) — reset scrollDraggedThisGesture FIRST,
+      // UNCONDITIONALLY, before the modal bail. This ensures the flag is
+      // always fresh at the start of a new gesture, even if the prior
+      // gesture was suppressed by a modal-open state. Without this, a stale
+      // `true` from BEFORE the modal opened would persist and suppress the
+      // first post-close tap on the info icon.
+      this.scrollDraggedThisGesture = false;
+
+      // EDIT 4 — do not start a drag while the info modal is open. The
+      // modal's backdrop is the topmost interactive element and absorbs
+      // pointerdown via BUG-2 fix stopPropagation anyway, but this guard
+      // prevents the drag-start state from being primed for the subsequent
+      // pointermove stream.
+      if (itemCardModal.isOpen()) return;
+
       dragStartY = p.y;
       dragStartScrollY = this.scrollY;
       dragging = false;
-      this.scrollDraggedThisGesture = false;
+      dragStartRecorded = true;
+    });
+
+    this.input.on("pointerup", () => {
+      dragStartRecorded = false;
     });
 
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
+      // EDIT 4 — do not scroll the background scene underneath an open
+      // modal. Without this bail, dragging over the modal backdrop would
+      // still feed delta into `rootLayer.setY`, visually confusing and
+      // leaving `scrollDraggedThisGesture` in a stale state after close.
+      if (itemCardModal.isOpen()) return;
+      // BUG-2 hardening: ignore pointermove for gestures whose scene-level
+      // pointerdown was cancelled by stopPropagation (backdrop / close
+      // button / panel close paths). Covers the tap-and-slide-to-close
+      // edge case where pointermove fires on an unprimed drag state.
+      if (!dragStartRecorded) return;
       if (!p.isDown || !this.rootLayer) return;
       const delta = p.y - dragStartY;
       if (!dragging && Math.abs(delta) < SCROLL_DRAG_THRESHOLD) return;
@@ -498,15 +557,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const equipped = inventorySystem.getEquipped(slot);
     const equippedDef = equipped ? ITEMS[equipped.itemDefId] : undefined;
     const slotLabel = SLOT_LABELS[slot];
-    const valueText = equipped
-      ? equippedDef?.name ?? equipped.itemDefId
-      : "пусто";
-    // Phase 2A: rarity colour for equipped item, EMPTY_SLOT_COLOR otherwise.
-    // Falls back to common colour if a stale itemDefId points at a missing def.
-    const valueColor = equipped
-      ? RARITY_COLOR_BY_TIER[equippedDef?.rarity ?? "common"]
-      : EMPTY_SLOT_COLOR;
 
+    // Left-aligned slot label (e.g. "Оружие").
     const labelText = this.add
       .text(rowCx - width / 2 + 14 * d, rowCy, slotLabel, {
         fontSize: `${14 * d}px`,
@@ -516,15 +568,53 @@ export class PlayerStatsScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
     layer.add(labelText);
 
-    const value = this.add
-      .text(rowCx + width / 2 - 14 * d, rowCy, valueText, {
-        fontSize: `${14 * d}px`,
-        color: valueColor,
-        fontFamily: FONT,
-        fontStyle: equipped ? "bold" : "italic",
-      })
-      .setOrigin(1, 0.5);
-    layer.add(value);
+    if (!equipped || !equippedDef) {
+      // Empty-slot path: right-aligned "пусто" placeholder, no stats, no icon.
+      const emptyText = this.add
+        .text(rowCx + width / 2 - 14 * d, rowCy, "пусто", {
+          fontSize: `${14 * d}px`,
+          color: EMPTY_SLOT_COLOR,
+          fontFamily: FONT,
+          fontStyle: "italic",
+        })
+        .setOrigin(1, 0.5);
+      layer.add(emptyText);
+    } else {
+      // Occupied slot: name (center-left, rarity colour) + stats summary
+      // (right of name, smaller font) + info icon on the far right.
+      const nameColor = RARITY_COLOR_BY_TIER[equippedDef.rarity];
+      const nameX = rowCx - width / 2 + 86 * d;
+      const nameText = this.add
+        .text(nameX, rowCy, equippedDef.name, {
+          fontSize: `${14 * d}px`,
+          color: nameColor,
+          fontFamily: FONT,
+          fontStyle: "bold",
+        })
+        .setOrigin(0, 0.5);
+      layer.add(nameText);
+
+      const summary = buildStatsSummary(equippedDef);
+      if (summary.length > 0) {
+        const summaryX =
+          rowCx + width / 2 - (INFO_ICON_RADIUS * 2 + INFO_ICON_PADDING_RIGHT * 2) * d;
+        const summaryText = this.add
+          .text(summaryX, rowCy, summary, {
+            fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
+            color: STATS_SUMMARY_COLOR,
+            fontFamily: FONT,
+          })
+          .setOrigin(1, 0.5);
+        layer.add(summaryText);
+      }
+
+      const iconX =
+        rowCx + width / 2 - (INFO_ICON_PADDING_RIGHT + INFO_ICON_RADIUS) * d;
+      // Equipment row info icon — no comparison base (already equipped).
+      this.createInfoIcon(layer, iconX, rowCy, () =>
+        this.openItemInfoModal(equippedDef),
+      );
+    }
 
     bg.on("pointerover", () => bg.setFillStyle(ROW_BG_HOVER, 1));
     bg.on("pointerout", () => bg.setFillStyle(ROW_BG, 0.95));
@@ -609,8 +699,11 @@ export class PlayerStatsScene extends Phaser.Scene {
 
     const suffix = isEquipped ? "надето" : SLOT_LABELS[def.slot];
     const suffixColor = isEquipped ? BONUS_COLOR : SUBTITLE_COLOR;
+    // Suffix sits just left of the info icon, right-aligned.
+    const suffixX =
+      rowCx + width / 2 - (INFO_ICON_RADIUS * 2 + INFO_ICON_PADDING_RIGHT * 2) * d;
     const suffixText = this.add
-      .text(rowCx + width / 2 - 14 * d, rowCy, suffix, {
+      .text(suffixX, rowCy, suffix, {
         fontSize: `${12 * d}px`,
         color: suffixColor,
         fontFamily: FONT,
@@ -618,6 +711,36 @@ export class PlayerStatsScene extends Phaser.Scene {
       })
       .setOrigin(1, 0.5);
     layer.add(suffixText);
+
+    // Inline stats summary sits between the name and the suffix. We render
+    // right-aligned to `suffixText.x - suffixText.width - gap` so the
+    // layout auto-adjusts to suffix width.
+    const summary = buildStatsSummary(def);
+    if (summary.length > 0) {
+      const summaryX = suffixText.x - suffixText.width - 8 * d;
+      const summaryText = this.add
+        .text(summaryX, rowCy, summary, {
+          fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
+          color: STATS_SUMMARY_COLOR,
+          fontFamily: FONT,
+        })
+        .setOrigin(1, 0.5);
+      layer.add(summaryText);
+    }
+
+    // Backpack row info icon — comparison base is the currently-equipped
+    // item in the SAME slot, EXCEPT when the backpack item IS that equipped
+    // item (edge case — an equipped item still lives in the backpack list).
+    const equippedInSlot = inventorySystem.getEquipped(def.slot);
+    const equippedDef = equippedInSlot ? ITEMS[equippedInSlot.itemDefId] : undefined;
+    const comparisonBase =
+      equippedInSlot && equippedInSlot.id !== instance.id ? equippedDef : undefined;
+
+    const iconX =
+      rowCx + width / 2 - (INFO_ICON_PADDING_RIGHT + INFO_ICON_RADIUS) * d;
+    this.createInfoIcon(layer, iconX, rowCy, () =>
+      this.openItemInfoModal(def, comparisonBase),
+    );
 
     bg.on("pointerover", () => bg.setFillStyle(ROW_BG_HOVER, 1));
     bg.on("pointerout", () => bg.setFillStyle(ROW_BG, 0.95));
@@ -632,8 +755,14 @@ export class PlayerStatsScene extends Phaser.Scene {
    * Slot row tap:
    *  - occupied → unequip the current item
    *  - empty → auto-equip the first backpack item matching this slot, if any
+   *
+   * Modal-open guard (§8 / EDIT 3): if the info modal is currently open we
+   * do not mutate inventory state, even though the modal backdrop at depth
+   * 2100 already intercepts pointer events at much higher priority than row
+   * bgs. Two-line defensive guard future-proofs against modal depth changes.
    */
   private handleSlotTap(slot: ItemSlot): void {
+    if (itemCardModal.isOpen()) return;
     if (this.scrollDraggedThisGesture) return;
     const equipped = inventorySystem.getEquipped(slot);
     if (equipped) {
@@ -660,8 +789,11 @@ export class PlayerStatsScene extends Phaser.Scene {
    * taken, the existing item is auto-replaced by `equip()` (InventorySystem
    * overwrites on re-assignment). No-op if the tapped item is already in its
    * slot — avoids a redundant rebuild.
+   *
+   * Modal-open guard (§8 / EDIT 3): same rationale as `handleSlotTap`.
    */
   private handleBackpackTap(instance: ItemInstance): void {
+    if (itemCardModal.isOpen()) return;
     if (this.scrollDraggedThisGesture) return;
     const def = ITEMS[instance.itemDefId];
     if (!def) return;
@@ -670,6 +802,90 @@ export class PlayerStatsScene extends Phaser.Scene {
     if (inventorySystem.equip(def.slot, instance.id)) {
       this.refresh();
     }
+  }
+
+  /**
+   * Open the item info modal for a given def, with an optional comparison
+   * base (currently-equipped item in the same slot). Backpack rows pass
+   * the comparison; equipment rows pass no comparison base.
+   */
+  private openItemInfoModal(def: ItemDef, comparisonBase?: ItemDef): void {
+    itemCardModal.open(this, {
+      item: def,
+      comparisonBase,
+    });
+  }
+
+  /**
+   * Create a small circular info icon with its OWN interactive hit-area.
+   *
+   * Phaser's `input.topOnly = true` default delivers pointerdown to the
+   * topmost interactive object at the pointer position — so an icon drawn
+   * AFTER the row bg naturally intercepts taps before they reach the row.
+   * EDIT 9 (RISK-4 mitigation): we ALSO call `layer.bringToTop(icon)` as
+   * belt-and-suspenders — Phaser's InputPlugin internal list can drift if
+   * objects are re-parented, and `bringToTop` guarantees the icon is
+   * topmost for hit testing regardless of internal ordering.
+   *
+   * The icon's `pointerdown` handler respects `scrollDraggedThisGesture`
+   * so a drag-scroll gesture ending over an info icon does not trigger
+   * the modal open.
+   */
+  private createInfoIcon(
+    layer: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    onTap: () => void,
+  ): void {
+    const d = DPR;
+    const radius = INFO_ICON_RADIUS * d;
+
+    const bg = this.add.circle(x, y, radius, INFO_ICON_BG, 0.95);
+    bg.setStrokeStyle(1 * d, INFO_ICON_STROKE);
+    bg.setInteractive(
+      new Phaser.Geom.Circle(0, 0, radius),
+      Phaser.Geom.Circle.Contains,
+    );
+    layer.add(bg);
+
+    const text = this.add
+      .text(x, y, "i", {
+        fontSize: `${14 * d}px`,
+        color: INFO_ICON_TEXT_COLOR,
+        fontFamily: FONT,
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
+    layer.add(text);
+
+    // Info icon does NOT stopPropagation — we want scene-level POINTER_DOWN
+    // to keep firing for icon taps so EDIT 10's `scrollDraggedThisGesture`
+    // reset in setupScroll() can do its job. If we halted the cascade here,
+    // a prior drag-true flag would persist and starve every subsequent icon
+    // tap until the user taps a non-icon area. The BUG-2 race (stopPropagation
+    // on backdrop/panel/close-button in ItemCardModal) is about events AFTER
+    // the modal has closed, not BEFORE it opens — opening the modal via an
+    // icon tap is race-free because handleSlotTap/handleBackpackTap already
+    // guard on itemCardModal.isOpen() and the recorded dragStart from scene
+    // POINTER_DOWN is benign while the modal is up.
+    bg.on("pointerdown", () => {
+      if (this.scrollDraggedThisGesture) return;
+      onTap();
+    });
+
+    // EDIT 9 (RISK-4 mitigation) — explicit bringToTop serves two
+    // distinct purposes per child:
+    //   (1) bg: HIT-TEST priority. `bg` is the interactive object, and
+    //       Phaser's input.topOnly dispatches pointerdown to whichever
+    //       interactive GO is topmost in display order. Belt-and-suspenders
+    //       against future refactors that might add children after the icon.
+    //   (2) text: VISUAL rendering correctness. `text` is NOT interactive
+    //       (no setInteractive call) so it has zero effect on hit test,
+    //       but it must render AFTER bg to show the "i" glyph ABOVE the
+    //       circle background. bringToTop ensures subsequent row children
+    //       added to the layer do not visually occlude the icon text.
+    layer.bringToTop(bg);
+    layer.bringToTop(text);
   }
 
   /** Build a set of all currently-equipped ItemInstance ids across slots. */
