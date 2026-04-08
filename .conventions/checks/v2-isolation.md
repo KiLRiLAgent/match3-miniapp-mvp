@@ -154,3 +154,53 @@ Current Phase 1C events (see `EventBus.ts` for the exact shape):
 Adding an event without adding a corresponding `wireToastSubscriptions`
 handler is a valid choice — for telemetry-only signals, `console.warn` is
 enough. Don't toast everything.
+
+## Review protocol (Phase 1C governance lessons)
+
+Three governance gaps surfaced during Phase 1C. These are not architecture
+rules — they are coordination rules that every future multi-coder feature
+team MUST follow.
+
+### 1. Bundle budget bumps broadcast to ALL architects
+
+When tech-lead raises a chunk budget mid-phase (e.g. Phase 1C 80 → 85 → 90
+KB), the change MUST be broadcast to ALL architects via team-lead in the
+team channel. It is NOT OK for tech-lead to directly tell a single coder
+"it's fine, commit it" — the systems architect (who owns the budget metric)
+needs to record the change, the frontend architect needs to evaluate whether
+a UI task should use the headroom, and the backend architect needs to assess
+whether Phase 2 can realistically return to the old budget.
+
+**Enforcement**: every budget bump must be accompanied by a DECISIONS.md §1
+amendment committed BEFORE the coder's merge.
+
+### 2. Joint frontend + backend tasks require both architect approvals
+
+Some tasks cross the UI/data boundary — HubScene XP bar (#10) reads
+`progressionSystem.getLevelEntryXp()`; PlayerStatsScene pagination (#11)
+reads `inventorySystem.getBackpackItems()`. These joint tasks MUST collect
+approvals from BOTH architect-frontend AND architect-backend before merge,
+not "whichever architect answers first".
+
+**Enforcement**: the REVIEW request message must explicitly address both
+architects by name, and the coder must wait for two `APPROVED` replies
+before committing. The third architect (systems) checks cross-cutting
+concerns (build, isolation, naming) and can approve independently.
+
+### 3. Approval is signalled by an explicit `APPROVED` string
+
+Coders MUST wait for an explicit `APPROVED` verdict in an architect's reply
+message — NOT a task list status change, NOT a thumbs-up emoji, NOT an
+implicit "sounds good". The approval string is searchable in the team
+channel history and makes the review record auditable.
+
+Inversely, a `NEEDS FIX` verdict MUST name the specific changes required;
+drive-by nits without an explicit verdict are treated as informational only.
+
+**Enforcement**: if a coder commits without two explicit APPROVALs (for
+joint tasks) or three explicit APPROVALs (for systems tasks that touch
+cross-cutting concerns like EventBus or save schema), the commit is eligible
+for revert by any reviewer.
+
+These three rules cost ~30 seconds per task to follow and save hours of
+disentangling when a multi-week phase ships.
