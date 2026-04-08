@@ -18,7 +18,35 @@ import { sceneRouter } from "../core/SceneRouter";
 import { arenaSystem } from "../systems/ArenaSystem";
 import { buffSystem } from "../systems/BuffSystem";
 import { CHARACTERS } from "../content/characters";
+import { BUFFS } from "../content/buffs";
 import { CharacterPortrait } from "../ui/CharacterPortrait";
+import type { ArenaRunState, PlayerStats } from "../core/types";
+import type { BuffEffectType } from "../content/types";
+
+const TOTAL_FLOORS = 6;
+
+/** Emoji prefix per stat for the stats-preview panel + buff list. */
+const STAT_EMOJI: Record<keyof PlayerStats, string> = {
+  hp: "❤",
+  mp: "💧",
+  physAttack: "⚔",
+  magAttack: "✨",
+  crit: "💥",
+};
+
+/** Map BuffEffectType → the stat icon shown in the buff list row. */
+const BUFF_EFFECT_EMOJI: Record<BuffEffectType, string> = {
+  addPhysAttack: "⚔",
+  addMagAttack: "✨",
+  addMaxHp: "❤",
+  addMaxMp: "💧",
+  addCrit: "💥",
+  addMpRegen: "💧",
+  damageReduction: "🛡",
+  physPerFightSurvived: "⚔",
+  extraReward: "🎲",
+  reviveOnDeath: "🔥",
+};
 
 const FONT = "'Exo 2', Arial, sans-serif";
 const BG_COLOR = 0x1a0f2e;
@@ -59,8 +87,8 @@ export class ArenaRunScene extends Phaser.Scene {
     // Title — floor counter with boss banner.
     const isBoss = arenaSystem.isBossFloor(run.floor);
     this.add
-      .text(cx, 80 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/6`, {
-        fontSize: `${28 * d}px`,
+      .text(cx, 70 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/6`, {
+        fontSize: `${24 * d}px`,
         color: isBoss ? BOSS_COLOR : TITLE_COLOR,
         fontFamily: FONT,
         fontStyle: "bold",
@@ -68,8 +96,8 @@ export class ArenaRunScene extends Phaser.Scene {
       .setOrigin(0.5);
     if (isBoss) {
       this.add
-        .text(cx, 116 * d + SAFE_AREA.top * d, "ФИНАЛЬНЫЙ БОСС", {
-          fontSize: `${15 * d}px`,
+        .text(cx, 100 * d + SAFE_AREA.top * d, "ФИНАЛЬНЫЙ БОСС", {
+          fontSize: `${13 * d}px`,
           color: BOSS_COLOR,
           fontFamily: FONT,
           fontStyle: "italic bold",
@@ -77,74 +105,29 @@ export class ArenaRunScene extends Phaser.Scene {
         .setOrigin(0.5);
     }
 
-    // Enemy portrait + name.
-    const enemy = CHARACTERS[run.enemyType];
-    const enemyName = enemy?.name ?? "Враг арены";
-    const portraitY = 200 * d + SAFE_AREA.top * d;
-    const portrait = new CharacterPortrait(this, cx, portraitY, {
-      size: 80 * d,
-      initial: enemyName.charAt(0),
-      emotion: "angry",
-    });
-    this.add.existing(portrait);
-    this.add
-      .text(cx, portraitY + 60 * d, enemyName, {
-        fontSize: `${18 * d}px`,
-        color: VALUE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
+    // Phase 2A+ Archero map — vertical path on right half of screen.
+    this.drawPathMap(run, camW, camH);
 
-    // Active buffs section.
-    const buffsY = 320 * d + SAFE_AREA.top * d;
-    this.add
-      .text(cx, buffsY, "Активные бафы", {
-        fontSize: `${14 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
-      })
-      .setOrigin(0.5);
-    const buffs = buffSystem.getActiveBuffsForDisplay();
-    if (buffs.length === 0) {
-      this.add
-        .text(cx, buffsY + 22 * d, "Нет активных бафов", {
-          fontSize: `${12 * d}px`,
-          color: EMPTY_COLOR,
-          fontFamily: FONT,
-          fontStyle: "italic",
-        })
-        .setOrigin(0.5);
-    } else {
-      buffs.forEach((b, idx) => {
-        this.add
-          .text(cx, buffsY + 22 * d + idx * 16 * d, `• ${b.name}`, {
-            fontSize: `${12 * d}px`,
-            color: BODY_COLOR,
-            fontFamily: FONT,
-          })
-          .setOrigin(0.5);
-      });
-    }
+    // Phase 2A+ stats preview panel — effective stats with buff deltas on
+    // the left half of the screen. THIS is what fixes the user's "skills
+    // reset between fights" perception: they see concrete +deltas.
+    const leftX = camW * 0.28;
+    const panelTopY = 150 * d + SAFE_AREA.top * d;
+    const afterStatsY = this.renderStatsPanel(leftX, panelTopY);
+    this.renderBuffList(leftX, afterStatsY + 16 * d);
 
-    // Accumulated rewards.
-    const rewardsY = camH * 0.62;
-    this.add
-      .text(cx, rewardsY, "Накоплено за run", {
-        fontSize: `${14 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
-      })
-      .setOrigin(0.5);
+    // Accumulated rewards — small strip below left column.
+    const rewardsY = camH - 220 * d - SAFE_AREA.bottom * d;
     this.add
       .text(
-        cx,
-        rewardsY + 22 * d,
-        `XP: ${run.accumulatedRewards.xp}  ·  Золото: ${run.accumulatedRewards.gold}  ·  Предметов: ${run.accumulatedRewards.items.length}`,
+        leftX,
+        rewardsY,
+        `Накоплено:  XP ${run.accumulatedRewards.xp}  ·  💰 ${run.accumulatedRewards.gold}  ·  📦 ${run.accumulatedRewards.items.length}`,
         {
-          fontSize: `${13 * d}px`,
-          color: VALUE_COLOR,
+          fontSize: `${11 * d}px`,
+          color: SUBTITLE_COLOR,
           fontFamily: FONT,
+          fontStyle: "italic",
         },
       )
       .setOrigin(0.5);
@@ -152,7 +135,7 @@ export class ArenaRunScene extends Phaser.Scene {
     // Primary CTA — launch the next fight via CombatBridgeScene. The arena
     // encounterId pattern (`arena_floor_N_<enemyType>`) is parsed by
     // arenaEncounterGenerator on the receiving side.
-    const fightY = camH - 180 * d - SAFE_AREA.bottom * d;
+    const fightY = camH - 150 * d - SAFE_AREA.bottom * d;
     this.createButton(
       cx,
       fightY,
@@ -192,6 +175,274 @@ export class ArenaRunScene extends Phaser.Scene {
         sceneRouter.replace(this, "ArenaScene");
       },
     );
+  }
+
+  /**
+   * Phase 2A+ Archero map — vertical path of 6 floor nodes on the right
+   * half of the screen. Bottom = floor 1, top = floor 6 (boss). Past floors
+   * are dimmed with ✓, current floor is highlighted + pulsing, future floors
+   * are smaller and faded. Path line connects node centers.
+   */
+  private drawPathMap(
+    run: ArenaRunState,
+    camW: number,
+    camH: number,
+  ): void {
+    const d = DPR;
+    const plannedEnemies = arenaSystem.getPlannedEnemies();
+    const columnX = camW * 0.72;
+    const topY = 150 * d + SAFE_AREA.top * d;
+    const bottomY = camH - 230 * d - SAFE_AREA.bottom * d;
+    const span = bottomY - topY;
+    // Floor 1 at bottom, floor 6 at top — invert Y.
+    const nodeYForFloor = (floor: number): number =>
+      bottomY - ((floor - 1) / (TOTAL_FLOORS - 1)) * span;
+
+    // Path line — drawn first so node circles overlay it.
+    const lineGfx = this.add.graphics();
+    lineGfx.lineStyle(3 * d, 0xe6c068, 0.5);
+    lineGfx.beginPath();
+    lineGfx.moveTo(columnX, nodeYForFloor(1));
+    for (let f = 2; f <= TOTAL_FLOORS; f++) {
+      lineGfx.lineTo(columnX, nodeYForFloor(f));
+    }
+    lineGfx.strokePath();
+
+    // Render nodes from bottom to top (1..6).
+    for (let f = 1; f <= TOTAL_FLOORS; f++) {
+      const nodeY = nodeYForFloor(f);
+      const enemyId = plannedEnemies[f - 1] ?? "arena_demon";
+      const enemy = CHARACTERS[enemyId];
+      const enemyName = enemy?.name ?? "?";
+      const initial = enemyName.charAt(0);
+      const isCurrent = f === run.floor;
+      const isPast = f < run.floor;
+      const isBossNode = f === TOTAL_FLOORS;
+
+      // Size / alpha / emotion vary by state.
+      let size: number;
+      let alpha: number;
+      let emotion: "neutral" | "angry" | "happy" = "angry";
+      if (isCurrent) {
+        size = 72 * d;
+        alpha = 1;
+        emotion = "angry";
+      } else if (isPast) {
+        size = 34 * d;
+        alpha = 0.35;
+        emotion = "neutral";
+      } else {
+        size = isBossNode ? 52 * d : 40 * d;
+        alpha = 0.7;
+        emotion = "angry";
+      }
+
+      const portrait = new CharacterPortrait(this, columnX, nodeY, {
+        size,
+        initial,
+        emotion,
+      });
+      portrait.setAlpha(alpha);
+      this.add.existing(portrait);
+
+      // Current-floor pulsing glow ring.
+      if (isCurrent) {
+        const glow = this.add
+          .circle(columnX, nodeY, size / 2 + 6 * d, 0xe6c068, 0)
+          .setStrokeStyle(3 * d, 0xe6c068, 1);
+        this.tweens.add({
+          targets: glow,
+          scale: { from: 1, to: 1.15 },
+          alpha: { from: 1, to: 0.4 },
+          duration: 900,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      }
+
+      // Boss-floor red ring.
+      if (isBossNode && !isCurrent) {
+        this.add
+          .circle(columnX, nodeY, size / 2 + 4 * d, 0xc83e3e, 0)
+          .setStrokeStyle(2 * d, 0xc83e3e, 0.8);
+      }
+
+      // Past-floor ✓ badge.
+      if (isPast) {
+        this.add
+          .text(columnX, nodeY, "✓", {
+            fontSize: `${16 * d}px`,
+            color: "#4caf50",
+            fontFamily: FONT,
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5);
+      }
+
+      // Floor number badge — small label to the left of the node.
+      const labelColor = isCurrent
+        ? TITLE_COLOR
+        : isBossNode
+          ? BOSS_COLOR
+          : SUBTITLE_COLOR;
+      this.add
+        .text(columnX - size / 2 - 14 * d, nodeY, `${f}`, {
+          fontSize: `${12 * d}px`,
+          color: labelColor,
+          fontFamily: FONT,
+          fontStyle: "bold",
+        })
+        .setOrigin(1, 0.5);
+
+      // Current-floor enemy name below the portrait.
+      if (isCurrent) {
+        this.add
+          .text(columnX, nodeY + size / 2 + 14 * d, enemyName, {
+            fontSize: `${13 * d}px`,
+            color: VALUE_COLOR,
+            fontFamily: FONT,
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5);
+      }
+    }
+  }
+
+  /**
+   * Phase 2A+ stats preview panel — shows base stats → effective stats with
+   * gold-highlighted deltas. THIS fixes the user's "skills reset between
+   * fights" perception by giving concrete numerical proof of progression.
+   *
+   * Returns the bottom Y of the panel so the caller can chain renderBuffList.
+   */
+  private renderStatsPanel(cx: number, topY: number): number {
+    const d = DPR;
+    const base = gameState.get().player.stats;
+    const effective = buffSystem.applyToStats(base);
+
+    this.add
+      .text(cx, topY, "Твои силы", {
+        fontSize: `${13 * d}px`,
+        color: SUBTITLE_COLOR,
+        fontFamily: FONT,
+        fontStyle: "italic",
+      })
+      .setOrigin(0.5, 0);
+
+    const rows: Array<{
+      key: keyof PlayerStats;
+      label: string;
+      suffix?: string;
+    }> = [
+      { key: "physAttack", label: "Физ атака" },
+      { key: "magAttack", label: "Маг атака" },
+      { key: "hp", label: "Здоровье" },
+      { key: "mp", label: "Мана" },
+      { key: "crit", label: "Крит", suffix: "%" },
+    ];
+
+    let y = topY + 22 * d;
+    const rowH = 18 * d;
+    for (const row of rows) {
+      const baseVal = base[row.key];
+      const effVal = effective[row.key];
+      const delta = effVal - baseVal;
+      const muted = delta === 0;
+
+      const emoji = STAT_EMOJI[row.key];
+      const sfx = row.suffix ?? "";
+      const leftText = `${emoji} ${row.label}`;
+      const rightText =
+        delta > 0
+          ? `${baseVal}${sfx} → ${effVal}${sfx}`
+          : `${effVal}${sfx}`;
+
+      this.add
+        .text(cx - 90 * d, y, leftText, {
+          fontSize: `${12 * d}px`,
+          color: muted ? EMPTY_COLOR : BODY_COLOR,
+          fontFamily: FONT,
+        })
+        .setOrigin(0, 0.5);
+
+      this.add
+        .text(cx + 60 * d, y, rightText, {
+          fontSize: `${12 * d}px`,
+          color: muted ? EMPTY_COLOR : VALUE_COLOR,
+          fontFamily: FONT,
+          fontStyle: muted ? "normal" : "bold",
+        })
+        .setOrigin(1, 0.5);
+
+      if (delta > 0) {
+        this.add
+          .text(cx + 90 * d, y, `+${delta}${sfx}`, {
+            fontSize: `${12 * d}px`,
+            color: TITLE_COLOR,
+            fontFamily: FONT,
+            fontStyle: "bold",
+          })
+          .setOrigin(1, 0.5);
+      }
+
+      y += rowH;
+    }
+    return y;
+  }
+
+  /**
+   * Phase 2A+ enhanced buff list with emoji prefixes and stacking counts.
+   * Groups identical buffDefIds so stackable buffs show as "⚔ Сила ×3".
+   */
+  private renderBuffList(cx: number, topY: number): void {
+    const d = DPR;
+    const run = arenaSystem.getActiveRun();
+    if (!run) return;
+
+    // Group activeBuffs by buffDefId to show ×N stack counts.
+    const counts = new Map<string, number>();
+    for (const b of run.activeBuffs) {
+      counts.set(b.buffDefId, (counts.get(b.buffDefId) ?? 0) + 1);
+    }
+
+    this.add
+      .text(cx, topY, "Активные навыки", {
+        fontSize: `${13 * d}px`,
+        color: SUBTITLE_COLOR,
+        fontFamily: FONT,
+        fontStyle: "italic",
+      })
+      .setOrigin(0.5, 0);
+
+    let y = topY + 22 * d;
+    if (counts.size === 0) {
+      this.add
+        .text(cx, y, "— пока никаких —", {
+          fontSize: `${11 * d}px`,
+          color: EMPTY_COLOR,
+          fontFamily: FONT,
+          fontStyle: "italic",
+        })
+        .setOrigin(0.5, 0);
+      return;
+    }
+
+    for (const [buffDefId, count] of counts) {
+      const def = BUFFS[buffDefId];
+      if (!def) continue;
+      const emoji = BUFF_EFFECT_EMOJI[def.effectType] ?? "•";
+      const label =
+        count > 1 ? `${emoji} ${def.name} ×${count}` : `${emoji} ${def.name}`;
+      this.add
+        .text(cx, y, label, {
+          fontSize: `${12 * d}px`,
+          color: BODY_COLOR,
+          fontFamily: FONT,
+        })
+        .setOrigin(0.5, 0);
+      y += 16 * d;
+    }
   }
 
   /**

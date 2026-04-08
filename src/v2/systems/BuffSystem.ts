@@ -134,6 +134,15 @@ class BuffSystem {
         // Empty case keeps the switch exhaustive on BuffEffectType so adding
         // a new effect type produces a TypeScript error here.
         return;
+      default: {
+        // Exhaustiveness guard (M9 / SYS-5 / VC-B23) — if BuffEffectType union
+        // expands without a matching case here, TypeScript errors out at
+        // compile time. Required because this function returns void, so the
+        // compiler cannot infer exhaustiveness from the return type alone.
+        const _exhaustive: never = effectType;
+        void _exhaustive;
+        return;
+      }
     }
   }
 }

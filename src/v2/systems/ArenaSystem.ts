@@ -36,17 +36,48 @@ class ArenaSystem {
   startNewRun(): ArenaRunState | null {
     const save = gameState.get();
     if (save.arena.activeRun !== null) return null;
+    // Phase 2A+ Archero map: pre-roll all 6 floors up front so ArenaRunScene
+    // can display the complete path. Floor 6 is always the boss.
+    const plannedEnemies = this.pickAllEnemiesForRun();
     const newRun: ArenaRunState = {
       floor: 1,
-      enemyType: this.pickEnemyForFloor(1),
+      enemyType: plannedEnemies[0],
       activeBuffs: [],
       accumulatedRewards: { xp: 0, gold: 0, items: [] },
       startedAt: Date.now(),
+      plannedEnemies,
     };
     gameState.patch((s) => {
       s.arena.activeRun = newRun;
     });
     return newRun;
+  }
+
+  /**
+   * Return the characterIds of all 6 planned floors for the active run.
+   * Lazy-fills `plannedEnemies` on pre-fix mid-run saves (backward compat —
+   * no SAVE_VERSION bump). Returns an empty array if no run is active.
+   */
+  getPlannedEnemies(): readonly string[] {
+    const run = gameState.get().arena.activeRun;
+    if (!run) return [];
+    if (run.plannedEnemies && run.plannedEnemies.length === BOSS_FLOOR) {
+      return run.plannedEnemies;
+    }
+    // Backward-compat: pre-2A+ save without plannedEnemies. Reconstruct as
+    // best we can — past floors are unknown so we seed with the current
+    // enemy for [currentFloor] and fresh rolls for future floors.
+    const filled: string[] = new Array(BOSS_FLOOR).fill("");
+    filled[run.floor - 1] = run.enemyType;
+    for (let i = 0; i < BOSS_FLOOR; i++) {
+      if (filled[i] === "") {
+        filled[i] = this.pickEnemyForFloor(i + 1);
+      }
+    }
+    gameState.patch((s) => {
+      if (s.arena.activeRun) s.arena.activeRun.plannedEnemies = filled;
+    });
+    return filled;
   }
 
   /**
@@ -85,11 +116,18 @@ class ArenaSystem {
       return null;
     }
 
+    // Phase 2A+: read the next enemy from the pre-rolled path instead of
+    // re-rolling, so the Archero map stays consistent with what the player
+    // actually fights. Lazy-fill via getPlannedEnemies() for backward compat.
+    const plannedEnemies = this.getPlannedEnemies();
+    const nextFloor = currentFloor + 1;
+    const nextEnemy =
+      plannedEnemies[nextFloor - 1] ?? this.pickEnemyForFloor(nextFloor);
     gameState.patch((s) => {
       const active = s.arena.activeRun;
       if (!active) return;
-      active.floor += 1;
-      active.enemyType = this.pickEnemyForFloor(active.floor);
+      active.floor = nextFloor;
+      active.enemyType = nextEnemy;
     });
     return gameState.get().arena.activeRun;
   }
@@ -189,6 +227,19 @@ class ArenaSystem {
     if (floor >= BOSS_FLOOR) return BOSS_ENEMY_ID;
     const idx = Math.floor(Math.random() * NON_BOSS_ENEMY_IDS.length);
     return NON_BOSS_ENEMY_IDS[idx] ?? BOSS_ENEMY_ID;
+  }
+
+  /**
+   * Pre-roll all 6 floors of a run at `startNewRun`. Floors 1..5 use the
+   * standard random pool; floor 6 is always the boss. Kept alongside
+   * `pickEnemyForFloor` so legacy mid-run lazy-fill still works.
+   */
+  private pickAllEnemiesForRun(): string[] {
+    const result: string[] = [];
+    for (let floor = 1; floor <= BOSS_FLOOR; floor++) {
+      result.push(this.pickEnemyForFloor(floor));
+    }
+    return result;
   }
 }
 

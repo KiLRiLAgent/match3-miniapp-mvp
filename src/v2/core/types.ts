@@ -180,6 +180,13 @@ export interface ArenaRunState {
     items: string[];          // itemDefIds queued to hand out on run completion
   };
   startedAt: number;          // unix ms
+  /**
+   * Phase 2A+ Archero map — characterIds of all 6 planned floors, pre-rolled
+   * at `startNewRun` so ArenaRunScene can display the full upcoming path.
+   * Optional for backward compat with pre-fix mid-run saves; ArenaSystem
+   * lazily fills it on first read when missing.
+   */
+  plannedEnemies?: string[];
 }
 
 export interface ArenaSave {

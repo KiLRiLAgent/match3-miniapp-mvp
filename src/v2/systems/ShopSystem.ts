@@ -160,7 +160,12 @@ class ShopSystem {
     let state = seed >>> 0;
     return () => {
       state = (state * 1103515245 + 12345) & 0x7fffffff;
-      return state / 0x7fffffff;
+      // Divisor is 2^31 (NOT 2^31 - 1) so the result is strictly in [0, 1).
+      // Using 0x7fffffff as the divisor would let `state === 0x7fffffff` map
+      // to exactly 1.0, which `Math.floor(rng() * length)` then turns into an
+      // out-of-bounds index. Probability is ~5e-10 per call, but textbook
+      // LCG convention uses the half-open form to eliminate it entirely.
+      return state / 0x80000000;
     };
   }
 }
