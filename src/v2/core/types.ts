@@ -160,8 +160,10 @@ export interface StatsSave {
  * returns the base stats unchanged when `activeRun === null`.
  *
  * Accumulated rewards (xp/gold/items) are applied to the persistent save
- * when the run completes or is aborted. Permadeath on fight loss resets
- * `activeRun` to null and does NOT grant accumulated rewards.
+ * when the run completes OR is aborted (defeat). Rewards reflect cleared
+ * floors only — the current floor's lost fight does not contribute. On
+ * defeat, `activeRun` is reset to null after pending rewards are flushed
+ * (see DECISIONS R5, task #5 state machine).
  */
 export interface ActiveBuff {
   buffDefId: string;
