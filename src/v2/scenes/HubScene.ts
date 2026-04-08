@@ -9,6 +9,10 @@
  *
  * Приветствие расширено уровнем: "Добро пожаловать, {name}! Уровень {level}".
  *
+ * Phase 1C: под greeting добавлен thin XP-bar (220×8 dp), который показывает
+ * прогресс ВНУТРИ текущего уровня (см. avoid-absolute-progress-bar.md). На
+ * максимальном уровне рисуется полностью заполненный bar с подписью «МАКС».
+ *
  * Layout правила (non-zoomed v2 scene):
  * — Использовать `this.cameras.main.width / height`, НЕ `GAME_WIDTH/HEIGHT`.
  * — Множить координаты/размеры/fontSize/stroke на DPR.
@@ -54,6 +58,19 @@ const PRIMARY_BUTTON_HEIGHT = 64;
 const PRIMARY_BUTTON_GAP = 18;
 const SECONDARY_BUTTON_WIDTH = 260;
 const SECONDARY_BUTTON_HEIGHT = 52;
+
+// Phase 1C XP bar — thin progress strip under the greeting. Reuses the
+// PlayerStatsScene colour palette for visual consistency. Width is narrower
+// (220 vs 260) since this is a glanceable summary, not the full breakdown.
+const XP_BAR_WIDTH = 220;
+const XP_BAR_HEIGHT = 8;
+const XP_BAR_BG_COLOR = 0x222244;
+const XP_BAR_FILL_COLOR = 0x6e4ac8;
+const XP_BAR_STROKE_COLOR = 0xe6c068;
+const XP_BAR_LABEL_COLOR = "#d4b8e8";
+const XP_BAR_Y = 210;
+const XP_LABEL_FONT_SIZE = 11;
+const XP_LABEL_GAP = 4;
 
 export class HubScene extends Phaser.Scene {
   constructor() {
@@ -133,6 +150,8 @@ export class HubScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
+    this.renderXpBar(cx, XP_BAR_Y * d + SAFE_AREA.top * d, save.player.xp, level);
+
     // Primary buttons stacked vertically, centered between greeting and
     // bottom-anchored "back to v1" button. Step = height + gap.
     const buttonStep = (PRIMARY_BUTTON_HEIGHT + PRIMARY_BUTTON_GAP) * d;
@@ -154,6 +173,54 @@ export class HubScene extends Phaser.Scene {
       setActiveMode("v1");
       window.location.reload();
     });
+  }
+
+  /**
+   * Phase 1C XP bar — glanceable summary of within-level progress under the
+   * greeting. Uses `progressionSystem.getLevelEntryXp()` as the baseline so
+   * the fill ratio measures progress *inside* the current level — NOT against
+   * the absolute zero baseline (`.conventions/anti-patterns/avoid-absolute-progress-bar.md`).
+   *
+   * Shows "МАКС" label and a full bar at the maximum level (xpToNext === 0).
+   */
+  private renderXpBar(cx: number, y: number, playerXp: number, level: number): void {
+    const d = DPR;
+    const barWidth = XP_BAR_WIDTH * d;
+    const barHeight = XP_BAR_HEIGHT * d;
+    const barX = cx - barWidth / 2;
+
+    const barBg = this.add
+      .rectangle(barX, y, barWidth, barHeight, XP_BAR_BG_COLOR, 0.9)
+      .setOrigin(0);
+    barBg.setStrokeStyle(1 * d, XP_BAR_STROKE_COLOR, 0.6);
+
+    const xpToNext = progressionSystem.getXpToNextLevel();
+    let fillRatio = 1;
+    let label = "МАКС";
+    if (xpToNext > 0) {
+      const levelEntryXp = progressionSystem.getLevelEntryXp();
+      const levelProgress = Math.max(0, playerXp - levelEntryXp);
+      const levelSpan = levelProgress + xpToNext;
+      fillRatio =
+        levelSpan > 0 ? Math.max(0, Math.min(1, levelProgress / levelSpan)) : 0;
+      label = `${levelProgress} / ${levelSpan} XP до ${level + 1} уровня`;
+    }
+
+    if (fillRatio > 0) {
+      const fillWidth = Math.max(1, barWidth * fillRatio);
+      this.add
+        .rectangle(barX, y, fillWidth, barHeight, XP_BAR_FILL_COLOR, 0.95)
+        .setOrigin(0);
+    }
+
+    this.add
+      .text(cx, y + barHeight + XP_LABEL_GAP * d, label, {
+        fontSize: `${XP_LABEL_FONT_SIZE * d}px`,
+        color: XP_BAR_LABEL_COLOR,
+        fontFamily: FONT,
+        fontStyle: "italic",
+      })
+      .setOrigin(0.5, 0);
   }
 
   private createPrimaryButton(
