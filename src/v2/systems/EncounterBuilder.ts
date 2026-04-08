@@ -23,6 +23,7 @@ import { gameState } from "../core/GameState";
 import { relationshipSystem } from "./RelationshipSystem";
 import { progressionSystem } from "./ProgressionSystem";
 import { inventorySystem } from "./InventorySystem";
+import { buffSystem } from "./BuffSystem";
 import { getBossLayerHpArray } from "../../game/config";
 import type {
   CombatContext,
@@ -76,12 +77,17 @@ class EncounterBuilder {
     const bossHpMax = layerHpArray.reduce((sum, hp) => sum + hp, 0);
 
     const save = gameState.get();
+    // Phase 2A: fold active arena run buffs onto base player stats. When no
+    // run is active (story fights, hub activity), buffSystem.applyToStats
+    // returns the input unchanged — non-arena fights see ZERO behavior
+    // change (DECISIONS R2).
+    const buffedStats = buffSystem.applyToStats(save.player.stats);
     const playerStats: PlayerCombatStats = {
-      hpMax: save.player.stats.hp,
-      manaMax: save.player.stats.mp,
-      physAttack: save.player.stats.physAttack,
-      magAttack: save.player.stats.magAttack,
-      crit: save.player.stats.crit,
+      hpMax: buffedStats.hp,
+      manaMax: buffedStats.mp,
+      physAttack: buffedStats.physAttack,
+      magAttack: buffedStats.magAttack,
+      crit: buffedStats.crit,
     };
 
     // Deep clone — relationshipSystem.getState() returns LIVE reference for
