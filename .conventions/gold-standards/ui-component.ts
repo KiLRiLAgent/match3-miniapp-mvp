@@ -254,10 +254,30 @@
  *     `modalLayer` Container so `closeModal()` is a single `destroy()` call.
  *
  *     ANTI-PATTERN: do NOT try to use `setActive(false)` on the backdrop while
- *     the panel is open, or stop event propagation manually. Phaser's input
- *     system already does the right thing if you stack interactive objects.
+ *     the panel is open. Phaser's input system already routes events correctly
+ *     when you stack interactive objects with topOnly = true (default).
  *
- *     Example: src/v2/scenes/CharacterGalleryScene.ts → openModal()
+ *     STOP-PROPAGATION IS REQUIRED FOR CLOSE-PATH HANDLERS (Phase 2B update):
+ *     close-path handlers (backdrop pointerdown, close button pointerdown)
+ *     MUST call `event.stopPropagation()` to halt the cascade before scene-
+ *     level POINTER_DOWN fires. Phaser's event hierarchy is GAMEOBJECT_POINTER_
+ *     DOWN → GAMEOBJECT_DOWN → POINTER_DOWN, and scene `this.input.on(
+ *     "pointerdown", ...)` subscribes to POINTER_DOWN (step 3). By the time
+ *     step 3 fires, the modal's GO handler has already run `close()` and
+ *     `isOpen() = false` — so any "bail if modal open" scene guard does NOT
+ *     trigger for the same event that closed the modal. Without
+ *     stopPropagation, backdrop tap can prime background scene drag-scroll
+ *     state. See `.conventions/gold-standards/item-card-modal.ts` §7 for the
+ *     full rationale + consumer-side `dragStartRecorded` guard pattern. Panel
+ *     pointerdown (the no-op absorber) should ALSO stopPropagation for
+ *     consistency, though its no-op close makes it safe.
+ *
+ *     Reference implementations:
+ *     - `src/v2/scenes/CharacterGalleryScene.ts` → openModal() — legacy v2
+ *       reference (depth 1000, to be aligned to 2100 in Phase 2B per R2B-2 #4)
+ *     - `src/v2/ui/ItemCardModal.ts` — Phase 2B canonical reusable modal
+ *       (depth 2100, stopPropagation close-path, robust isOpen, fault-tolerant
+ *       close). See `./item-card-modal.ts` for the full gold standard.
  *
  * 13. RE-RENDER VIA TEAR-DOWN CONTAINER (Phase 1B default)
  *

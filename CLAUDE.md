@@ -110,7 +110,12 @@ src/v2/
   - **SaveData migration v1 → v2** (R1 PURE FORWARD): добавлено поле `arena: ArenaSave` с defaults. Существующие Phase 1B/1C сейвы загружаются чисто. SAVE_VERSION 1 → 2.
   - **HubScene reorganized**: 5 primary buttons (Карта/Персонаж/Галерея/⚔️Арена/🛒Магазин) + 1 secondary (Назад в v1). Уменьшены button height (52dp) + gap (12dp) для размещения 5 кнопок на 640dp min screen.
   - **Validator gated** behind `import.meta.env.DEV` для production tree-shake (saved 2.4 KB).
-  - Все 19 задач завершены. v1 chunk 132.77 kB (≤135 kB budget), v2 chunk **113.18 kB (Round 4.1 amendment, временно ≤120 kB как Phase 2A-only exception — original budget 90 kB поднят). Phase 2B commitment: revert к 90 kB (delta −23 kB) через extract `src/v2/ui/SceneChrome.ts` (back/primary/secondary buttons + title helpers) и `src/v2/ui/theme.ts` (colors/fonts) как первая задача Phase 2B "v2 chunk size pass".**
+  - Все 19 задач завершены. v1 chunk 132.77 kB (≤135 kB budget), v2 chunk 113.18 kB на момент закрытия Phase 2A (Round 4.1 amendment, временно ≤120 kB как Phase 2A-only exception — original budget 90 kB поднят).
+- **Phase 2B — item-info-display** ✅ completed (apr 2026) — первая feature Phase 2B. 3 задачи:
+  - **Task #1** ✅ — `src/v2/ui/itemFormat.ts` (pure helper, zero Phaser imports: `buildStatsSummary`, `buildStatsRows`, `buildStatsDeltas`, `buildUnifiedStatView`, `RARITY_COLOR_BY_TIER`, `RARITY_LABEL`, `SLOT_LABELS`) + `src/v2/ui/ItemCardModal.ts` (первый reusable blocking modal component в `src/v2/ui/`, singleton mirroring `toast`, depth 2100, robust isOpen + fault-tolerant close + belt-and-suspenders SHUTDOWN handling + stopPropagation close-path handlers). Tree-shaken до Task #2 integration — **0 kB bundle impact на уровне Task #1**.
+  - **Task #2** ✅ — integration в PlayerStatsScene: inline stats summary + info icon с separate hit-area на каждой equipment/backpack row, `openItemInfoModal` с optional `comparisonBase` для backpack items, local `RARITY_COLOR_BY_TIER` + `SLOT_LABELS` удалены (imports из itemFormat), `dragStartRecorded` closure flag в `setupScroll` для защиты от POINTER_MOVE race при stopPropagation'd POINTER_DOWN.
+  - **Task #3** ✅ — `.conventions/gold-standards/item-card-modal.ts` (new gold standard), `ui-component.ts` §12 cross-reference обновлён, `toast-notifications.ts` §3 depth convention обновлена, `Toast.ts` runtime docstring обновлён, CLAUDE.md depth map дополнен (2000 Toast, 2100 ItemCardModal), DECISIONS R2B-1…R2B-6 задокументированы.
+  - Budget: v2 chunk **123.09 kB после feature-item-info-display (Phase 2B interim ceiling ≤125 kB per R2B-4, 1.91 kB headroom)**. Разложение: baseline был 113.18 kB после Phase 2A Round 4.1, +4.58 kB drift от commit `bce8e55` (Phase 2A+ Archero vertical map + pre-roll enemies) задокументирован retroactively в R2B-5, +5.33 kB от Task #2 integration (modal render pipeline + info icon + stopPropagation handlers + dragStartRecorded guard). Task #1 добавлен tree-shaken (0 kB), Task #3 — только docs/conventions/DECISIONS (0 kB runtime delta, verified identical chunk hash). **Phase 2B hard revert commitment stands at 90 kB (delta −33.09 kB)** через SceneChrome.ts + theme.ts + modalChrome.ts extraction per R2B-2. R2B-6 tracks предложение CI budget drift check как Phase 2B process improvement.
 - **Phase 2B+** — не начаты. См. план `~/.claude/plans/drifting-nibbling-newell.md`.
 
 ---
@@ -1018,8 +1023,10 @@ All Phaser `setDepth()` values used in the game, from back to front:
 | **501** | Cutscene boss main layer | Fullscreen solid texture |
 | **502** | Cutscene ability text | Red ability name |
 | **998–999** | Game end overlay + flash | Victory/defeat screen |
-| **1000** | Game end UI / settings panel | Buttons, stats, modal |
+| **1000** | Game end UI / settings panel (v1) + CharacterGalleryScene modal (v2 legacy, to be aligned to 2100 in Phase 2B per R2B-2 #4) | Buttons, stats, modal |
 | **1001** | Confetti/particles | Victory/defeat particles |
+| **2000** | v2 Toast (non-blocking notifications) | `src/v2/ui/Toast.ts` — non-blocking notification layer, below blocking modals per R2B-3 |
+| **2100** | v2 ItemCardModal (blocking modal overlays) | `src/v2/ui/ItemCardModal.ts` — blocking modal overlay, above Toast per R2B-3 |
 
 ---
 

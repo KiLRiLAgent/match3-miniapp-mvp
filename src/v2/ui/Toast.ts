@@ -20,8 +20,14 @@
  * Container child pattern follows the v2 gold standard:
  *   .conventions/gold-standards/ui-component.ts §9
  *
- * Depth = 2000 — reserved layer above modals (≤1000) and below cutscenes
- * (≥500 used by GameScene). Per CLAUDE.md depth map and R4.
+ * Depth = 2000 — non-blocking notification layer. Above cutscenes (≥500
+ * used by GameScene) and legacy modals (1000), but BELOW blocking modal
+ * overlays which reserve depth 2100+ (e.g. ItemCardModal per R2B-3). If a
+ * blocking modal is open when a Toast event fires, the toast renders
+ * underneath the modal backdrop — user sees it after closing the modal.
+ * Matches blocking-overlay UX expectations. See CLAUDE.md depth layer map,
+ * `.conventions/gold-standards/toast-notifications.ts` §3, and DECISIONS R4
+ * (original) + R2B-3 (Phase 2B convention revision).
  */
 
 import Phaser from "phaser";

@@ -37,12 +37,24 @@
  *    Verification: `grep "globalTimer\|window\.setTimeout" src/v2/ui/Toast.ts`
  *    MUST return nothing. CI check enforces this (DECISIONS R4).
  *
- * 3. DEPTH: reserved layer 2000
+ * 3. DEPTH: reserved layer 2000 — non-blocking notification layer
  *
- *    Toast containers call `setDepth(2000)` — above modals (≤1000) and below
- *    cutscenes (≥500 used by GameScene). See CLAUDE.md depth layer map. Do
- *    not invent new depth values; reuse 2000 so toasts always land on top of
- *    the UI stack of the active scene.
+ *    Toast containers call `setDepth(2000)` — non-blocking notification layer.
+ *    Above cutscenes (≥500 used by GameScene) and legacy modals (1000), but
+ *    BELOW blocking modal overlays which reserve depth 2100+ (e.g.
+ *    ItemCardModal per R2B-3). If a blocking modal is open when a Toast event
+ *    fires, the toast renders underneath the modal backdrop — user sees it
+ *    after closing the modal. This matches blocking-overlay UX expectations:
+ *    a blocking modal demands the user's attention first, and transient
+ *    notifications wait their turn.
+ *
+ *    Do not invent new depth values; reuse 2000 for notifications and 2100
+ *    for blocking modals. See CLAUDE.md depth layer map + DECISIONS R2B-3 +
+ *    `./item-card-modal.ts` §2 for the full convention.
+ *
+ *    Legacy: CharacterGalleryScene.openModal still uses depth 1000 (Phase
+ *    2B will align it to 2100 per R2B-2 #4). For feature-item-info-display,
+ *    this legacy value is intentionally left in place — brief exclusion.
  *
  * 4. DELIVERY AT SOURCE, NOT DESTINATION
  *
