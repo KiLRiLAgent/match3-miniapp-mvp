@@ -12,6 +12,7 @@
 
 import type Phaser from "phaser";
 import { validateContent } from "./content/validate";
+import { eventBus } from "./core/EventBus";
 import { HubScene } from "./scenes/HubScene";
 import { StoryMapScene } from "./scenes/StoryMapScene";
 import { LocationScene } from "./scenes/LocationScene";
@@ -22,6 +23,15 @@ import { PlayerStatsScene } from "./scenes/PlayerStatsScene";
 import { CharacterGalleryScene } from "./scenes/CharacterGalleryScene";
 import { progressionSystem } from "./systems/ProgressionSystem";
 import { inventorySystem } from "./systems/InventorySystem";
+import { toast } from "./ui/Toast";
+
+/**
+ * Module-level idempotency guard for Toast wiring (RISK-1: Vite HMR may
+ * double-instantiate scenes during dev hot reload, causing duplicate eventBus
+ * subscriptions). The wiring runs at-most-once per page load — production
+ * unaffected (no HMR), dev gets clean re-renders.
+ */
+let toastWired = false;
 
 /**
  * Register all v2 scenes into the game. Called from BootScene AFTER
@@ -80,4 +90,79 @@ export function registerV2Scenes(game: Phaser.Game): void {
   progressionSystem.setInventoryProvider(() =>
     inventorySystem.computeAggregateStats(),
   );
+
+  wireToastSubscriptions(game);
+}
+
+/**
+ * Phase 1C: bridge eventBus error events → Toast on the active scene.
+ *
+ * Each handler reads the topmost active v2 scene at emit time and routes the
+ * toast there. Scene-aware delivery means the toast lives long enough to be
+ * read (R3 / R4) and dies on scene shutdown automatically.
+ *
+ * Idempotency: guarded by module-level `toastWired` flag. Re-running
+ * `registerV2Scenes` (Vite HMR, future v1↔v2 mode switch) WILL NOT stack
+ * subscriptions.
+ *
+ * `assetError` is logged but NOT toasted here — LocationScene already shows
+ * its own toast at the failure site (per Task #12). Double-toast would be
+ * noisy and potentially overlap.
+ */
+function wireToastSubscriptions(game: Phaser.Game): void {
+  if (toastWired) return;
+  toastWired = true;
+
+  eventBus.on("saveError", (payload) => {
+    const scene = getActiveV2Scene(game);
+    if (!scene) return;
+    const message =
+      payload.reason === "quota"
+        ? "Не удаётся сохранить — память переполнена"
+        : "Ошибка сохранения. Попробуйте позже";
+    toast.show(scene, { message, type: "error", durationMs: 5000 });
+  });
+
+  eventBus.on("contentError", (payload) => {
+    const scene = getActiveV2Scene(game);
+    if (!scene) return;
+    toast.show(scene, {
+      message: `Ошибка контента: ${payload.source}`,
+      type: "warn",
+    });
+  });
+
+  eventBus.on("assetError", (payload) => {
+    // LocationScene shows its own toast at the failure site — don't double-toast
+    // here. Just log for monitoring / future telemetry.
+    console.warn(`Asset error: ${payload.assetKey} (${payload.detail})`);
+  });
+}
+
+/**
+ * Find the topmost active v2 scene at the moment an error fires. Order is
+ * most-recently-pushed first so the toast lands on whatever the player is
+ * actually looking at (e.g. PlayerStats over Hub when player has the stats
+ * panel open). Returns null if no v2 scene is active — error is silently
+ * dropped, console.warn from emitters still gives dev visibility.
+ *
+ * Local helper per DECISIONS R14 — NOT exported, NOT in SceneRouter (we are
+ * not refactoring SceneRouter — out of brief scope).
+ */
+function getActiveV2Scene(game: Phaser.Game): Phaser.Scene | null {
+  const v2Keys = [
+    "PlayerStatsScene",
+    "CharacterGalleryScene",
+    "PostCombatScene",
+    "CombatBridgeScene",
+    "DialogueScene",
+    "LocationScene",
+    "StoryMapScene",
+    "HubScene",
+  ];
+  for (const key of v2Keys) {
+    const scene = game.scene.getScene(key);
+    if (scene && scene.scene.isActive()) return scene;
+  }
+  return null;
 }
