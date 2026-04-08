@@ -22,11 +22,13 @@ import Phaser from "phaser";
 import { DPR, SAFE_AREA } from "../../game/config";
 import { sceneRouter } from "../core/SceneRouter";
 import { gameState } from "../core/GameState";
+import { eventBus } from "../core/EventBus";
 import { storyFlags } from "../systems/StoryFlags";
 import { conditionEval } from "../systems/conditionEval";
 import { LOCATIONS } from "../content/locations";
 import { CHARACTERS } from "../content/characters";
 import { CharacterPortrait } from "../ui/CharacterPortrait";
+import { toast } from "../ui/Toast";
 import type { LocationHotspot } from "../content/types";
 
 const FONT = "'Exo 2', Arial, sans-serif";
@@ -34,7 +36,6 @@ const TITLE_COLOR = "#e6c068";
 const DESC_COLOR = "#b8a8d0";
 const HOTSPOT_LABEL_COLOR = "#f4e4c1";
 const TOAST_COLOR = "#9f7fc7";
-const FALLBACK_BG_COLOR = 0x222244;
 
 const BACK_BG = 0x2a1845;
 const BACK_BG_HOVER = 0x3a2358;
@@ -87,21 +88,28 @@ export class LocationScene extends Phaser.Scene {
     const cx = camW / 2;
     const d = DPR;
 
-    // Background — real PNG/JPG if loaded, else solid color placeholder.
+    // Background — real PNG/JPG if loaded, else visible fallback.
+    // Phase 1C: detect both "key not registered" AND "registered but empty"
+    // (failed network load leaves a 0×0 texture in the cache). On either path
+    // we render a purple placeholder + emit assetError + show a warn toast so
+    // the player and dev know the asset is missing.
+    let bgRendered = false;
     if (loc.backgroundKey && this.textures.exists(loc.backgroundKey)) {
-      const bg = this.add.image(camW / 2, camH / 2, loc.backgroundKey).setOrigin(0.5);
-      // Cover-fit: scale to fill the screen, may crop the longer dimension.
       const tex = this.textures.get(loc.backgroundKey);
       const src = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
       if (src.width > 0 && src.height > 0) {
+        const bg = this.add
+          .image(camW / 2, camH / 2, loc.backgroundKey)
+          .setOrigin(0.5);
         const scale = Math.max(camW / src.width, camH / src.height);
         bg.setScale(scale);
+        // Subtle dark overlay for text readability.
+        this.add.rectangle(0, 0, camW, camH, 0x000000, 0.35).setOrigin(0);
+        bgRendered = true;
       }
-      // Subtle dark overlay for text readability.
-      this.add.rectangle(0, 0, camW, camH, 0x000000, 0.35).setOrigin(0);
-    } else {
-      const bgColor = LOCATION_BG_COLORS[loc.id] ?? FALLBACK_BG_COLOR;
-      this.add.rectangle(0, 0, camW, camH, bgColor).setOrigin(0);
+    }
+    if (!bgRendered) {
+      this.renderFallbackBackground(camW, camH, loc.id, loc.backgroundKey);
     }
 
     this.add
@@ -234,6 +242,42 @@ export class LocationScene extends Phaser.Scene {
       yoyo: true,
       hold: TOAST_DURATION_MS,
       onComplete: () => text.destroy(),
+    });
+  }
+
+  /**
+   * Phase 1C U2 / R4: visible fallback when the background asset is missing
+   * or empty. Dark purple rect + placeholder label so the player never sees
+   * a black screen, plus a one-shot toast + assetError event for monitoring.
+   */
+  private renderFallbackBackground(
+    camW: number,
+    camH: number,
+    locId: string,
+    assetKey: string | undefined,
+  ): void {
+    const d = DPR;
+    const bgColor = LOCATION_BG_COLORS[locId] ?? 0x1a0f2e;
+    this.add.rectangle(0, 0, camW, camH, bgColor).setOrigin(0);
+    this.add
+      .text(camW / 2, camH / 2, `[${locId}]\nфон не загружен`, {
+        fontSize: `${16 * d}px`,
+        color: TOAST_COLOR,
+        fontFamily: FONT,
+        fontStyle: "italic",
+        align: "center",
+      })
+      .setOrigin(0.5);
+
+    eventBus.emit("assetError", {
+      source: "location-background",
+      assetKey: assetKey ?? locId,
+      detail: "background texture missing or empty",
+    });
+
+    toast.show(this, {
+      message: "Не удалось загрузить фон локации",
+      type: "warn",
     });
   }
 
