@@ -12,7 +12,7 @@
  */
 
 export const SAVE_KEY = "match3_save_v2";
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /** Basic combat stats attached to the player avatar (before inventory). */
 export interface PlayerStats {
@@ -151,6 +151,42 @@ export interface StatsSave {
   dialoguesCompleted: number;
 }
 
+/**
+ * Phase 2A — Arena roguelike (Archero-style run state).
+ *
+ * A single active run carries the player through 5 normal fights + 1 boss
+ * fight (floors 1..6). Picked buffs live in `activeRun.activeBuffs` and are
+ * applied only while the run is in progress — BuffSystem.applyToStats
+ * returns the base stats unchanged when `activeRun === null`.
+ *
+ * Accumulated rewards (xp/gold/items) are applied to the persistent save
+ * when the run completes or is aborted. Permadeath on fight loss resets
+ * `activeRun` to null and does NOT grant accumulated rewards.
+ */
+export interface ActiveBuff {
+  buffDefId: string;
+  sourceFightFloor: number;
+}
+
+export interface ArenaRunState {
+  floor: number;              // 1..6 (6 = boss)
+  enemyType: string;          // characterId of next enemy (arena_bandit | ...)
+  activeBuffs: ActiveBuff[];
+  accumulatedRewards: {
+    xp: number;
+    gold: number;
+    items: string[];          // itemDefIds queued to hand out on run completion
+  };
+  startedAt: number;          // unix ms
+}
+
+export interface ArenaSave {
+  activeRun: ArenaRunState | null;
+  bestScore: number;          // highest floor cleared (0..6)
+  totalRunsCompleted: number;
+  totalRunsFailed: number;
+}
+
 export interface SaveData {
   version: number;
   schemaCreatedAt: number;
@@ -162,4 +198,5 @@ export interface SaveData {
   ai: AISave;
   settings: SettingsSave;
   stats: StatsSave;
+  arena: ArenaSave;
 }

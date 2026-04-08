@@ -23,7 +23,12 @@
  * всегда flush-ится через beforeunload listener.
  */
 
-import { SAVE_KEY, SAVE_VERSION, type SaveData } from "./types";
+import {
+  SAVE_KEY,
+  SAVE_VERSION,
+  type ArenaSave,
+  type SaveData,
+} from "./types";
 import { eventBus } from "./EventBus";
 
 const AUTO_SAVE_DEBOUNCE_MS = 2000;
@@ -46,6 +51,20 @@ const LEGACY_HAPTIC_KEY = "match3_haptic";
 function generateId(): string {
   // lightweight pseudo-uuid for player.id — no external deps
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Default Phase 2A arena state — empty run slot, zeroed stats. Shared between
+ * `createDefaultSaveData` (fresh save) and `migrateV1ToV2` (existing Phase 1B/1C
+ * saves being upgraded to SAVE_VERSION 2).
+ */
+function createDefaultArenaSave(): ArenaSave {
+  return {
+    activeRun: null,
+    bestScore: 0,
+    totalRunsCompleted: 0,
+    totalRunsFailed: 0,
+  };
 }
 
 function createDefaultSaveData(): SaveData {
@@ -93,6 +112,7 @@ function createDefaultSaveData(): SaveData {
       combatsLost: 0,
       dialoguesCompleted: 0,
     },
+    arena: createDefaultArenaSave(),
   };
 }
 
@@ -128,13 +148,20 @@ function mirrorLegacySettings(data: SaveData): void {
  * Migration chain from older SaveData versions to SAVE_VERSION.
  * Each entry takes the previous version and returns the next version.
  *
+ * PURE FORWARD contract (DECISIONS R1): migrations ONLY add new fields,
+ * NEVER mutate existing ones. Existing Phase 1B/1C saves must load cleanly.
+ *
  * Add new migrations here as the schema evolves:
  *   MIGRATIONS[N] = (old) => ({ ...old, newField: defaultValue, version: N + 1 });
  */
 const MIGRATIONS: Record<number, (data: any) => any> = {
-  // Currently no migrations — v1 is the initial schema.
-  // Example for future use:
-  // 1: (old) => ({ ...old, newFeature: { enabled: false }, version: 2 }),
+  // v1 → v2 (Phase 2A): add `arena` field with defaults. No existing fields
+  // touched — Phase 1B/1C saves load as-is with fresh arena state.
+  1: (old) => ({
+    ...old,
+    arena: old.arena ?? createDefaultArenaSave(),
+    version: 2,
+  }),
 };
 
 function migrate(raw: unknown): SaveData {
@@ -435,6 +462,15 @@ class SaveManager {
 
     if (!d.stats || typeof d.stats !== "object") {
       return { ok: false, error: "stats missing" };
+    }
+
+    // Phase 2A: arena field is required AFTER migration runs. Imported saves
+    // at v1 won't have it yet — the migrate() pass adds it. We still accept
+    // undefined here so validateSaveShape doesn't reject pre-migration v1
+    // JSON during importJson. Post-migration correctness is enforced by the
+    // TypeScript SaveData type and runtime ArenaSystem/BuffSystem read paths.
+    if (d.arena !== undefined && (typeof d.arena !== "object" || d.arena === null)) {
+      return { ok: false, error: "arena present but not an object" };
     }
 
     return { ok: true };
