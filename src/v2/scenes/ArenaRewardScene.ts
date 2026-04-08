@@ -18,7 +18,28 @@ import { sceneRouter } from "../core/SceneRouter";
 import { arenaSystem } from "../systems/ArenaSystem";
 import { buffSystem } from "../systems/BuffSystem";
 import { BUFFS } from "../content/buffs";
-import type { BuffDef } from "../content/types";
+import type { BuffDef, BuffEffectType } from "../content/types";
+
+/**
+ * Effect types with full Phase 2A runtime support. Other BuffDef entries in
+ * BUFFS (addMpRegen / damageReduction / reviveOnDeath) are authored for
+ * Phase 2B and are stubbed in `BuffSystem.applySingleBuff` — filtering them
+ * out of the reward pool prevents "noop" picks that would frustrate the
+ * player (architect-backend UX flag, Phase 2A followup).
+ *
+ * `physPerFightSurvived` and `extraReward` ARE active in Phase 2A: the former
+ * via BuffSystem.applyToStats accumulator, the latter via
+ * buffSystem.getExtraRewardCount read here and in this scene's choice count.
+ */
+const PHASE_2A_ACTIVE_EFFECTS: ReadonlySet<BuffEffectType> = new Set<BuffEffectType>([
+  "addPhysAttack",
+  "addMagAttack",
+  "addMaxHp",
+  "addMaxMp",
+  "addCrit",
+  "physPerFightSurvived",
+  "extraReward",
+]);
 
 const BG_COLOR = 0x1a0f2e;
 const TITLE_COLOR = "#e6c068";
@@ -118,7 +139,12 @@ export class ArenaRewardScene extends Phaser.Scene {
    * is smaller than `count`.
    */
   private rollChoices(count: number): BuffDef[] {
-    const all = Object.values(BUFFS);
+    // Filter to Phase 2A active effects so players never pick a noop buff
+    // (architect-backend UX flag). Phase 2B will drop this filter once the
+    // stubbed effect types gain runtime hooks.
+    const all = Object.values(BUFFS).filter((b) =>
+      PHASE_2A_ACTIVE_EFFECTS.has(b.effectType),
+    );
     const weighted: BuffDef[] = [];
     for (const b of all) {
       const w = b.rarity === "common" ? 3 : b.rarity === "rare" ? 2 : 1;

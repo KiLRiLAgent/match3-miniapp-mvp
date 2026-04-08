@@ -20,6 +20,15 @@
  *
  * Buff `rarity` here refers to BUFF rarity (drives reward-pool weighting),
  * NOT item rarity. Russian copy consistent with v2 voice.
+ *
+ * `stackable` semantics (architect-frontend FE-13 / Round 2 consensus):
+ *  - All stat-add and modifier buffs are `stackable: true` so the player can
+ *    accumulate multiple instances across a run (Archero-style). Without this
+ *    flag, the ArenaRewardScene buff-pool filter (`!stackable && already-picked
+ *    → skip`) would lock out the core stat buffs after the first pick, leaving
+ *    the player out of meaningful choices on later floors.
+ *  - `buff_luck` (extraReward) and `buff_phoenix` (one-time revive) are
+ *    intentionally NON-stackable: stacking has no semantic meaning.
  */
 
 import type { BuffDef } from "../types";
@@ -31,6 +40,7 @@ const buff_strength: BuffDef = {
   effectType: "addPhysAttack",
   value: 10,
   rarity: "common",
+  stackable: true,
 };
 
 const buff_magic: BuffDef = {
@@ -40,6 +50,7 @@ const buff_magic: BuffDef = {
   effectType: "addMagAttack",
   value: 10,
   rarity: "common",
+  stackable: true,
 };
 
 const buff_vitality: BuffDef = {
@@ -49,6 +60,7 @@ const buff_vitality: BuffDef = {
   effectType: "addMaxHp",
   value: 50,
   rarity: "common",
+  stackable: true,
 };
 
 const buff_mana: BuffDef = {
@@ -58,6 +70,7 @@ const buff_mana: BuffDef = {
   effectType: "addMaxMp",
   value: 30,
   rarity: "common",
+  stackable: true,
 };
 
 const buff_crit: BuffDef = {
@@ -67,6 +80,7 @@ const buff_crit: BuffDef = {
   effectType: "addCrit",
   value: 10,
   rarity: "rare",
+  stackable: true,
 };
 
 const buff_speed: BuffDef = {
@@ -76,6 +90,7 @@ const buff_speed: BuffDef = {
   effectType: "addMpRegen",
   value: 1,
   rarity: "rare",
+  stackable: true,
 };
 
 const buff_ward: BuffDef = {
@@ -85,6 +100,7 @@ const buff_ward: BuffDef = {
   effectType: "damageReduction",
   value: 20,
   rarity: "rare",
+  stackable: true,
 };
 
 const buff_revenge: BuffDef = {

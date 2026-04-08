@@ -106,16 +106,10 @@ const BACK_BUTTON_HEIGHT = 48;
 // Layout anchors (logical — multiplied by DPR at render time).
 const CONTENT_TOP_Y = 160;
 
-// Phase 1C pagination — backpack shows up to 4 rows per page with prev/next
-// nav buttons. Constants chosen so that 4 rows + nav fit cleanly above the
-// "← В Hub" back button at min screen height (640 dp). Button height 44 dp
-// matches the mobile a11y minimum tap target (FE-V12).
-const ITEMS_PER_PAGE = 4;
-const PAGE_NAV_BTN_WIDTH = 110;
-const PAGE_NAV_BTN_HEIGHT = 44;
-const PAGE_NAV_GAP = 16;
-const PAGE_NAV_TOP_GAP = 10;
-const PAGE_NAV_FONT_SIZE = 13;
+// Phase 2A+ drag-scroll: user drags vertically over the content area to scroll
+// the rootLayer Container. Replaces Phase 1C pagination — feels more natural
+// on mobile. Drag threshold prevents accidental scroll on taps.
+const SCROLL_DRAG_THRESHOLD = 6;
 
 const SLOT_ORDER: readonly ItemSlot[] = ["weapon", "armor", "accessory"];
 const SLOT_LABELS: Record<ItemSlot, string> = {
@@ -135,14 +129,18 @@ interface AggregatedStats {
 export class PlayerStatsScene extends Phaser.Scene {
   private rootLayer?: Phaser.GameObjects.Container;
   /**
-   * Phase 1C — currently visible backpack page index (0-based). Lives on the
-   * instance so it survives `refresh()` rebuilds (which tear down rootLayer).
-   * Clamped to `[0, totalPages-1]` on every render in case the underlying
-   * item count shrank between renders (e.g. equipping last item on the page).
-   * Reset implicitly by Phaser scene shutdown — when the player navigates
-   * back into PlayerStatsScene, a fresh instance starts at page 0.
+   * Phase 2A+ drag-scroll state. `scrollY` is the current Y offset of
+   * `rootLayer` (always ≤ 0). `scrollMinY` is the negative lower bound (the
+   * further the user can drag up to reveal bottom content). Recomputed in
+   * each `refresh()` once total content height is known.
+   *
+   * `scrollDraggedThisGesture` is set during a pointermove that crosses the
+   * drag threshold — tap handlers on equipment / backpack rows check it to
+   * suppress accidental equips during scroll gestures.
    */
-  private currentBackpackPage = 0;
+  private scrollY = 0;
+  private scrollMinY = 0;
+  private scrollDraggedThisGesture = false;
 
   constructor() {
     super("PlayerStatsScene");
@@ -179,7 +177,37 @@ export class PlayerStatsScene extends Phaser.Scene {
     const backY = camH - 70 * d - SAFE_AREA.bottom * d;
     this.createBackButton(cx, backY, () => sceneRouter.pop(this));
 
+    this.setupScroll();
     this.refresh();
+  }
+
+  /**
+   * Install scene-wide pointer drag handlers for vertical scroll of
+   * `rootLayer`. Uses a movement threshold so short taps on backpack/slot
+   * rows still fire their own `pointerdown` handlers cleanly.
+   */
+  private setupScroll(): void {
+    let dragStartY = 0;
+    let dragStartScrollY = 0;
+    let dragging = false;
+
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      dragStartY = p.y;
+      dragStartScrollY = this.scrollY;
+      dragging = false;
+      this.scrollDraggedThisGesture = false;
+    });
+
+    this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
+      if (!p.isDown || !this.rootLayer) return;
+      const delta = p.y - dragStartY;
+      if (!dragging && Math.abs(delta) < SCROLL_DRAG_THRESHOLD) return;
+      dragging = true;
+      this.scrollDraggedThisGesture = true;
+      const newY = Phaser.Math.Clamp(dragStartScrollY + delta, this.scrollMinY, 0);
+      this.scrollY = newY;
+      this.rootLayer.setY(newY);
+    });
   }
 
   // ───────────────────────────────────────────────────────────────────────
@@ -197,6 +225,7 @@ export class PlayerStatsScene extends Phaser.Scene {
     }
 
     const camW = this.cameras.main.width;
+    const camH = this.cameras.main.height;
     const cx = camW / 2;
     const d = DPR;
 
@@ -220,7 +249,18 @@ export class PlayerStatsScene extends Phaser.Scene {
     y += 20 * d;
 
     y = this.renderSectionHeader(layer, cx, y, `── Рюкзак ──`);
-    this.renderBackpack(layer, cx, y);
+    y = this.renderBackpack(layer, cx, y);
+
+    // Compute scroll bounds: viewport is between the fixed title block and
+    // the fixed back button. If content overflows the viewport bottom we
+    // allow dragging up by the overflow delta. A small padding below the
+    // last row keeps the final item readable when fully scrolled.
+    const viewportBottom = camH - 100 * d - SAFE_AREA.bottom * d;
+    const contentBottom = y + 24 * d;
+    const overflow = Math.max(0, contentBottom - viewportBottom);
+    this.scrollMinY = -overflow;
+    this.scrollY = Phaser.Math.Clamp(this.scrollY, this.scrollMinY, 0);
+    layer.setY(this.scrollY);
   }
 
   // ───────────────────────────────────────────────────────────────────────
@@ -495,27 +535,13 @@ export class PlayerStatsScene extends Phaser.Scene {
     layer: Phaser.GameObjects.Container,
     cx: number,
     y: number,
-  ): void {
+  ): number {
     const d = DPR;
     const items = inventorySystem.getBackpackItems();
     const equippedIds = this.collectEquippedIds();
 
-    // Phase 1C pagination: clamp the current page in case items were removed
-    // since the last render (e.g. last item on page 2 of 2 was equipped).
-    const totalPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
-    if (this.currentBackpackPage >= totalPages) {
-      this.currentBackpackPage = totalPages - 1;
-    }
-    if (this.currentBackpackPage < 0) {
-      this.currentBackpackPage = 0;
-    }
-
-    const headerLabel =
-      totalPages > 1
-        ? `Рюкзак: ${items.length} / 8 (стр. ${this.currentBackpackPage + 1}/${totalPages})`
-        : `Рюкзак: ${items.length} / 8`;
     const headerText = this.add
-      .text(cx, y, headerLabel, {
+      .text(cx, y, `Рюкзак: ${items.length} / 8`, {
         fontSize: `${13 * d}px`,
         color: BODY_COLOR,
         fontFamily: FONT,
@@ -534,79 +560,16 @@ export class PlayerStatsScene extends Phaser.Scene {
         })
         .setOrigin(0.5, 0);
       layer.add(emptyText);
-      return;
+      return currentY + 20 * d;
     }
 
-    const start = this.currentBackpackPage * ITEMS_PER_PAGE;
-    const end = Math.min(start + ITEMS_PER_PAGE, items.length);
-    for (let i = start; i < end; i++) {
-      this.renderBackpackRow(layer, cx, currentY, items[i], equippedIds);
+    // Phase 2A+: render ALL items (no pagination). Drag-scroll handles
+    // overflow via setupScroll() + rootLayer.setY in refresh().
+    for (const instance of items) {
+      this.renderBackpackRow(layer, cx, currentY, instance, equippedIds);
       currentY += ROW_HEIGHT * d + ROW_GAP * d;
     }
-
-    if (totalPages > 1) {
-      this.renderPageNav(layer, cx, currentY + PAGE_NAV_TOP_GAP * d, totalPages);
-    }
-  }
-
-  /**
-   * Phase 1C — pagination controls. Renders prev/next buttons (each shown only
-   * when applicable) at `y`, equally spaced around `cx`. Tapping advances the
-   * page index and triggers `refresh()` which tears down rootLayer and rebuilds
-   * the backpack with the new offset.
-   *
-   * Tap targets are 110×44 dp — meets 44 dp mobile a11y minimum (FE-V12).
-   */
-  private renderPageNav(
-    layer: Phaser.GameObjects.Container,
-    cx: number,
-    y: number,
-    totalPages: number,
-  ): void {
-    const d = DPR;
-    const btnWidth = PAGE_NAV_BTN_WIDTH * d;
-    const btnHeight = PAGE_NAV_BTN_HEIGHT * d;
-    const offsetX = (btnWidth + PAGE_NAV_GAP * d) / 2;
-    const btnCy = y + btnHeight / 2;
-
-    if (this.currentBackpackPage > 0) {
-      this.addPageNavButton(layer, cx - offsetX, btnCy, btnWidth, btnHeight, "← Назад", -1);
-    }
-    if (this.currentBackpackPage < totalPages - 1) {
-      this.addPageNavButton(layer, cx + offsetX, btnCy, btnWidth, btnHeight, "Дальше →", 1);
-    }
-  }
-
-  private addPageNavButton(
-    layer: Phaser.GameObjects.Container,
-    cx: number,
-    cy: number,
-    width: number,
-    height: number,
-    label: string,
-    delta: 1 | -1,
-  ): void {
-    const d = DPR;
-    const bg = this.add
-      .rectangle(cx, cy, width, height, ROW_BG, 0.95)
-      .setStrokeStyle(1 * d, ROW_STROKE)
-      .setInteractive({ useHandCursor: true });
-    const text = this.add
-      .text(cx, cy, label, {
-        fontSize: `${PAGE_NAV_FONT_SIZE * d}px`,
-        color: VALUE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-    bg.on("pointerover", () => bg.setFillStyle(ROW_BG_HOVER, 1));
-    bg.on("pointerout", () => bg.setFillStyle(ROW_BG, 0.95));
-    bg.on("pointerdown", () => {
-      this.currentBackpackPage += delta;
-      this.refresh();
-    });
-    layer.add(bg);
-    layer.add(text);
+    return currentY;
   }
 
   private renderBackpackRow(
@@ -671,6 +634,7 @@ export class PlayerStatsScene extends Phaser.Scene {
    *  - empty → auto-equip the first backpack item matching this slot, if any
    */
   private handleSlotTap(slot: ItemSlot): void {
+    if (this.scrollDraggedThisGesture) return;
     const equipped = inventorySystem.getEquipped(slot);
     if (equipped) {
       if (inventorySystem.unequip(slot)) {
@@ -698,6 +662,7 @@ export class PlayerStatsScene extends Phaser.Scene {
    * slot — avoids a redundant rebuild.
    */
   private handleBackpackTap(instance: ItemInstance): void {
+    if (this.scrollDraggedThisGesture) return;
     const def = ITEMS[instance.itemDefId];
     if (!def) return;
     const currentlyEquipped = inventorySystem.getEquipped(def.slot);

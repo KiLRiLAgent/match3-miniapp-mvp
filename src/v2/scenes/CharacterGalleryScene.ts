@@ -101,9 +101,18 @@ const BACKSTORY_MAX_CHARS = 280;
 // Empty-state message when the player has not met any characters yet.
 const EMPTY_STATE_COLOR = "#8a7ab0";
 
+// Phase 2A+ drag-scroll threshold (tap vs drag disambiguation).
+const SCROLL_DRAG_THRESHOLD = 6;
+
 export class CharacterGalleryScene extends Phaser.Scene {
   private modalLayer?: Phaser.GameObjects.Container;
   private completedCharacterIds: Set<string> = new Set();
+
+  /** Scrollable container wrapping the character grid. */
+  private gridLayer?: Phaser.GameObjects.Container;
+  private scrollY = 0;
+  private scrollMinY = 0;
+  private scrollDraggedThisGesture = false;
 
   constructor() {
     super("CharacterGalleryScene");
@@ -252,19 +261,70 @@ export class CharacterGalleryScene extends Phaser.Scene {
     const colGap = GRID_COL_GAP * d;
     const rowGap = GRID_ROW_GAP * d;
 
+    // Phase 2A+: wrap the grid in a scrollable Container so galleries with
+    // many characters (Phase 2B+) scroll vertically instead of overflowing
+    // below the back button.
+    const layer = this.add.container(0, 0);
+    this.gridLayer = layer;
+
     // Center the whole grid horizontally. Width = cols * cell + (cols-1) * gap.
     const gridWidth = GRID_COLS * cellW + (GRID_COLS - 1) * colGap;
     const startX = (camW - gridWidth) / 2 + cellW / 2;
     const startY = GRID_TOP_Y * d + SAFE_AREA.top * d + cellW / 2;
+    const rowHeight = cellW + rowGap + 36 * d;
 
+    let lastRowY = startY;
     entries.forEach((entry, idx) => {
       const col = idx % GRID_COLS;
       const row = Math.floor(idx / GRID_COLS);
       const x = startX + col * (cellW + colGap);
-      // Row height = portrait + label line + defeated badge + gap.
-      const rowHeight = cellW + rowGap + 36 * d;
       const y = startY + row * rowHeight;
-      this.createGridEntry(entry.def, entry.state, x, y);
+      lastRowY = Math.max(lastRowY, y);
+      this.createGridEntry(entry.def, entry.state, x, y, layer);
+    });
+
+    // Compute scroll bounds — overflow between last grid row bottom and the
+    // viewport bottom (above the back button) becomes the negative Y range.
+    const camH = this.cameras.main.height;
+    const viewportBottom = camH - 110 * d - SAFE_AREA.bottom * d;
+    const contentBottom = lastRowY + cellW / 2 + 36 * d;
+    const overflow = Math.max(0, contentBottom - viewportBottom);
+    this.scrollMinY = -overflow;
+    this.scrollY = Phaser.Math.Clamp(this.scrollY, this.scrollMinY, 0);
+    layer.setY(this.scrollY);
+
+    this.setupScroll();
+  }
+
+  /**
+   * Install scene-wide pointer handlers for drag-scroll of `gridLayer`.
+   * Tap-on-portrait opens the modal; drag scrolls instead.
+   */
+  private setupScroll(): void {
+    let dragStartY = 0;
+    let dragStartScrollY = 0;
+    let dragging = false;
+
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      dragStartY = p.y;
+      dragStartScrollY = this.scrollY;
+      dragging = false;
+      this.scrollDraggedThisGesture = false;
+    });
+
+    this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
+      if (!p.isDown || !this.gridLayer) return;
+      const delta = p.y - dragStartY;
+      if (!dragging && Math.abs(delta) < SCROLL_DRAG_THRESHOLD) return;
+      dragging = true;
+      this.scrollDraggedThisGesture = true;
+      const newY = Phaser.Math.Clamp(
+        dragStartScrollY + delta,
+        this.scrollMinY,
+        0,
+      );
+      this.scrollY = newY;
+      this.gridLayer.setY(newY);
     });
   }
 
@@ -273,6 +333,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
     state: RelationshipState,
     x: number,
     y: number,
+    layer: Phaser.GameObjects.Container,
   ): void {
     const d = DPR;
     const portraitSize = PORTRAIT_SIZE * d;
@@ -302,10 +363,13 @@ export class CharacterGalleryScene extends Phaser.Scene {
       ),
       Phaser.Geom.Rectangle.Contains,
     );
-    portrait.on("pointerdown", () => this.openModal(def, state));
+    portrait.on("pointerdown", () => {
+      if (this.scrollDraggedThisGesture) return;
+      this.openModal(def, state);
+    });
 
     // Name label below the portrait.
-    this.add
+    const nameText = this.add
       .text(x, y + portraitSize / 2 + LABEL_GAP * d, def.name, {
         fontSize: `${16 * d}px`,
         color: "#f4e4c1",
@@ -314,8 +378,10 @@ export class CharacterGalleryScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    layer.add([portrait, nameText]);
+
     if (this.completedCharacterIds.has(def.id)) {
-      this.add
+      const badge = this.add
         .text(
           x,
           y + portraitSize / 2 + LABEL_GAP * d + 18 * d + DEFEATED_BADGE_GAP * d,
@@ -328,6 +394,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
           },
         )
         .setOrigin(0.5);
+      layer.add(badge);
     }
   }
 

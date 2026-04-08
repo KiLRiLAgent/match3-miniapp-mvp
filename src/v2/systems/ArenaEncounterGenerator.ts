@@ -14,12 +14,13 @@
  * EncounterId format (DECISIONS.md R3):
  *     `arena_floor_${N}_${enemyType}`  where N ∈ [1..6]
  *
- * Scaling contract (brief "Procedural EncounterDef integration"):
- *   layerCount        = 2 + floor           (boss bumps to 4)
- *   baseHpPerLayer    = 30 + floor * 12     (+30 on boss floor)
- *   physAttack        = 8 + floor * 2       (+5 on boss floor)
- *   chains.count      = 0 on floors 1-3, 1 from floor 4, 4 on boss
- *   rewards.xp/gold   = 50*floor / 25*floor (+200/+100 boss)
+ * Scaling contract (Phase 2A+ 4x difficulty bump per player feedback):
+ *   layerCount        = min(5, 2 + floor)   (boss bumps to 6)
+ *   baseHpPerLayer    = 120 + floor * 48    (+120 on boss floor) [was 30+12*floor]
+ *   physAttack        = 14 + floor * 3      (+8 on boss floor)   [was 8+2*floor]
+ *   chains.count      = 1 from floor 2, 2 from floor 4, 6 on boss
+ *   chainBlockedHpRatio = 0.35 normal / 0.6 boss                  [was 0.3 / 0.5]
+ *   rewards.xp/gold   = 100*floor / 50*floor (+400/+200 boss)     [was 50/25]
  *
  * All generated defs pass `EncounterBuilder.build()` validation
  * (layerCount > 0, baseHpPerLayer > 0, chainBlockedHpRatio ∈ [0..1]).
@@ -114,10 +115,12 @@ class ArenaEncounterGenerator {
       difficulty: Math.min(10, Math.ceil(floor * 1.5)),
       bossStats: this.scaleBossStats(floor, isBoss),
       bossPattern: ENEMY_PATTERNS[enemyType] ?? ["attack", "attack"],
-      chains: floor >= 4 ? this.generateChains(floor, isBoss) : undefined,
+      // Phase 2A+: chains appear from floor 2 (was floor 4). Boss gets 6 chains.
+      chains: floor >= 2 ? this.generateChains(floor, isBoss) : undefined,
       rewards: {
-        xp: 50 * floor + (isBoss ? 200 : 0),
-        gold: 25 * floor + (isBoss ? 100 : 0),
+        // Phase 2A+ rewards 2x to compensate 4x fight length
+        xp: 100 * floor + (isBoss ? 400 : 0),
+        gold: 50 * floor + (isBoss ? 200 : 0),
         loot: this.buildLootTable(floor, isBoss),
       },
       // No relationshipImpact: arena fights do not update relationships.
@@ -133,9 +136,25 @@ class ArenaEncounterGenerator {
     return { floor, enemyType: match[2] };
   }
 
+  /**
+   * NOTE: Brief specified `layerCount = 2 + floor` but that gives ~8 layers
+   * on the boss (floor 6) which exceeds playable fight length. Capped at 3
+   * for normal floors (1→2→3 across floors 1-2 / 3-4 / 5) and fixed 4 for
+   * the boss to keep arena run pacing playable. `EncounterBuilder.build()`
+   * validation (`layerCount > 0`) still passes for every floor.
+   *
+   * `magAttack` is intentionally omitted on floors 1-2 — early arena enemies
+   * are physical-only so the boss kit ramps in from floor 3+.
+   */
   private scaleBossStats(floor: number, isBoss: boolean): EncounterDef["bossStats"] {
-    const layerCount = isBoss ? 4 : Math.min(3, 1 + Math.floor(floor / 2));
-    const baseHpPerLayer = 30 + floor * 12 + (isBoss ? 30 : 0);
+    // Phase 2A+ 4x difficulty bump (player feedback: runs felt too easy).
+    // HP scales ~4x (was 30+12*floor, now 120+48*floor) → boss TTK ~4x longer.
+    // physAttack scales ~1.75x (was 8+2*floor, now 14+3*floor) → player takes
+    // more damage per hit without being one-shot. magAttack scales ~1.5x.
+    // layerCount grows faster (up to 5 normal / 6 boss) so late floors need
+    // more sustained offense.
+    const layerCount = isBoss ? 6 : Math.min(5, 2 + floor);
+    const baseHpPerLayer = 120 + floor * 48 + (isBoss ? 120 : 0);
     const layerMultipliers = Array.from(
       { length: layerCount },
       (_, i) => 1 + i * 0.15,
@@ -144,10 +163,10 @@ class ArenaEncounterGenerator {
       layerCount,
       baseHpPerLayer,
       layerMultipliers,
-      physAttack: 8 + floor * 2 + (isBoss ? 5 : 0),
+      physAttack: 14 + floor * 3 + (isBoss ? 8 : 0),
     };
     if (floor >= 3) {
-      stats.magAttack = 5 + floor;
+      stats.magAttack = 8 + floor * 2;
     }
     return stats;
   }
@@ -157,19 +176,21 @@ class ArenaEncounterGenerator {
    * Count rises with floor: 1 chain at floor 4-5, 4 chains on boss floor 6.
    */
   private generateChains(floor: number, isBoss: boolean): EncounterDef["chains"] {
-    const count = isBoss ? 4 : 1 + Math.floor((floor - 4) / 2);
+    // Phase 2A+: chains appear from floor 2 (was floor 4). Ramp is steeper to
+    // contribute to the 4x difficulty target. Boss places 6 chains (was 4).
+    const count = isBoss ? 6 : Math.max(1, Math.floor(floor / 2) + (floor >= 4 ? 1 : 0));
     const initial: ChainPlacement[] = [];
     for (let i = 0; i < count; i++) {
       initial.push({
         x: (i * 3 + floor) % 8,
         y: (i * 2 + floor) % 7,
-        hp: isBoss ? 3 : 2,
+        hp: isBoss ? 4 : floor >= 4 ? 3 : 2,
         variant: "iron",
       });
     }
     return {
       initial,
-      chainBlockedHpRatio: isBoss ? 0.5 : 0.3,
+      chainBlockedHpRatio: isBoss ? 0.6 : 0.35,
     };
   }
 

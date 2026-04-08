@@ -142,7 +142,9 @@ export class ArenaScene extends Phaser.Scene {
       });
       this.createSecondaryButton(cx, ctaY + 78 * d, "Прекратить run", () => {
         arenaSystem.abortRun();
-        this.scene.restart();
+        // Pass runJustFailed so the restarted scene shows the failure toast,
+        // matching PostCombat-routed defeat UX (architect-frontend nitpick #12).
+        this.scene.restart({ runJustFailed: true });
       });
     } else {
       this.createPrimaryButton(cx, ctaY, "Начать новый run", () => {
