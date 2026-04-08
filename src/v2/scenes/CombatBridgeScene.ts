@@ -22,10 +22,12 @@
 import Phaser from "phaser";
 import { sceneRouter } from "../core/SceneRouter";
 import { gameState } from "../core/GameState";
+import { eventBus } from "../core/EventBus";
 import { encounterBuilder } from "../systems/EncounterBuilder";
 import { ENCOUNTERS } from "../content/encounters";
 import type {
   CombatContext,
+  CombatResult,
   EncounterDef,
   GameSceneInitData,
   RawCombatResult,
@@ -52,12 +54,22 @@ export class CombatBridgeScene extends Phaser.Scene {
   private onVictoryNode!: string;
   private onDefeatNode!: string;
   private returnToDialogueId!: string;
+  /**
+   * Phase 1C S1 idempotency guard. Reset to false in `init()` (FIRST line per
+   * DECISIONS R13) on every fresh scene start. handleCombatComplete checks
+   * this before applying rewards — duplicate fires from GameScene's
+   * onCombatComplete callback are no-ops with a warning.
+   */
+  private resultApplied = false;
 
   constructor() {
     super("CombatBridgeScene");
   }
 
   init(data: CombatBridgeData) {
+    // R13: reset idempotency guard FIRST — defensive against init being called
+    // with empty/undefined data (TypeError on data.X reads is then non-fatal).
+    this.resultApplied = false;
     this.encounterId = data.encounterId;
     this.onVictoryNode = data.onVictoryNode;
     this.onDefeatNode = data.onDefeatNode;
@@ -67,8 +79,7 @@ export class CombatBridgeScene extends Phaser.Scene {
   create() {
     const encounterDef = ENCOUNTERS[this.encounterId];
     if (!encounterDef) {
-      console.error(`CombatBridgeScene: encounter ${this.encounterId} not found`);
-      sceneRouter.pop(this);
+      this.handleMissingEncounter();
       return;
     }
 
@@ -94,6 +105,10 @@ export class CombatBridgeScene extends Phaser.Scene {
    * Handler invoked from GameScene's onCombatComplete callback closure.
    * Receives encounterDef and context via closure capture (MITIGATION-2).
    *
+   * Phase 1C S1 idempotency: guarded by `this.resultApplied` — duplicate
+   * fires (GameScene emits twice for any reason) are no-ops with a warning.
+   * The flag is reset to false in `init()` so a fresh combat starts clean.
+   *
    * Order is critical:
    *   1. scene.stop("GameScene") — RISK-2 caveat 5: BEFORE wake
    *   2. scene.wake() — resumes this scene
@@ -107,6 +122,18 @@ export class CombatBridgeScene extends Phaser.Scene {
     encounterDef: EncounterDef,
     context: CombatContext,
   ): void {
+    // S1 idempotency guard — second invocation for the same combat is a bug
+    // somewhere upstream (GameScene closure leak, double-emit) and must NOT
+    // double-apply rewards. Set the flag BEFORE any side effects so a re-entry
+    // mid-handler still no-ops on the next call.
+    if (this.resultApplied) {
+      console.warn(
+        `CombatBridgeScene: handleCombatComplete called twice for encounter ${encounterDef.id} — ignoring duplicate`,
+      );
+      return;
+    }
+    this.resultApplied = true;
+
     // RISK-2 caveat 5: stop GameScene BEFORE wake — otherwise next encounter's launch
     // hits SceneManager.start() shutdown branch and breaks the second fight.
     this.scene.stop("GameScene");
@@ -133,6 +160,60 @@ export class CombatBridgeScene extends Phaser.Scene {
         onDefeatNode: this.onDefeatNode,
         returnToDialogueId: this.returnToDialogueId,
       });
+    });
+  }
+
+  /**
+   * Phase 1C C2 missing-encounter recovery (DECISIONS R3 + R6).
+   *
+   * When `ENCOUNTERS[encounterId]` is undefined we cannot run the real combat
+   * flow — building a CombatContext requires the encounter, and applying
+   * rewards would corrupt stats. Instead we synthesize a defeat-shaped
+   * CombatResult and route to PostCombatScene with `synthesizedDefeat: true`.
+   *
+   * Per R3: the toast lives on PostCombatScene (where it survives long enough
+   * to be read), NOT here — `this` is about to shut down.
+   * Per R6: the synthetic CombatResult literal is the second permitted
+   * occurrence in the codebase; the CONTENT_ERROR_FALLBACK comment within
+   * 5 lines is the documented exemption marker.
+   */
+  private handleMissingEncounter(): void {
+    console.error(
+      `CombatBridgeScene: encounter ${this.encounterId} not found in ENCOUNTERS registry`,
+    );
+
+    // Monitoring/observability — Toast UI is intentionally NOT shown here
+    // (R3: would die on scene shutdown). PostCombatScene shows it.
+    eventBus.emit("contentError", {
+      source: "missing-encounter",
+      detail: `encounter '${this.encounterId}' not in ENCOUNTERS registry`,
+    });
+
+    // CONTENT_ERROR_FALLBACK — bypasses applyResult intentionally:
+    //   - synthetic defeat is NOT a real combat result
+    //   - bypassing applyResult avoids corrupting stats.combatsLost
+    //   - relationship deltas not applied (no real combat occurred)
+    const syntheticResult: CombatResult = {
+      encounterId: this.encounterId,
+      characterId: "",
+      victory: false,
+      damageDealt: 0,
+      damageReceived: 0,
+      chainsBroken: 0,
+      turnsPlayed: 0,
+      appliedDelta: {},
+      xpGained: 0,
+      goldGained: 0,
+    };
+
+    sceneRouter.replace(this, "PostCombatScene", {
+      result: syntheticResult,
+      encounterContext: null,
+      onVictoryNode: this.onVictoryNode,
+      onDefeatNode: this.onDefeatNode,
+      returnToDialogueId: this.returnToDialogueId,
+      synthesizedDefeat: true,
+      errorMessage: `Ошибка контента: бой '${this.encounterId}' не найден`,
     });
   }
 
