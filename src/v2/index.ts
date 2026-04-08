@@ -50,25 +50,29 @@ let toastWired = false;
  * Phase 1B adds PlayerStatsScene (task #7) and CharacterGalleryScene
  * (task #8, wired by task #9 alongside the HubScene 4-button reorganize).
  *
+ * Phase 2A adds 4 scenes for the arena/shop loop: ArenaScene (entry menu),
+ * ArenaRunScene (active run UI), ArenaRewardScene (between-fight buff
+ * choice), ShopScene (magazin). HubScene (task #16) gains «⚔️ Арена» and
+ * «🛒 Магазин» buttons that push these via SceneRouter.
+ *
  * `false` second arg = don't auto-start; BootScene explicitly invokes
  * `scene.start("HubScene")` after registration.
  */
 export function registerV2Scenes(game: Phaser.Game): void {
-  // Content validation — fail fast if any cross-reference is broken. Catches
-  // author typos in node.next, choice.next, encounter characterId, loot
-  // itemDefId, location dialogue ids BEFORE the player encounters them.
-  // Throws on errors so BootScene's `await import("../v2")` rejects and the
-  // failure surfaces in console — better than silently broken content.
-  // Warnings are non-blocking and logged via console.warn.
-  const validation = validateContent();
-  for (const warning of validation.warnings) {
-    console.warn(`v2 content validation: ${warning}`);
-  }
-  if (!validation.ok) {
-    const message =
-      "v2 content validation failed:\n" +
-      validation.errors.map((e) => `  - ${e}`).join("\n");
-    throw new Error(message);
+  // Content validation — DEV-only per Phase 2A R12. Production tree-shakes
+  // validateContent out, saving ~2-3 KB. Authors run dev build to catch
+  // dangling refs; production assumes content is sound.
+  if (import.meta.env.DEV) {
+    const validation = validateContent();
+    for (const warning of validation.warnings) {
+      console.warn(`v2 content validation: ${warning}`);
+    }
+    if (!validation.ok) {
+      const message =
+        "v2 content validation failed:\n" +
+        validation.errors.map((e) => `  - ${e}`).join("\n");
+      throw new Error(message);
+    }
   }
 
   const scenes: ReadonlyArray<{ key: string; scene: new () => Phaser.Scene }> = [
