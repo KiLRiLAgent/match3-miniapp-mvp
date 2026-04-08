@@ -52,6 +52,21 @@ class SceneRouter {
     scene.scene.start(prev.key, prev.data);
   }
 
+  /**
+   * Initialize (or reset) the stack to contain a single root entry. Does NOT
+   * trigger a scene transition — assumes the caller is already inside that
+   * scene's `create()` and just needs to register itself as the root for
+   * subsequent push/pop navigation.
+   *
+   * Required because BootScene calls `scene.start("HubScene")` directly
+   * (bypassing the router for the v1↔v2 mode switch), so the stack starts
+   * empty. Without this call, the first child scene's back button would try
+   * to pop from a length-1 stack and silently no-op.
+   */
+  setRoot(key: string, data?: object): void {
+    this.stack = [{ key, data }];
+  }
+
   /** Reset the navigation stack (used on New Game / mode switch). */
   clear(): void {
     this.stack = [];

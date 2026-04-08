@@ -91,6 +91,13 @@ export class HubScene extends Phaser.Scene {
     const save = gameState.ensureLoaded();
     const level = progressionSystem.getCurrentLevel();
 
+    // BootScene starts HubScene via `scene.start` (bypassing sceneRouter for
+    // the v1↔v2 mode switch), so the navigation stack arrives empty. Register
+    // HubScene as the root here so child scenes' back buttons (PlayerStats,
+    // CharacterGallery, StoryMap) can pop back to us. Idempotent: when a child
+    // pops back to Hub, this re-creates the single-entry stack from scratch.
+    sceneRouter.setRoot("HubScene");
+
     this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
 
     this.add
