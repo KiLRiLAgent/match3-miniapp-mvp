@@ -1,11 +1,18 @@
 /**
  * HubScene — главный экран v2 «Университет Падших».
  *
- * Phase 1B: расширен до 4 кнопок навигации:
+ * Phase 2A — 5 primary navigation buttons + 1 secondary, vertically stacked:
  *   1. «🗺 Карта» → StoryMapScene (кампус, существующая локация)
  *   2. «👤 Персонаж» → PlayerStatsScene (статы, уровень, экипировка)
  *   3. «📖 Галерея» → CharacterGalleryScene (встреченные души)
- *   4. «← Назад в v1» → setActiveMode("v1") + reload
+ *   4. «⚔️ Арена» → ArenaScene (Phase 2A roguelike entry)
+ *   5. «🛒 Магазин» → ShopScene (Phase 2A magazin)
+ *   6. «← Назад в v1» (secondary) → setActiveMode("v1") + reload
+ *
+ * Layout note: 5 primary buttons stacked require compact dimensions
+ * (height 52dp, gap 12dp) so the column fits the 640dp min-screen budget
+ * alongside the title block, greeting + XP bar, and bottom-anchored
+ * secondary button.
  *
  * Приветствие расширено уровнем: "Добро пожаловать, {name}! Уровень {level}".
  *
@@ -54,8 +61,8 @@ const SECONDARY_TEXT = "#b8a8d0";
 const SECONDARY_TEXT_HOVER = "#e6c068";
 
 const PRIMARY_BUTTON_WIDTH = 300;
-const PRIMARY_BUTTON_HEIGHT = 64;
-const PRIMARY_BUTTON_GAP = 18;
+const PRIMARY_BUTTON_HEIGHT = 52;
+const PRIMARY_BUTTON_GAP = 12;
 const SECONDARY_BUTTON_WIDTH = 260;
 const SECONDARY_BUTTON_HEIGHT = 52;
 
@@ -152,11 +159,11 @@ export class HubScene extends Phaser.Scene {
 
     this.renderXpBar(cx, XP_BAR_Y * d + SAFE_AREA.top * d, save.player.xp, level);
 
-    // Primary buttons stacked vertically, centered between greeting and
-    // bottom-anchored "back to v1" button. Step = height + gap.
+    // Phase 2A: 5 primary buttons stacked vertically. Reduced height/gap so
+    // the stack fits between greeting and bottom-anchored secondary on min screen.
     const buttonStep = (PRIMARY_BUTTON_HEIGHT + PRIMARY_BUTTON_GAP) * d;
-    const stackCenterY = camH * 0.55;
-    const firstY = stackCenterY - buttonStep;
+    const stackCenterY = camH * 0.52;
+    const firstY = stackCenterY - buttonStep * 2;
 
     this.createPrimaryButton(cx, firstY, "🗺 Карта", () => {
       sceneRouter.push(this, "StoryMapScene");
@@ -166,6 +173,12 @@ export class HubScene extends Phaser.Scene {
     });
     this.createPrimaryButton(cx, firstY + buttonStep * 2, "📖 Галерея", () => {
       sceneRouter.push(this, "CharacterGalleryScene");
+    });
+    this.createPrimaryButton(cx, firstY + buttonStep * 3, "⚔️ Арена", () => {
+      sceneRouter.push(this, "ArenaScene");
+    });
+    this.createPrimaryButton(cx, firstY + buttonStep * 4, "🛒 Магазин", () => {
+      sceneRouter.push(this, "ShopScene");
     });
 
     const secondaryY = camH - 80 * d - SAFE_AREA.bottom * d;

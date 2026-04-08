@@ -21,6 +21,10 @@ import { CombatBridgeScene } from "./scenes/CombatBridgeScene";
 import { PostCombatScene } from "./scenes/PostCombatScene";
 import { PlayerStatsScene } from "./scenes/PlayerStatsScene";
 import { CharacterGalleryScene } from "./scenes/CharacterGalleryScene";
+import { ArenaScene } from "./scenes/ArenaScene";
+import { ArenaRunScene } from "./scenes/ArenaRunScene";
+import { ArenaRewardScene } from "./scenes/ArenaRewardScene";
+import { ShopScene } from "./scenes/ShopScene";
 import { progressionSystem } from "./systems/ProgressionSystem";
 import { inventorySystem } from "./systems/InventorySystem";
 import { toast } from "./ui/Toast";
@@ -76,6 +80,11 @@ export function registerV2Scenes(game: Phaser.Game): void {
     { key: "PostCombatScene", scene: PostCombatScene },
     { key: "PlayerStatsScene", scene: PlayerStatsScene },
     { key: "CharacterGalleryScene", scene: CharacterGalleryScene },
+    // Phase 2A — arena flow + magazin
+    { key: "ArenaScene", scene: ArenaScene },
+    { key: "ArenaRunScene", scene: ArenaRunScene },
+    { key: "ArenaRewardScene", scene: ArenaRewardScene },
+    { key: "ShopScene", scene: ShopScene },
   ];
 
   for (const { key, scene } of scenes) {
@@ -150,7 +159,14 @@ function wireToastSubscriptions(game: Phaser.Game): void {
  * not refactoring SceneRouter — out of brief scope).
  */
 function getActiveV2Scene(game: Phaser.Game): Phaser.Scene | null {
+  // Order: most-recently-pushed first. Phase 2A scenes (Arena*, Shop) sit
+  // above the Phase 1A flow because they are reached via push from Hub and
+  // can be active simultaneously with the older scene stack.
   const v2Keys = [
+    "ArenaRewardScene",
+    "ArenaRunScene",
+    "ArenaScene",
+    "ShopScene",
     "PlayerStatsScene",
     "CharacterGalleryScene",
     "PostCombatScene",
