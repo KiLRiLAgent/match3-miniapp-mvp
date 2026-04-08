@@ -21,6 +21,13 @@ import { ITEMS } from "../content/items";
 const MAX_BACKPACK_SLOTS = 8;
 
 /**
+ * Canonical iteration order over equipment slots (DECISIONS R7). Single source
+ * of truth — `computeAggregateStats` and `removeItem` both iterate this array
+ * instead of redefining `["weapon", "armor", "accessory"]` locally.
+ */
+const SLOT_ORDER: readonly ItemSlot[] = ["weapon", "armor", "accessory"];
+
+/**
  * Generate a unique instance id. Includes a random suffix because two items
  * added in the same millisecond would otherwise collide on `Date.now()` alone.
  */
@@ -84,6 +91,34 @@ class InventorySystem {
   }
 
   /**
+   * Remove an item from the backpack by instance id. Automatically clears any
+   * equipped slot that was pointing at this item, so callers cannot leave the
+   * `equipped` map referencing a deleted instance. Returns true if the item
+   * was found and removed, false otherwise.
+   *
+   * Atomic — both the filter and the equipped-cleanup happen in a single
+   * `gameState.patch` call so persistence sees a consistent post-state.
+   *
+   * Use this instead of mutating `inventory.items` directly — it is the only
+   * v2 entry point that guarantees inventory invariants stay coherent.
+   */
+  removeItem(instanceId: string): boolean {
+    const save = gameState.get();
+    const exists = save.inventory.items.some((it) => it.id === instanceId);
+    if (!exists) return false;
+
+    gameState.patch((s) => {
+      s.inventory.items = s.inventory.items.filter((it) => it.id !== instanceId);
+      for (const slot of SLOT_ORDER) {
+        if (s.inventory.equipped[slot] === instanceId) {
+          delete s.inventory.equipped[slot];
+        }
+      }
+    });
+    return true;
+  }
+
+  /**
    * Sum of `baseStats` (and any `rolledStats`) across all currently-equipped
    * items. Returns a fully-populated `ItemStats` with zeros for missing
    * fields. Pure read — never mutates SaveData.
@@ -97,8 +132,7 @@ class InventorySystem {
       crit: 0,
     };
 
-    const slots: ItemSlot[] = ["weapon", "armor", "accessory"];
-    for (const slot of slots) {
+    for (const slot of SLOT_ORDER) {
       const instance = this.getEquipped(slot);
       if (!instance) continue;
 
