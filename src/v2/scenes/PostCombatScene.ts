@@ -344,8 +344,18 @@ export class PostCombatScene extends Phaser.Scene {
           // Buff pick after floors 3, 6, 9.
           sceneRouter.replace(this, "ArenaRewardScene");
         } else {
-          // Direct advance — no buff pick, go straight to next fight.
-          sceneRouter.replace(this, "ArenaRunScene");
+          // Direct advance — no buff pick, seamless transition to next fight.
+          // Bypass ArenaRunScene entirely for non-buff floors.
+          const nextRun = arenaSystem.getActiveRun();
+          const nextEncounterId = nextRun
+            ? `arena_floor_${nextRun.floor}_${nextRun.enemyType}`
+            : "";
+          sceneRouter.replace(this, "CombatBridgeScene", {
+            encounterId: nextEncounterId,
+            onVictoryNode: "",
+            onDefeatNode: "",
+            returnToDialogueId: "",
+          });
         }
       } else {
         arenaSystem.abortRun();

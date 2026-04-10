@@ -181,6 +181,19 @@ export class ArenaRewardScene extends Phaser.Scene {
 
   private selectBuff(buffDefId: string): void {
     arenaSystem.addBuff(buffDefId);
-    sceneRouter.replace(this, "ArenaRunScene");
+    // Seamless: after buff pick, go directly to next fight (skip ArenaRunScene).
+    const run = arenaSystem.getActiveRun();
+    if (run) {
+      const nextEncounterId = `arena_floor_${run.floor}_${run.enemyType}`;
+      sceneRouter.replace(this, "CombatBridgeScene", {
+        encounterId: nextEncounterId,
+        onVictoryNode: "",
+        onDefeatNode: "",
+        returnToDialogueId: "",
+      });
+    } else {
+      // Fallback if run was somehow finalized.
+      sceneRouter.replace(this, "ArenaScene");
+    }
   }
 }
