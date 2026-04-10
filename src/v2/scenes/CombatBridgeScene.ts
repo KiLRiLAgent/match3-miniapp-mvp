@@ -116,6 +116,14 @@ export class CombatBridgeScene extends Phaser.Scene {
         },
       };
 
+      // v2: arena cooldown persistence — pass saved cooldowns to GameScene
+      if (isArena) {
+        const activeRun = arenaSystem.getActiveRun();
+        if (activeRun?.skillCooldowns) {
+          initData.arenaSkillCooldowns = { ...activeRun.skillCooldowns };
+        }
+      }
+
       // v2: inject arena perk system handlers for arena fights (gold standard §6)
       if (isArena) {
         const physAttack = context.playerStats.physAttack;
@@ -184,6 +192,11 @@ export class CombatBridgeScene extends Phaser.Scene {
       // fully-populated CombatResult (XP, gold, level-up, loot). No further
       // spreading here — passthrough only.
       const enriched = encounterBuilder.applyResult(raw, encounterDef);
+
+      // v2: arena cooldown persistence — store final skill cooldowns in run state
+      if (raw.finalSkillCooldowns && arenaSystem.getActiveRun()) {
+        arenaSystem.setSkillCooldowns(raw.finalSkillCooldowns);
+      }
 
       // MITIGATION-3 / RISK-9: explicit flush bypasses 2-second autosave debounce.
       // beforeunload is unreliable on mobile Telegram WebView (iOS WKWebView doesn't

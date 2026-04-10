@@ -215,6 +215,8 @@ export class GameScene extends Phaser.Scene {
   private arenaPerkModal?: { open(scene: unknown): Promise<void> };
   // v2: track whether first turn of fight (for quick_draw passive)
   private isFirstTurn = true;
+  // v2: arena cooldown persistence — carried over from previous arena fight
+  private arenaSkillCooldowns?: Record<string, number>;
 
   constructor() {
     super("GameScene");
@@ -264,6 +266,8 @@ export class GameScene extends Phaser.Scene {
     this.arenaSkillStats = data?.arenaSkillStats;
     this.arenaPassives = data?.arenaPassives;
     this.arenaPerkModal = data?.arenaPerkModal;
+    // v2: arena cooldown persistence — carry over cooldowns from previous arena fight
+    this.arenaSkillCooldowns = data?.arenaSkillCooldowns;
 
     this.cameras.main.setZoom(DPR);
     this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
@@ -392,7 +396,10 @@ export class GameScene extends Phaser.Scene {
     this.hammerMode = false;
     this.bossShieldDuration = 0;
     this.bossDamageArtActive = false;
-    this.skillCooldowns = { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
+    // v2: arena cooldown persistence — carry over from previous arena fight
+    this.skillCooldowns = this.arenaSkillCooldowns
+      ? { powerStrike: this.arenaSkillCooldowns["powerStrike"] ?? 0, stun: this.arenaSkillCooldowns["stun"] ?? 0, heal: this.arenaSkillCooldowns["heal"] ?? 0, hammer: this.arenaSkillCooldowns["hammer"] ?? 0 }
+      : { powerStrike: 0, stun: 0, heal: 0, hammer: 0 };
     this.bombTipShown = false;
     this.shieldTipShown = false;
     this.activeTip = undefined;
@@ -2145,6 +2152,8 @@ export class GameScene extends Phaser.Scene {
       damageReceived: this.stats.totalDamageReceived,
       chainsBroken: this.v2ChainsBroken,
       turnsPlayed: this.stats.turnsPlayed,
+      // v2: arena cooldown persistence — include final skill cooldowns
+      finalSkillCooldowns: { ...this.skillCooldowns },
     };
     this.onCombatComplete(raw);
     return true;

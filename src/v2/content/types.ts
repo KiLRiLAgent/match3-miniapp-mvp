@@ -455,6 +455,8 @@ export interface GameSceneInitData {
   arenaPassives?: () => ArenaPassiveSnapshot;
   /** Perk modal controller — opens a blocking modal, resolves when player picks. */
   arenaPerkModal?: { open(scene: unknown): Promise<void> };
+  /** v2: arena cooldown persistence — carry over skill cooldowns between arena fights. */
+  arenaSkillCooldowns?: Record<string, number>;
 }
 
 /**
@@ -471,6 +473,8 @@ export interface RawCombatResult {
   damageReceived: number;
   chainsBroken: number;
   turnsPlayed: number;
+  /** v2: arena cooldown persistence — final skill cooldowns at end of fight. */
+  finalSkillCooldowns?: Record<string, number>;
 }
 
 /**

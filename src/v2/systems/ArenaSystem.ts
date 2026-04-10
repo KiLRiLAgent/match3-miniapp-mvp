@@ -254,6 +254,19 @@ class ArenaSystem {
     return true;
   }
 
+  /**
+   * v2: arena cooldown persistence — store final skill cooldowns in the
+   * active run state. Called from CombatBridgeScene after each arena fight.
+   */
+  setSkillCooldowns(cooldowns: Record<string, number>): void {
+    const run = gameState.get().arena.activeRun;
+    if (!run) return;
+    gameState.patch((s) => {
+      if (!s.arena.activeRun) return;
+      s.arena.activeRun.skillCooldowns = { ...cooldowns };
+    });
+  }
+
   /** Current run state or null if idle. */
   getActiveRun(): ArenaRunState | null {
     return gameState.get().arena.activeRun;

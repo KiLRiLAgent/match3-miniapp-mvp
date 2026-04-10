@@ -89,12 +89,10 @@ const INFO_ICON_TEXT_COLOR = "#e6c068";
 const STATS_SUMMARY_COLOR = "#d4b8e8";
 const STATS_SUMMARY_FONT_SIZE = 12;
 
-// Phase 2B — sell icon layout (backpack rows only).
-const SELL_ICON_RADIUS = 10;
-const SELL_ICON_PADDING_RIGHT = 8;
-const SELL_ICON_BG = 0x2a4518;
-const SELL_ICON_STROKE = 0x6abf2a;
-const SELL_ICON_TEXT_COLOR = "#e6c068";
+// Long-press-to-sell — progress bar overlays the bottom of the row.
+const HOLD_DURATION = 800; // ms
+const HOLD_BAR_HEIGHT = 4; // dp
+const HOLD_BAR_COLOR = 0xe6c068;
 
 // Back button height (dp).
 
@@ -671,58 +669,36 @@ export class PlayerStatsScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
     layer.add(nameText);
 
-    // Right-side layout: info icon is always rightmost, then sell icon for
-    // non-equipped rows, then suffix. Non-equipped rows hide suffix to make
-    // room for the sell icon.
+    // Right-side layout: info icon is always rightmost, then slot suffix +
+    // stats summary. Both equipped and non-equipped rows show the suffix.
     const infoIconX =
       rowCx + width / 2 - (INFO_ICON_PADDING_RIGHT + INFO_ICON_RADIUS) * d;
 
-    if (isEquipped) {
-      // Equipped rows: "надето" suffix + info icon (no sell icon).
-      const suffixX =
-        rowCx + width / 2 - (INFO_ICON_RADIUS * 2 + INFO_ICON_PADDING_RIGHT * 2) * d;
-      const suffixText = this.add
-        .text(suffixX, rowCy, "надето", {
-          fontSize: `${12 * d}px`,
-          color: V2_COLORS.bonusColor,
+    const suffixLabel = isEquipped ? "надето" : SLOT_LABELS[def.slot];
+    const suffixColor = isEquipped ? V2_COLORS.bonusColor : V2_COLORS.emptySlotColor;
+    const suffixX =
+      rowCx + width / 2 - (INFO_ICON_RADIUS * 2 + INFO_ICON_PADDING_RIGHT * 2) * d;
+    const suffixText = this.add
+      .text(suffixX, rowCy, suffixLabel, {
+        fontSize: `${12 * d}px`,
+        color: suffixColor,
+        fontFamily: V2_FONTS.primary,
+        fontStyle: "italic",
+      })
+      .setOrigin(1, 0.5);
+    layer.add(suffixText);
+
+    const summary = buildStatsSummary(def);
+    if (summary.length > 0) {
+      const summaryX = suffixText.x - suffixText.width - 8 * d;
+      const summaryText = this.add
+        .text(summaryX, rowCy, summary, {
+          fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
+          color: STATS_SUMMARY_COLOR,
           fontFamily: V2_FONTS.primary,
-          fontStyle: "italic",
         })
         .setOrigin(1, 0.5);
-      layer.add(suffixText);
-
-      const summary = buildStatsSummary(def);
-      if (summary.length > 0) {
-        const summaryX = suffixText.x - suffixText.width - 8 * d;
-        const summaryText = this.add
-          .text(summaryX, rowCy, summary, {
-            fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
-            color: STATS_SUMMARY_COLOR,
-            fontFamily: V2_FONTS.primary,
-          })
-          .setOrigin(1, 0.5);
-        layer.add(summaryText);
-      }
-    } else {
-      // Non-equipped rows: sell icon sits left of info icon, suffix hidden.
-      const sellIconX =
-        infoIconX - INFO_ICON_RADIUS * d - SELL_ICON_PADDING_RIGHT * d - SELL_ICON_RADIUS * d;
-      this.createSellIcon(layer, sellIconX, rowCy, () =>
-        this.handleSellTap(instance, def),
-      );
-
-      const summary = buildStatsSummary(def);
-      if (summary.length > 0) {
-        const summaryX = sellIconX - SELL_ICON_RADIUS * d - 8 * d;
-        const summaryText = this.add
-          .text(summaryX, rowCy, summary, {
-            fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
-            color: STATS_SUMMARY_COLOR,
-            fontFamily: V2_FONTS.primary,
-          })
-          .setOrigin(1, 0.5);
-        layer.add(summaryText);
-      }
+      layer.add(summaryText);
     }
 
     // Backpack row info icon — comparison base is the currently-equipped
@@ -739,7 +715,14 @@ export class PlayerStatsScene extends Phaser.Scene {
 
     bg.on("pointerover", () => bg.setFillStyle(V2_COLORS.rowBgHover, 1));
     bg.on("pointerout", () => bg.setFillStyle(V2_COLORS.rowBg, 0.95));
-    bg.on("pointerdown", () => this.handleBackpackTap(instance));
+
+    if (isEquipped) {
+      // Equipped items: tap to equip (toggle), no long-press-to-sell.
+      bg.on("pointerdown", () => this.handleBackpackTap(instance));
+    } else {
+      // Non-equipped items: short tap = equip, long press = sell.
+      this.attachLongPressSell(bg, layer, rowCx, rowCy, width, height, instance, def);
+    }
   }
 
   // ───────────────────────────────────────────────────────────────────────
@@ -834,51 +817,89 @@ export class PlayerStatsScene extends Phaser.Scene {
   }
 
   /**
-   * Create a small circular sell icon (green tint). Same hit-area pattern
-   * as createInfoIcon — separate interactive, respects scrollDraggedThisGesture.
+   * Attach long-press-to-sell behavior on a non-equipped backpack row.
+   *
+   * On pointerdown: start a hold timer (HOLD_DURATION ms) and show a thin
+   * gold progress bar at the bottom of the row that tweens from 0 to full
+   * width over the hold duration. On pointerup before the timer fires:
+   * cancel the hold, destroy the bar, and treat as a normal tap (equip).
+   * On hold complete: trigger sell confirmation modal.
+   *
+   * Guards: scrollDraggedThisGesture, modal-open check, pointerout.
    */
-  private createSellIcon(
+  private attachLongPressSell(
+    bg: Phaser.GameObjects.Rectangle,
     layer: Phaser.GameObjects.Container,
-    x: number,
-    y: number,
-    onTap: () => void,
+    rowCx: number,
+    rowCy: number,
+    width: number,
+    height: number,
+    instance: ItemInstance,
+    def: ItemDef,
   ): void {
     const d = DPR;
-    const radius = SELL_ICON_RADIUS * d;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    let progressBar: Phaser.GameObjects.Rectangle | null = null;
+    let holdTween: Phaser.Tweens.Tween | null = null;
+    let holdFired = false;
 
-    const bg = this.add.circle(x, y, radius, SELL_ICON_BG, 0.95);
-    bg.setStrokeStyle(1 * d, SELL_ICON_STROKE);
-    bg.setInteractive(
-      new Phaser.Geom.Circle(0, 0, radius),
-      Phaser.Geom.Circle.Contains,
-    );
-    layer.add(bg);
+    const cancelHold = () => {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+      if (holdTween) {
+        holdTween.destroy();
+        holdTween = null;
+      }
+      if (progressBar) {
+        progressBar.destroy();
+        progressBar = null;
+      }
+    };
 
-    const text = this.add
-      .text(x, y, "$", {
-        fontSize: `${14 * d}px`,
-        color: SELL_ICON_TEXT_COLOR,
-        fontFamily: V2_FONTS.primary,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-    layer.add(text);
+    bg.on("pointerdown", () => {
+      holdFired = false;
+      if (this.scrollDraggedThisGesture) return;
+      if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
 
-    bg.on(
-      "pointerdown",
-      (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
-        // stopPropagation prevents the row bg's pointerdown from firing on
-        // the same tap — without it Phaser delivers the event to BOTH the
-        // sell icon AND the row rectangle, causing an equip instead of sell.
-        event.stopPropagation();
-        if (this.scrollDraggedThisGesture) return;
-        if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
-        onTap();
-      },
-    );
+      // Create progress bar at the bottom of the row.
+      progressBar = this.add.rectangle(
+        rowCx - width / 2,
+        rowCy + height / 2 - HOLD_BAR_HEIGHT * d / 2,
+        0,
+        HOLD_BAR_HEIGHT * d,
+        HOLD_BAR_COLOR,
+      ).setOrigin(0, 0.5).setDepth(2);
+      layer.add(progressBar);
 
-    layer.bringToTop(bg);
-    layer.bringToTop(text);
+      holdTween = this.tweens.add({
+        targets: progressBar,
+        width: width,
+        duration: HOLD_DURATION,
+        ease: "Linear",
+      });
+
+      holdTimer = setTimeout(() => {
+        holdFired = true;
+        cancelHold();
+        this.handleSellTap(instance, def);
+      }, HOLD_DURATION);
+    });
+
+    bg.on("pointerup", () => {
+      if (holdFired) return;
+      const wasHolding = holdTimer !== null;
+      cancelHold();
+      // Released before hold completed — treat as a normal equip tap.
+      if (wasHolding) {
+        this.handleBackpackTap(instance);
+      }
+    });
+
+    bg.on("pointerout", () => {
+      cancelHold();
+    });
   }
 
   /**

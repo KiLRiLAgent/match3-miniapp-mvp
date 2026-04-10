@@ -193,6 +193,8 @@ export interface ArenaRunState {
   takenPassives?: string[];
   /** Phase 2B perk progression — stat perk pick counts accumulated this run. */
   statPerkCounts?: Record<string, number>;
+  /** v2: arena cooldown persistence — skill cooldowns carried over between fights. */
+  skillCooldowns?: Record<string, number>;
 }
 
 export interface ArenaSave {
