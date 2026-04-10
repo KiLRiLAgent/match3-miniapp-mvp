@@ -864,11 +864,18 @@ export class PlayerStatsScene extends Phaser.Scene {
       .setOrigin(0.5);
     layer.add(text);
 
-    bg.on("pointerdown", () => {
-      if (this.scrollDraggedThisGesture) return;
-      if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
-      onTap();
-    });
+    bg.on(
+      "pointerdown",
+      (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: Phaser.Types.Input.EventData) => {
+        // stopPropagation prevents the row bg's pointerdown from firing on
+        // the same tap — without it Phaser delivers the event to BOTH the
+        // sell icon AND the row rectangle, causing an equip instead of sell.
+        event.stopPropagation();
+        if (this.scrollDraggedThisGesture) return;
+        if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
+        onTap();
+      },
+    );
 
     layer.bringToTop(bg);
     layer.bringToTop(text);
