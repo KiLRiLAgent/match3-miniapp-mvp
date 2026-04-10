@@ -55,7 +55,7 @@ import { emitTileParticles } from "../ui/TileParticles";
 import { SpeechBubble } from "../ui/SpeechBubble";
 import { INTRO_ANIMATION } from "../game/animations";
 // v2: type-only imports — ZERO runtime imports from src/v2/
-import type { CombatContext, GameSceneInitData, RawCombatResult } from "../v2/content/types";
+import type { CombatContext, GameSceneInitData, RawCombatResult, ArenaSkillOverride, ArenaPassiveSnapshot } from "../v2/content/types";
 import type { Chain, ChainVariant } from "../match3/types";
 // v2: ChainOverlay lives in src/ui/ (REFINEMENT 3 — neutral location, runtime import allowed, no v2 boundary cross)
 import { ChainOverlay } from "../ui/ChainOverlay";
@@ -208,6 +208,13 @@ export class GameScene extends Phaser.Scene {
   private chainOverlay?: ChainOverlay;
   // v2: count of chains broken during this combat (for RawCombatResult)
   private v2ChainsBroken = 0;
+  // v2: arena perk system handlers — injected via init data (gold standard §6)
+  private arenaPerksEnabled = false;
+  private arenaSkillStats?: (id: string) => ArenaSkillOverride;
+  private arenaPassives?: () => ArenaPassiveSnapshot;
+  private arenaPerkModal?: { open(scene: unknown): Promise<void> };
+  // v2: track whether first turn of fight (for quick_draw passive)
+  private isFirstTurn = true;
 
   constructor() {
     super("GameScene");
@@ -252,6 +259,11 @@ export class GameScene extends Phaser.Scene {
     this.encounterContext = data?.encounterContext;
     this.onCombatComplete = data?.onCombatComplete;
     this.chainOverlay = undefined;
+    // v2: capture arena perk handlers from init data (gold standard §6)
+    this.arenaPerksEnabled = data?.arenaPerksEnabled ?? false;
+    this.arenaSkillStats = data?.arenaSkillStats;
+    this.arenaPassives = data?.arenaPassives;
+    this.arenaPerkModal = data?.arenaPerkModal;
 
     this.cameras.main.setZoom(DPR);
     this.cameras.main.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2);
@@ -364,6 +376,15 @@ export class GameScene extends Phaser.Scene {
     this.bossHp = this.encounterContext?.derived.bossHpMax ?? GAME_PARAMS.boss.hpMax;
     this.playerHp = this.encounterContext?.playerStats.hpMax ?? GAME_PARAMS.player.hpMax;
     this.mana = 0;
+    // v2: arena passive mana_surge + stat_start_mp bonus at fight start
+    if (this.arenaPerksEnabled && this.arenaPassives) {
+      const passives = this.arenaPassives();
+      this.mana = passives.manaBonusAtStart + passives.startMpBonus; // v2: starting mana
+    }
+    // v2: also apply manaStart from encounterContext if set (buff system or passive)
+    if (this.encounterContext?.playerStats.manaStart) {
+      this.mana = Math.max(this.mana, this.encounterContext.playerStats.manaStart); // v2: manaStart override
+    }
     this.currentTurn = "player";
     this.gameOver = false;
     this.busy = false;
@@ -381,8 +402,9 @@ export class GameScene extends Phaser.Scene {
     };
     // v2: skip tutorial flow when launched from CombatBridgeScene
     this.tutorialActive = !this.encounterContext;
-    // v2: reset chain counter
+    // v2: reset chain counter + first turn flag
     this.v2ChainsBroken = 0;
+    this.isFirstTurn = true;
     this.tutorialHandChain = undefined;
     this.tutorialHintOverlays = [];
     this.tutorialHintTweens = [];
@@ -419,6 +441,16 @@ export class GameScene extends Phaser.Scene {
   }
   private getEffectiveBossHpMax(): number {
     return this.encounterContext?.derived.bossHpMax ?? GAME_PARAMS.boss.hpMax;
+  }
+
+  // v2: arena perk skill override — falls through to v1 SKILL_CONFIG when perks disabled
+  private getEffectiveSkillCfg(id: SkillId) {
+    const b = SKILL_CONFIG[id];
+    if (!this.arenaPerksEnabled || !this.arenaSkillStats) return b;
+    const o = this.arenaSkillStats(id);
+    if (!o.unlocked) return b;
+    const cr = this.arenaPassives?.().skillCostReduction ?? 0; // v2: mana_efficiency
+    return { ...b, cost: Math.max(0, (o.cost ?? b.cost) - cr), cooldown: o.cooldown ?? b.cooldown, damage: o.damage ?? b.damage, heal: o.heal ?? b.heal, stunTurns: o.stunTurns ?? b.stunTurns, hammerPattern: o.hammerPattern ?? b.hammerPattern };
   }
 
   // v2: layered HP helpers — branch on encounterContext, fall through to v1 config helpers
@@ -708,7 +740,7 @@ export class GameScene extends Phaser.Scene {
 
     // Create all 4 buttons in locked state, positioned left-to-right
     SKILL_IDS.forEach((id, idx) => {
-      const cfg = SKILL_CONFIG[id];
+      const cfg = this.getEffectiveSkillCfg(id); // v2: arena perk overrides
       const btn = new SkillButton(
         this,
         startX + idx * (btnSize + spacing),
@@ -930,9 +962,15 @@ export class GameScene extends Phaser.Scene {
       }
 
       // Perk selection mid-cascade (pause cascade for perk pick)
+      // v2: arena perk modal when arenaPerksEnabled, v1 perk selection otherwise
       while (this.pendingPerkCount > 0 && !this.gameOver) {
         this.pendingPerkCount--;
-        await this.showPerkSelection();
+        if (this.arenaPerksEnabled && this.arenaPerkModal) {
+          await this.arenaPerkModal.open(this); // v2: arena perk modal
+          this.updateHud(); // v2: refresh skill buttons after perk pick
+        } else {
+          await this.showPerkSelection();
+        }
       }
 
       // Если игра закончилась - прекращаем цикл
@@ -1311,7 +1349,10 @@ export class GameScene extends Phaser.Scene {
     if (damage <= 0) return;
 
     // Проверка щита
-    if (this.bossShieldDuration > 0) {
+    // v2: shield_breaker passive — 15% chance to ignore boss shield
+    const shieldBreak = this.arenaPerksEnabled && this.arenaPassives
+      ? Math.random() < this.arenaPassives().shieldBreakChance : false; // v2: shield_breaker
+    if (this.bossShieldDuration > 0 && !shieldBreak) {
       this.sfx(ASSET_KEYS.sfx.enemyShield);
       if (this.bossShieldOverlay) {
         showDamageNumber(this, this.bossShieldOverlay.x, this.bossShieldOverlay.y, 0, "shield");
@@ -1325,6 +1366,13 @@ export class GameScene extends Phaser.Scene {
     // v2: chain threshold guard — boss HP cannot drop below floor while chains active.
     // Use LOCAL var, do NOT mutate the `damage` parameter.
     let effectiveDamage = damage;
+    // v2: rage passive — +15% damage when HP < 50%
+    if (this.arenaPerksEnabled && this.arenaPassives) {
+      const p = this.arenaPassives();
+      if (p.rageHpThreshold > 0 && this.playerHp < this.getEffectivePlayerHpMax() * p.rageHpThreshold) {
+        effectiveDamage = Math.round(effectiveDamage * p.rageDmgMult); // v2: rage passive
+      }
+    }
     if (this.encounterContext && this.board.hasActiveChains) {
       const ratio = this.encounterContext.encounterDef.chains?.chainBlockedHpRatio ?? 0;
       const minHp = Math.ceil(this.getEffectiveBossHpMax() * ratio);
@@ -1359,12 +1407,36 @@ export class GameScene extends Phaser.Scene {
     if (newLayerIdx < this.prevBossLayerIdx && newLayerIdx > 0) {
       // Count how many layers were crossed (supports multi-layer skip from CRIT)
       this.pendingPerkCount += this.prevBossLayerIdx - newLayerIdx;
+      // v2: defuser passive — defuse all bombs when breaking a boss HP layer
+      if (this.arenaPerksEnabled && this.arenaPassives?.().hasDefuser) {
+        const bombPositions: Position[] = []; // v2: defuser passive
+        for (let by = 0; by < BOARD_HEIGHT; by++) {
+          for (let bx = 0; bx < BOARD_WIDTH; bx++) {
+            const t = this.board.getTile({ x: bx, y: by });
+            if (t && t.kind === TileKind.Bomb) bombPositions.push({ x: bx, y: by });
+          }
+        }
+        if (bombPositions.length > 0) this.defuseBombs(bombPositions); // v2: fire-and-forget
+      }
     }
     this.prevBossLayerIdx = newLayerIdx;
   }
 
   private applyDamageToPlayer(damage: number) {
     if (damage <= 0) return;
+
+    // v2: reflect passive — reflect % of incoming damage back to boss
+    if (this.arenaPerksEnabled && this.arenaPassives) {
+      const reflectPct = this.arenaPassives().reflectPercent;
+      if (reflectPct > 0) {
+        const reflected = Math.round(damage * reflectPct);
+        if (reflected > 0 && this.bossHp > 0) {
+          this.bossHp = Math.max(0, this.bossHp - reflected); // v2: reflect passive
+          this.bossHpBar?.setValue(this.bossHp, this.getEffectiveBossHpMax());
+          showDamageNumber(this, this.bossTarget.x, this.bossTarget.y, reflected, "damage");
+        }
+      }
+    }
 
     this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticHeavy();
@@ -1789,11 +1861,13 @@ export class GameScene extends Phaser.Scene {
     SKILL_IDS.forEach((id) => {
       const btn = this.skillButtons[id];
       if (!btn) return;
-      if (!unlocked.includes(id)) {
+      // v2: arena perks may unlock skills independently of v1 perkManager
+      const arenaUnlocked = this.arenaPerksEnabled && this.arenaSkillStats?.(id)?.unlocked;
+      if (!unlocked.includes(id) && !arenaUnlocked) {
         btn.applyState({ enabled: false, ready: false, locked: true });
         return;
       }
-      const cfg = SKILL_CONFIG[id];
+      const cfg = this.getEffectiveSkillCfg(id); // v2: arena perk overrides
       const cooldown = this.skillCooldowns[id];
       const canUse = cooldown === 0 && this.mana >= cfg.cost && this.currentTurn === "player" && !this.busy;
       btn.applyState({
@@ -1832,10 +1906,12 @@ export class GameScene extends Phaser.Scene {
 
   private activateSkill(id: SkillId) {
     if (!this.canPlayerAct()) return;
-    if (!this.perkManager?.isUnlocked(id)) return;
+    // v2: arena perks may unlock skills independently of v1 perkManager
+    const arenaUnlocked = this.arenaPerksEnabled && this.arenaSkillStats?.(id)?.unlocked;
+    if (!this.perkManager?.isUnlocked(id) && !arenaUnlocked) return;
     this.stopHintTimer();
 
-    const cfg = SKILL_CONFIG[id];
+    const cfg = this.getEffectiveSkillCfg(id); // v2: arena perk overrides
 
     // Проверяем кулдаун
     if (this.skillCooldowns[id] > 0) return;
@@ -1872,15 +1948,30 @@ export class GameScene extends Phaser.Scene {
       return; // Не обновляем HUD пока не выбрана фишка
     }
 
+    // v2: vampire passive — lifesteal from skill damage
+    if (this.arenaPerksEnabled && this.arenaPassives && cfg.damage > 0) {
+      const lsPct = this.arenaPassives().lifestealPercent;
+      if (lsPct > 0) {
+        const healAmt = Math.round(cfg.damage * lsPct / 100);
+        if (healAmt > 0) this.applyHealToPlayer(healAmt); // v2: lifesteal passive
+      }
+    }
+
     this.updateHud();
 
     // Process pending perks from skill damage (layer transition)
+    // v2: arena perk modal when arenaPerksEnabled, v1 perk selection otherwise
     if (this.pendingPerkCount > 0 && !this.gameOver && this.bossHp > 0) {
       const processPerks = async () => {
         try {
           while (this.pendingPerkCount > 0 && !this.gameOver) {
             this.pendingPerkCount--;
-            await this.showPerkSelection();
+            if (this.arenaPerksEnabled && this.arenaPerkModal) {
+              await this.arenaPerkModal.open(this); // v2: arena perk modal
+              this.updateHud(); // v2: refresh after perk pick
+            } else {
+              await this.showPerkSelection();
+            }
           }
         } finally {
           this.busy = false; // restore after skill-triggered perk selection
@@ -1943,7 +2034,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Get positions to destroy based on hammer pattern */
   private getHammerPositions(center: Position): Position[] {
-    const pattern = SKILL_CONFIG.hammer.hammerPattern ?? "single";
+    const pattern = this.getEffectiveSkillCfg("hammer").hammerPattern ?? "single"; // v2: arena perk overrides
     const positions: Position[] = [{ ...center }];
 
     if (pattern === "cross") {
@@ -2545,6 +2636,20 @@ export class GameScene extends Phaser.Scene {
   private async finishPlayerTurn() {
     if (this.gameOver) return;
     this.stats.turnsPlayed++;
+
+    // v2: arena passive — regeneration (+N HP per turn)
+    if (this.arenaPerksEnabled && this.arenaPassives) {
+      const regen = this.arenaPassives().regenPerTurn;
+      if (regen > 0) this.applyHealToPlayer(regen); // v2: regen passive
+    }
+
+    // v2: quick_draw — reduce all skill cooldowns by 1 on first turn
+    if (this.isFirstTurn && this.arenaPerksEnabled && this.arenaPassives?.().hasQuickDraw) {
+      SKILL_IDS.forEach((id) => { // v2: quick_draw passive
+        if (this.skillCooldowns[id] > 0) this.skillCooldowns[id]--;
+      });
+    }
+    this.isFirstTurn = false; // v2: clear first-turn flag
 
     // Тикаем кулдауны скиллов игрока
     this.tickSkillCooldowns();

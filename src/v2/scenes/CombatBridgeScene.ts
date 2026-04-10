@@ -26,8 +26,13 @@ import { eventBus } from "../core/EventBus";
 import { encounterBuilder } from "../systems/EncounterBuilder";
 import { arenaEncounterGenerator } from "../systems/ArenaEncounterGenerator";
 import { arenaSystem } from "../systems/ArenaSystem";
+import { computeEffectiveSkills, computePassiveSnapshot } from "../systems/ArenaPerkApplicator";
+import { arenaPerkSystem } from "../systems/ArenaPerkSystem";
+import { openArenaPerkModal } from "../ui/ArenaPerkModal";
 import { ENCOUNTERS } from "../content/encounters";
 import type {
+  ArenaPassiveSnapshot,
+  ArenaSkillOverride,
   CombatContext,
   CombatResult,
   EncounterDef,
@@ -99,6 +104,9 @@ export class CombatBridgeScene extends Phaser.Scene {
     // (more robust than instance fields against future refactors per MITIGATION-2)
     const context: CombatContext = encounterBuilder.build(encounterDef);
 
+    // v2: arena perk handlers — only wired for arena fights
+    const isArena = arenaEncounterGenerator.isArenaEncounter(this.encounterId);
+
     this.showTransitionOverlay(() => {
       const initData: GameSceneInitData = {
         encounterContext: context,
@@ -107,6 +115,24 @@ export class CombatBridgeScene extends Phaser.Scene {
           this.handleCombatComplete(raw, encounterDef, context);
         },
       };
+
+      // v2: inject arena perk system handlers for arena fights (gold standard §6)
+      if (isArena) {
+        const physAttack = context.playerStats.physAttack;
+        initData.arenaPerksEnabled = true;
+        initData.arenaSkillStats = (id: string): ArenaSkillOverride => {
+          const levels = arenaPerkSystem.getPerkLevels();
+          const all = computeEffectiveSkills(levels, physAttack);
+          return all[id as keyof typeof all] ?? { unlocked: false, level: 0, cost: 0, cooldown: 0 };
+        };
+        initData.arenaPassives = (): ArenaPassiveSnapshot => {
+          const passives = arenaPerkSystem.getTakenPassives();
+          const statCounts = arenaPerkSystem.getStatPerkCounts();
+          return computePassiveSnapshot(passives, statCounts) as ArenaPassiveSnapshot;
+        };
+        initData.arenaPerkModal = { open: openArenaPerkModal };
+      }
+
       this.scene.launch("GameScene", initData);
       // After launch, sleep self — Phaser preserves this scene's instance state across sleep/wake
       this.scene.sleep();

@@ -401,6 +401,43 @@ export interface CombatContext {
  * `onCombatComplete` is the SOLE channel for the RawCombatResult emitted back
  * to CombatBridgeScene; closure carries `encounterDef`/`context` (MITIGATION-2).
  */
+/**
+ * Arena perk skill stats — shape mirrors ArenaPerkApplicator.EffectiveSkillStats
+ * but declared here as a standalone type to avoid runtime import from v2/systems/
+ * in GameScene (gold standard §5). CombatBridgeScene maps between them.
+ */
+export interface ArenaSkillOverride {
+  unlocked: boolean;
+  level: number;
+  cost: number;
+  cooldown: number;
+  damage?: number;
+  heal?: number;
+  stunTurns?: number;
+  hammerPattern?: "single" | "cross" | "square";
+}
+
+/**
+ * Arena passive effects snapshot — shape mirrors ArenaPerkApplicator.PassiveSnapshot.
+ * Declared here to keep GameScene free of runtime v2 imports.
+ */
+export interface ArenaPassiveSnapshot {
+  lifestealPercent: number;
+  rageDmgMult: number;
+  rageHpThreshold: number;
+  critBonus: number;
+  bombDmgBonus: number;
+  shieldBreakChance: number;
+  reflectPercent: number;
+  regenPerTurn: number;
+  manaBonusAtStart: number;
+  startMpBonus: number;
+  skillCostReduction: number;
+  hasDefuser: boolean;
+  hasQuickDraw: boolean;
+  hasExplosiveMagic: boolean;
+}
+
 export interface GameSceneInitData {
   fromIntro?: boolean;
   finalDialogue?: string;
@@ -410,6 +447,14 @@ export interface GameSceneInitData {
   // v2 additions
   encounterContext?: CombatContext;
   onCombatComplete?: (raw: RawCombatResult) => void;
+  // v2: arena perk system — injected from CombatBridgeScene (gold standard §6)
+  arenaPerksEnabled?: boolean;
+  /** Live getter — returns current effective skill stats for a given skill id. */
+  arenaSkillStats?: (id: string) => ArenaSkillOverride;
+  /** Live getter — returns current passive perk snapshot. */
+  arenaPassives?: () => ArenaPassiveSnapshot;
+  /** Perk modal controller — opens a blocking modal, resolves when player picks. */
+  arenaPerkModal?: { open(scene: unknown): Promise<void> };
 }
 
 /**
