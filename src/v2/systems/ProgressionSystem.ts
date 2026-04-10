@@ -1,24 +1,34 @@
 /**
- * ProgressionSystem — single source of truth for player XP, level-ups, and
- * effective stat computation.
+ * ProgressionSystem -- single source of truth for player XP, level-ups,
+ * stat point allocation, and effective stat computation.
  *
- * Mirrors the RelationshipSystem pattern: singleton, pure-logic (zero Phaser
- * deps), all writes flow through `gameState.patch` so persistence and
- * downstream consumers stay in sync.
+ * Phase stat-point-allocation: auto stat growth on level-up is REMOVED.
+ * Instead, each level-up grants 1 pending stat point that the player
+ * manually distributes via PlayerStatsScene UI. The effective stats are
+ * computed from base stats + allocated points * per-point values.
+ *
+ * Allocation workflow:
+ *   1. Player opens PlayerStatsScene, sees pending points counter.
+ *   2. Taps [+] to tentatively allocate points to stats.
+ *   3. Taps [-] to undo tentative allocations (only unsaved ones).
+ *   4. Taps "Сохранить" to make allocations permanent.
+ *   5. Taps "Сброс" to undo all tentative allocations.
+ *
+ * Session state: tentative allocations live in `sessionDeltas` (in-memory
+ * only). `saveAllocation()` folds them into the persistent `allocatedStats`
+ * and zeroes out `sessionDeltas`. `resetPendingAllocation()` returns the
+ * session deltas to the pending pool.
  *
  * Inventory integration is injected via `setInventoryProvider` to avoid a
- * hard runtime dependency on InventorySystem (which is authored in parallel
- * under task #5). Consumers that want equipment-adjusted stats wire the
- * provider once at boot; without a provider, `computeEffectiveStats` returns
- * a clean snapshot of base PlayerStats.
+ * hard runtime dependency on InventorySystem.
  */
 
 import { gameState } from "../core/GameState";
 import type {
+  AllocatedStats,
   EffectivePlayerStats,
   ItemStats,
   PlayerStats,
-  SaveData,
 } from "../core/types";
 
 /**
@@ -26,7 +36,7 @@ import type {
  *
  * `XP_TABLE[n]` is the total XP needed to BE at level `n+1`. Level 1 requires
  * 0 XP (start state), level 2 requires 100 XP, ..., level 11 requires 5050
- * XP. Level 11 is the current cap — any XP beyond that is retained on the
+ * XP. Level 11 is the current cap -- any XP beyond that is retained on the
  * player record but does not grant further level-ups.
  */
 const XP_TABLE: readonly number[] = [
@@ -35,24 +45,36 @@ const XP_TABLE: readonly number[] = [
 
 const MAX_LEVEL = XP_TABLE.length; // 11
 
-/** Per-level stat growth applied automatically on level up. */
-const LEVEL_UP_STAT_GROWTH = {
-  hp: 20,
-  mp: 10,
-  physAttack: 1,
-  magAttack: 1,
+/** Stat value gained per allocated point. */
+export const STAT_PER_POINT = {
+  hp: 5,
+  mp: 4,
+  physAttack: 2,
+  magAttack: 2,
 } as const;
+
+/** Base stats at level 1 (before any allocation or equipment). */
+export const BASE_STATS = {
+  hp: 200,
+  mp: 100,
+  physAttack: 10,
+  magAttack: 10,
+} as const;
+
+/** Allocatable stat keys. */
+export type AllocatableStat = keyof AllocatedStats;
+const ALLOCATABLE_STATS: readonly AllocatableStat[] = [
+  "hp", "mp", "physAttack", "magAttack",
+];
 
 /**
  * Optional provider for equipment-derived stat bonuses. Registered by the
- * integration layer (task #6) once InventorySystem is live. Returning a
- * partial `ItemStats` is enough — undefined keys are treated as zero.
+ * integration layer once InventorySystem is live.
  */
 export type InventoryStatsProvider = () => ItemStats;
 
 /**
- * Result of `applyXpGain` — lets callers drive post-combat UX (level-up
- * celebrations, perk prompts, etc.) without re-reading gameState.
+ * Result of `applyXpGain` -- lets callers drive post-combat UX.
  */
 export interface XpGainResult {
   newLevel: number;
@@ -65,9 +87,15 @@ class ProgressionSystem {
   private inventoryProvider?: InventoryStatsProvider;
 
   /**
+   * In-memory tentative stat deltas for the current allocation session.
+   * NOT persisted -- folded into SaveData.player.allocatedStats on
+   * `saveAllocation()`, discarded on `resetPendingAllocation()`.
+   */
+  private sessionDeltas: AllocatedStats = { hp: 0, mp: 0, physAttack: 0, magAttack: 0 };
+
+  /**
    * Wire an equipment stats provider. Called once from the integration
-   * layer after InventorySystem has been constructed. Calling with
-   * `undefined` clears any previous registration (useful for tests).
+   * layer after InventorySystem has been constructed.
    */
   setInventoryProvider(provider: InventoryStatsProvider | undefined): void {
     this.inventoryProvider = provider;
@@ -80,35 +108,27 @@ class ProgressionSystem {
 
   /**
    * XP remaining before the next level-up. Returns `0` once the player is
-   * at `MAX_LEVEL` (no further thresholds exist).
+   * at `MAX_LEVEL`.
    */
   getXpToNextLevel(): number {
     const player = gameState.get().player;
     if (player.level >= MAX_LEVEL) return 0;
-    const nextThreshold = XP_TABLE[player.level]; // XP_TABLE[level] = xp needed for level+1
+    const nextThreshold = XP_TABLE[player.level];
     return Math.max(0, nextThreshold - player.xp);
   }
 
   /**
    * Cumulative XP that was required to enter the player's current level.
-   * Returns `0` for level 1 (entry threshold is zero). Used by UI bars to
-   * compute progress *within* the current level: `player.xp - getLevelEntryXp()`
-   * is the XP earned since the last level-up.
    */
   getLevelEntryXp(): number {
     const level = gameState.get().player.level;
     if (level <= 1) return 0;
-    // XP_TABLE[level-1] is the threshold the player crossed to reach `level`.
     return XP_TABLE[level - 1];
   }
 
   /**
-   * Grant XP and process any level-ups that result. Handles multi-level
-   * overflow: a large XP award can jump the player from level 1 to level 3
-   * in a single call, applying stat growth per level gained.
-   *
-   * Returns a summary so callers can react (level-up toast, perk pick, etc.)
-   * without re-querying gameState.
+   * Grant XP and process any level-ups. Each level-up increments
+   * `pendingStatPoints` by 1 (no auto stat growth).
    */
   applyXpGain(amount: number): XpGainResult {
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -123,18 +143,15 @@ class ProgressionSystem {
       previousLevel = save.player.level;
       save.player.xp += Math.floor(amount);
 
-      // Walk up the XP table while the player has crossed the next threshold
-      // and is still below MAX_LEVEL. Each step applies stat growth in-place.
       while (
         save.player.level < MAX_LEVEL &&
         save.player.xp >= XP_TABLE[save.player.level]
       ) {
         save.player.level += 1;
-        this.applyLevelUpStats(save, save.player.level - 1, save.player.level);
+        // Grant 1 pending stat point per level gained.
+        save.player.pendingStatPoints = (save.player.pendingStatPoints ?? 0) + 1;
       }
 
-      // Sync xpToNext for UI read-throughs (players.level already reflects
-      // the new level; xpToNext becomes 0 at MAX_LEVEL).
       save.player.xpToNext =
         save.player.level >= MAX_LEVEL
           ? 0
@@ -152,29 +169,132 @@ class ProgressionSystem {
     };
   }
 
-  /**
-   * Apply per-level stat growth for the range `(fromLevel, toLevel]`.
-   *
-   * Mutates `save.player.stats` in place — intended to be called from
-   * within a `gameState.patch` callback (it takes the draft save directly
-   * so multi-level loops stay atomic).
-   */
-  applyLevelUpStats(save: SaveData, fromLevel: number, toLevel: number): void {
-    const delta = toLevel - fromLevel;
-    if (delta <= 0) return;
-    const stats = save.player.stats;
-    stats.hp += LEVEL_UP_STAT_GROWTH.hp * delta;
-    stats.mp += LEVEL_UP_STAT_GROWTH.mp * delta;
-    stats.physAttack += LEVEL_UP_STAT_GROWTH.physAttack * delta;
-    stats.magAttack += LEVEL_UP_STAT_GROWTH.magAttack * delta;
+  // ─── Stat Point Allocation ──────────────────────────────────────────────
+
+  /** Number of unspent pending stat points (persistent + session). */
+  getPendingPoints(): number {
+    const persistent = gameState.get().player.pendingStatPoints ?? 0;
+    const sessionSpent = this.getTotalSessionDeltas();
+    return persistent - sessionSpent;
+  }
+
+  /** Currently saved allocation (excludes session tentative deltas). */
+  getAllocatedStats(): AllocatedStats {
+    const saved = gameState.get().player.allocatedStats;
+    return {
+      hp: saved?.hp ?? 0,
+      mp: saved?.mp ?? 0,
+      physAttack: saved?.physAttack ?? 0,
+      magAttack: saved?.magAttack ?? 0,
+    };
+  }
+
+  /** Session-tentative deltas (not yet saved). */
+  getSessionDeltas(): AllocatedStats {
+    return { ...this.sessionDeltas };
   }
 
   /**
+   * Tentatively allocate 1 pending point to a stat.
+   * Returns true if successful, false if no pending points available.
+   */
+  allocatePoint(stat: AllocatableStat): boolean {
+    if (this.getPendingPoints() <= 0) return false;
+    this.sessionDeltas[stat] += 1;
+    this.recalcBaseStats();
+    return true;
+  }
+
+  /**
+   * Return 1 tentatively-allocated point from a stat.
+   * Only works for unsaved session deltas (not permanently saved ones).
+   * Returns true if successful.
+   */
+  deallocatePoint(stat: AllocatableStat): boolean {
+    if (this.sessionDeltas[stat] <= 0) return false;
+    this.sessionDeltas[stat] -= 1;
+    this.recalcBaseStats();
+    return true;
+  }
+
+  /**
+   * Make all tentative allocations permanent. Folds `sessionDeltas` into
+   * `allocatedStats`, subtracts from `pendingStatPoints`, saves.
+   */
+  saveAllocation(): void {
+    const totalSession = this.getTotalSessionDeltas();
+    if (totalSession === 0) return;
+
+    const deltas = { ...this.sessionDeltas };
+    gameState.patch((save) => {
+      const alloc = save.player.allocatedStats ?? { hp: 0, mp: 0, physAttack: 0, magAttack: 0 };
+      alloc.hp += deltas.hp;
+      alloc.mp += deltas.mp;
+      alloc.physAttack += deltas.physAttack;
+      alloc.magAttack += deltas.magAttack;
+      save.player.allocatedStats = alloc;
+      save.player.pendingStatPoints = Math.max(0, (save.player.pendingStatPoints ?? 0) - totalSession);
+    });
+
+    this.sessionDeltas = { hp: 0, mp: 0, physAttack: 0, magAttack: 0 };
+    this.recalcBaseStats();
+    gameState.flush();
+  }
+
+  /**
+   * Undo all tentative (unsaved) allocations, returning points to the
+   * pending pool. Does NOT touch permanently saved allocations.
+   */
+  resetPendingAllocation(): void {
+    this.sessionDeltas = { hp: 0, mp: 0, physAttack: 0, magAttack: 0 };
+    this.recalcBaseStats();
+  }
+
+  /**
+   * Full progression reset: level 1, xp 0, clear all allocated stats and
+   * pending points. Used for the "reset progression" debug feature.
+   */
+  resetProgression(): void {
+    this.sessionDeltas = { hp: 0, mp: 0, physAttack: 0, magAttack: 0 };
+    gameState.patch((save) => {
+      save.player.level = 1;
+      save.player.xp = 0;
+      save.player.xpToNext = XP_TABLE[1] ?? 0;
+      save.player.allocatedStats = { hp: 0, mp: 0, physAttack: 0, magAttack: 0 };
+      save.player.pendingStatPoints = 0;
+      save.player.stats = {
+        hp: BASE_STATS.hp,
+        mp: BASE_STATS.mp,
+        physAttack: BASE_STATS.physAttack,
+        magAttack: BASE_STATS.magAttack,
+        crit: save.player.stats.crit, // preserve crit from equipment/other sources
+      };
+    });
+    gameState.flush();
+  }
+
+  /**
+   * Recalculate `SaveData.player.stats` from base + total allocation
+   * (saved + session tentative). Called after every allocation change.
+   */
+  private recalcBaseStats(): void {
+    const saved = this.getAllocatedStats();
+    const session = this.sessionDeltas;
+    gameState.patch((save) => {
+      save.player.stats.hp = BASE_STATS.hp + (saved.hp + session.hp) * STAT_PER_POINT.hp;
+      save.player.stats.mp = BASE_STATS.mp + (saved.mp + session.mp) * STAT_PER_POINT.mp;
+      save.player.stats.physAttack = BASE_STATS.physAttack +
+        (saved.physAttack + session.physAttack) * STAT_PER_POINT.physAttack;
+      save.player.stats.magAttack = BASE_STATS.magAttack +
+        (saved.magAttack + session.magAttack) * STAT_PER_POINT.magAttack;
+    });
+  }
+
+  // ─── Effective Stats ────────────────────────────────────────────────────
+
+  /**
    * Materialize the player's effective stats: base PlayerStats plus any
-   * equipment bonuses from the registered inventory provider. If no
-   * provider is wired (Phase 1B before task #6 integration, or tests), the
-   * returned object is a shallow clone of base stats — callers can freely
-   * mutate it without affecting SaveData.
+   * equipment bonuses from the registered inventory provider.
    */
   computeEffectiveStats(): EffectivePlayerStats {
     const base: PlayerStats = gameState.get().player.stats;
@@ -187,6 +307,12 @@ class ProgressionSystem {
       magAttack: base.magAttack + (bonus.magAttack ?? 0),
       crit: base.crit + (bonus.crit ?? 0),
     };
+  }
+
+  // ─── Helpers ────────────────────────────────────────────────────────────
+
+  private getTotalSessionDeltas(): number {
+    return ALLOCATABLE_STATS.reduce((sum, k) => sum + this.sessionDeltas[k], 0);
   }
 }
 

@@ -12,7 +12,7 @@
  */
 
 export const SAVE_KEY = "match3_save_v2";
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** Basic combat stats attached to the player avatar (before inventory). */
 export interface PlayerStats {
@@ -37,6 +37,14 @@ export interface EffectivePlayerStats {
   crit: number;
 }
 
+/** Per-stat point allocation — tracks how many points were allocated to each stat. */
+export interface AllocatedStats {
+  hp: number;
+  mp: number;
+  physAttack: number;
+  magAttack: number;
+}
+
 export interface PlayerSave {
   id: string;
   name: string;
@@ -46,6 +54,10 @@ export interface PlayerSave {
   xp: number;
   xpToNext: number;
   stats: PlayerStats;
+  /** Points already distributed and saved permanently. */
+  allocatedStats?: AllocatedStats;
+  /** Unspent stat points available for distribution. */
+  pendingStatPoints?: number;
 }
 
 /** Stat contribution from a single item instance. */

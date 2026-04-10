@@ -82,6 +82,8 @@ function createDefaultSaveData(): SaveData {
       xp: 0,
       xpToNext: 100,
       stats: { hp: 200, mp: 100, physAttack: 10, magAttack: 10, crit: 0 },
+      allocatedStats: { hp: 0, mp: 0, physAttack: 0, magAttack: 0 },
+      pendingStatPoints: 0,
     },
     inventory: {
       gold: 0,
@@ -166,6 +168,38 @@ const MIGRATIONS: Record<number, (data: any) => any> = {
   // ArenaRunState (perkLevels, takenPassives, statPerkCounts). No data
   // mutation needed; existing activeRun objects carry them as undefined.
   2: (old) => ({ ...old, version: 3 }),
+  // v3 → v4 (stat point allocation): replace auto stat growth with manual
+  // allocation. Existing players had (level-1) auto-growths — convert those
+  // into allocated points distributed evenly across 4 stats. Recalculate
+  // effective stats to match the new allocation formula.
+  3: (old: any) => {
+    const next = { ...old, version: 4 };
+    const level = next.player?.level ?? 1;
+    const totalPoints = Math.max(0, level - 1);
+    const perStat = Math.floor(totalPoints / 4);
+    const remainder = totalPoints - perStat * 4;
+    next.player = {
+      ...next.player,
+      allocatedStats: {
+        hp: perStat + remainder,
+        mp: perStat,
+        physAttack: perStat,
+        magAttack: perStat,
+      },
+      pendingStatPoints: 0,
+    };
+    // Recalculate effective stats from base + allocation formula.
+    // Base stats at level 1: 200 HP, 100 MP, 10 phys, 10 mag.
+    // Per point: +5 HP, +4 MP, +2 phys, +2 mag.
+    next.player.stats = {
+      ...next.player.stats,
+      hp: 200 + (perStat + remainder) * 5,
+      mp: 100 + perStat * 4,
+      physAttack: 10 + perStat * 2,
+      magAttack: 10 + perStat * 2,
+    };
+    return next;
+  },
 };
 
 function migrate(raw: unknown): SaveData {

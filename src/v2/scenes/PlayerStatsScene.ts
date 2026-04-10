@@ -44,14 +44,29 @@ import Phaser from "phaser";
 import { DPR, SAFE_AREA } from "../../game/config";
 import { gameState } from "../core/GameState";
 import { sceneRouter } from "../core/SceneRouter";
-import { progressionSystem } from "../systems/ProgressionSystem";
+import {
+  progressionSystem,
+  STAT_PER_POINT,
+  type AllocatableStat,
+} from "../systems/ProgressionSystem";
 import { inventorySystem } from "../systems/InventorySystem";
 import { ITEMS } from "../content/items";
 import { itemCardModal } from "../ui/ItemCardModal";
 import { sellConfirmModal } from "../ui/SellConfirmModal";
 import { toast } from "../ui/Toast";
 import { getSellPrice } from "../content/items/pricing";
-import { createBackButton, createTitle, createSubtitle } from "../ui/SceneChrome";
+import {
+  createBackButton,
+  createPrimaryButton,
+  createSecondaryButton,
+  createTitle,
+  createSubtitle,
+} from "../ui/SceneChrome";
+import {
+  createModalBackdrop,
+  createModalPanel,
+  createModalCloseButton,
+} from "../ui/modalChrome";
 import {
   RARITY_COLOR_BY_TIER,
   SLOT_LABELS,
@@ -160,6 +175,9 @@ export class PlayerStatsScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       if (itemCardModal.isOpen()) itemCardModal.close();
       if (sellConfirmModal.isOpen()) sellConfirmModal.close();
+      this.closeResetConfirmation();
+      // Discard unsaved session deltas when leaving the scene.
+      progressionSystem.resetPendingAllocation();
     });
   }
 
@@ -207,7 +225,7 @@ export class PlayerStatsScene extends Phaser.Scene {
       // pointerdown via BUG-2 fix stopPropagation anyway, but this guard
       // prevents the drag-start state from being primed for the subsequent
       // pointermove stream.
-      if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
+      if (itemCardModal.isOpen() || sellConfirmModal.isOpen() || this.resetConfirmLayer) return;
 
       dragStartY = p.y;
       dragStartScrollY = this.scrollY;
@@ -224,7 +242,7 @@ export class PlayerStatsScene extends Phaser.Scene {
       // modal. Without this bail, dragging over the modal backdrop would
       // still feed delta into `rootLayer.setY`, visually confusing and
       // leaving `scrollDraggedThisGesture` in a stale state after close.
-      if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
+      if (itemCardModal.isOpen() || sellConfirmModal.isOpen() || this.resetConfirmLayer) return;
       // BUG-2 hardening: ignore pointermove for gestures whose scene-level
       // pointerdown was cancelled by stopPropagation (backdrop / close
       // button / panel close paths). Covers the tap-and-slide-to-close
@@ -281,6 +299,9 @@ export class PlayerStatsScene extends Phaser.Scene {
 
     y = this.renderSectionHeader(layer, cx, y, `── Рюкзак ──`);
     y = this.renderBackpack(layer, cx, y);
+    y += 16 * d;
+
+    y = this.renderResetProgression(layer, cx, y);
 
     // Compute scroll bounds: viewport is between the fixed title block and
     // the fixed back button. If content overflows the viewport bottom we
@@ -461,35 +482,175 @@ export class PlayerStatsScene extends Phaser.Scene {
   ): number {
     const d = DPR;
     const breakdown = this.computeStatBreakdown();
-
-    const rows: Array<{ label: string; key: keyof AggregatedStats }> = [
-      { label: "HP", key: "hp" },
-      { label: "MP", key: "mp" },
-      { label: "Физ. атака", key: "physAttack" },
-      { label: "Маг. атака", key: "magAttack" },
-      { label: "Крит", key: "crit" },
-    ];
+    const pendingPoints = progressionSystem.getPendingPoints();
+    const sessionDeltas = progressionSystem.getSessionDeltas();
+    const hasSession = sessionDeltas.hp + sessionDeltas.mp +
+      sessionDeltas.physAttack + sessionDeltas.magAttack > 0;
 
     let currentY = y;
-    rows.forEach((row) => {
-      const base = breakdown.base[row.key];
-      const bonus = breakdown.bonus[row.key];
-      const total = breakdown.total[row.key];
-      const text =
-        bonus > 0
-          ? `${row.label}: ${total} (${base} + ${bonus})`
-          : `${row.label}: ${total}`;
-      const color = bonus > 0 ? V2_COLORS.bonusColor : V2_COLORS.valueColor;
-      const line = this.add
-        .text(cx, currentY, text, {
-          fontSize: `${14 * d}px`,
-          color,
+
+    // Pending points counter (gold, prominent).
+    if (pendingPoints > 0 || hasSession) {
+      const pointsLabel = this.add
+        .text(cx, currentY, `Доступно очков: ${pendingPoints}`, {
+          fontSize: `${16 * d}px`,
+          color: V2_COLORS.titleColor,
           fontFamily: V2_FONTS.primary,
+          fontStyle: "bold",
         })
         .setOrigin(0.5, 0);
-      layer.add(line);
-      currentY += 20 * d;
-    });
+      layer.add(pointsLabel);
+      currentY += 26 * d;
+    }
+
+    // Allocatable stat rows.
+    const allocRows: Array<{
+      label: string;
+      key: AllocatableStat;
+      perPoint: number;
+    }> = [
+      { label: "HP", key: "hp", perPoint: STAT_PER_POINT.hp },
+      { label: "MP", key: "mp", perPoint: STAT_PER_POINT.mp },
+      { label: "Физ. атака", key: "physAttack", perPoint: STAT_PER_POINT.physAttack },
+      { label: "Маг. атака", key: "magAttack", perPoint: STAT_PER_POINT.magAttack },
+    ];
+
+    const showButtons = pendingPoints > 0 || hasSession;
+    const BTN_RADIUS = 12;
+    const BTN_GAP = 6;
+
+    for (const row of allocRows) {
+      const bonus = breakdown.bonus[row.key];
+      const total = breakdown.total[row.key];
+      const sessionDelta = sessionDeltas[row.key];
+
+      // Format: "HP: 220" or "HP: 220 (+10 экип.)" if equipment bonus
+      let text = `${row.label}: ${total}`;
+      if (bonus > 0) {
+        text = `${row.label}: ${total} (${breakdown.base[row.key]} + ${bonus})`;
+      }
+      // If session delta, append preview marker
+      if (sessionDelta > 0) {
+        text += ` [+${sessionDelta * row.perPoint}]`;
+      }
+
+      const color = sessionDelta > 0
+        ? V2_COLORS.bonusColor
+        : bonus > 0
+          ? V2_COLORS.bonusColor
+          : V2_COLORS.valueColor;
+
+      if (showButtons) {
+        // Stat label + value on the left, +/- buttons on the right.
+        const leftX = cx - 80 * d;
+        const line = this.add
+          .text(leftX, currentY, text, {
+            fontSize: `${14 * d}px`,
+            color,
+            fontFamily: V2_FONTS.primary,
+          })
+          .setOrigin(0, 0);
+        layer.add(line);
+
+        const btnCy = currentY + 9 * d;
+        const plusX = cx + 100 * d;
+        const minusX = plusX + (BTN_RADIUS * 2 + BTN_GAP) * d;
+
+        // [+] button
+        this.createSmallCircleButton(
+          layer, plusX, btnCy, BTN_RADIUS * d, "+",
+          pendingPoints > 0 ? 0x2d6e3a : 0x333333,
+          pendingPoints > 0,
+          () => {
+            if (progressionSystem.allocatePoint(row.key)) {
+              this.refresh();
+            }
+          },
+        );
+
+        // [-] button
+        this.createSmallCircleButton(
+          layer, minusX, btnCy, BTN_RADIUS * d, "-",
+          sessionDelta > 0 ? 0x6e2d2d : 0x333333,
+          sessionDelta > 0,
+          () => {
+            if (progressionSystem.deallocatePoint(row.key)) {
+              this.refresh();
+            }
+          },
+        );
+      } else {
+        // No pending points -- static display.
+        const line = this.add
+          .text(cx, currentY, text, {
+            fontSize: `${14 * d}px`,
+            color,
+            fontFamily: V2_FONTS.primary,
+          })
+          .setOrigin(0.5, 0);
+        layer.add(line);
+      }
+
+      currentY += 22 * d;
+    }
+
+    // Crit row (non-allocatable, always static).
+    const critBonus = breakdown.bonus.crit;
+    const critTotal = breakdown.total.crit;
+    const critText = critBonus > 0
+      ? `Крит: ${critTotal} (${breakdown.base.crit} + ${critBonus})`
+      : `Крит: ${critTotal}`;
+    const critColor = critBonus > 0 ? V2_COLORS.bonusColor : V2_COLORS.valueColor;
+    const critLine = this.add
+      .text(showButtons ? cx - 80 * d : cx, currentY, critText, {
+        fontSize: `${14 * d}px`,
+        color: critColor,
+        fontFamily: V2_FONTS.primary,
+      })
+      .setOrigin(showButtons ? 0 : 0.5, 0);
+    layer.add(critLine);
+    currentY += 22 * d;
+
+    // "Сброс" / "Сохранить" buttons (only when there are session changes).
+    if (hasSession) {
+      currentY += 8 * d;
+      const btnWidth = 120;
+      const btnHeight = 36;
+      const btnGap = 16;
+
+      // "Сброс" button (left).
+      const resetBtn = createSecondaryButton(
+        this,
+        cx - (btnWidth / 2 + btnGap / 2) * d,
+        currentY,
+        "Сброс",
+        () => {
+          progressionSystem.resetPendingAllocation();
+          this.refresh();
+        },
+        { widthDp: btnWidth, heightDp: btnHeight, fontDp: 14 },
+      );
+      layer.add(resetBtn.bg);
+      layer.add(resetBtn.text);
+
+      // "Сохранить" button (right).
+      const saveBtn = createPrimaryButton(
+        this,
+        cx + (btnWidth / 2 + btnGap / 2) * d,
+        currentY,
+        "Сохранить",
+        () => {
+          progressionSystem.saveAllocation();
+          toast.show(this, { message: "Статы сохранены!", type: "info" });
+          this.refresh();
+        },
+        { widthDp: btnWidth, heightDp: btnHeight, fontDp: 14 },
+      );
+      layer.add(saveBtn.bg);
+      layer.add(saveBtn.text);
+
+      currentY += (btnHeight / 2 + 12) * d;
+    }
 
     return currentY;
   }
@@ -972,6 +1133,167 @@ export class PlayerStatsScene extends Phaser.Scene {
     //       added to the layer do not visually occlude the icon text.
     layer.bringToTop(bg);
     layer.bringToTop(text);
+  }
+
+  /**
+   * Small circle button for stat [+] / [-] controls.
+   * Renders a circle BG with a single character label. When `enabled` is
+   * false the button appears dimmed and does not respond to taps.
+   */
+  private createSmallCircleButton(
+    layer: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    radius: number,
+    label: string,
+    bgColor: number,
+    enabled: boolean,
+    onTap: () => void,
+  ): void {
+    const d = DPR;
+    const circle = this.add.circle(x, y, radius, bgColor, enabled ? 0.95 : 0.4);
+    circle.setStrokeStyle(1 * d, enabled ? 0xe6c068 : 0x555555);
+    if (enabled) {
+      circle.setInteractive(
+        new Phaser.Geom.Circle(0, 0, radius),
+        Phaser.Geom.Circle.Contains,
+      );
+      circle.on("pointerdown", (
+        _p: Phaser.Input.Pointer,
+        _x: number,
+        _y: number,
+        event: Phaser.Types.Input.EventData,
+      ) => {
+        event.stopPropagation();
+        if (this.scrollDraggedThisGesture) return;
+        onTap();
+      });
+    }
+    layer.add(circle);
+
+    const text = this.add
+      .text(x, y, label, {
+        fontSize: `${16 * d}px`,
+        color: enabled ? "#f4e4c1" : "#666666",
+        fontFamily: V2_FONTS.primary,
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
+    layer.add(text);
+  }
+
+  /**
+   * Render the "Сбросить прогрессию" button at the bottom of the content
+   * area. Opens a confirmation modal before resetting.
+   */
+  private renderResetProgression(
+    layer: Phaser.GameObjects.Container,
+    cx: number,
+    y: number,
+  ): number {
+    const d = DPR;
+    const btnY = y + 20 * d;
+    const btn = createSecondaryButton(
+      this,
+      cx,
+      btnY,
+      "Сбросить прогрессию",
+      () => this.showResetConfirmation(),
+      { widthDp: 220, heightDp: 40, fontDp: 14 },
+    );
+    layer.add(btn.bg);
+    layer.add(btn.text);
+    return btnY + 30 * d;
+  }
+
+  /**
+   * Show a confirmation modal for progression reset. Uses the modalChrome
+   * pattern (backdrop + panel + buttons at depth 2100).
+   */
+  private resetConfirmLayer?: Phaser.GameObjects.Container;
+
+  private showResetConfirmation(): void {
+    if (this.resetConfirmLayer) return;
+
+    const d = DPR;
+    const camW = this.cameras.main.width;
+    const camH = this.cameras.main.height;
+    const cx = camW / 2;
+    const cy = camH / 2;
+
+    const layerContainer = this.add.container(0, 0);
+    layerContainer.setDepth(2100);
+
+    const backdrop = createModalBackdrop(this, () => this.closeResetConfirmation());
+    layerContainer.add(backdrop);
+
+    const panelWidth = 300 * d;
+    const panelHeight = 180 * d;
+    const panel = createModalPanel(this, cx, cy, {
+      width: panelWidth,
+      height: panelHeight,
+    });
+    layerContainer.add(panel);
+
+    const titleText = this.add
+      .text(cx, cy - 55 * d, "Сбросить прогрессию?", {
+        fontSize: `${18 * d}px`,
+        color: V2_COLORS.titleColor,
+        fontFamily: V2_FONTS.primary,
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
+    layerContainer.add(titleText);
+
+    const bodyText = this.add
+      .text(cx, cy - 20 * d, "Уровень станет 1.\nВсе статы и очки обнулятся.", {
+        fontSize: `${13 * d}px`,
+        color: V2_COLORS.bodyColor,
+        fontFamily: V2_FONTS.primary,
+        align: "center",
+      })
+      .setOrigin(0.5);
+    layerContainer.add(bodyText);
+
+    const btnWidth = 120;
+    const btnHeight = 40;
+    const halfGap = 8 * d;
+    const btnY = cy + 50 * d;
+
+    const confirmBtn = createModalCloseButton(
+      this,
+      cx - btnWidth * d / 2 - halfGap,
+      btnY,
+      () => {
+        this.closeResetConfirmation();
+        progressionSystem.resetProgression();
+        toast.show(this, { message: "Прогрессия сброшена", type: "info" });
+        this.refresh();
+      },
+      { label: "Сбросить", widthDp: btnWidth, heightDp: btnHeight },
+    );
+    layerContainer.add(confirmBtn.bg);
+    layerContainer.add(confirmBtn.text);
+
+    const cancelBtn = createModalCloseButton(
+      this,
+      cx + btnWidth * d / 2 + halfGap,
+      btnY,
+      () => this.closeResetConfirmation(),
+      { label: "Отмена", widthDp: btnWidth, heightDp: btnHeight },
+    );
+    layerContainer.add(cancelBtn.bg);
+    layerContainer.add(cancelBtn.text);
+
+    this.resetConfirmLayer = layerContainer;
+  }
+
+  private closeResetConfirmation(): void {
+    if (!this.resetConfirmLayer) return;
+    try {
+      this.resetConfirmLayer.destroy(true);
+    } catch { /* already dead */ }
+    this.resetConfirmLayer = undefined;
   }
 
   /** Build a set of all currently-equipped ItemInstance ids across slots. */
