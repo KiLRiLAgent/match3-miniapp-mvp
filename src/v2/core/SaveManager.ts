@@ -162,6 +162,10 @@ const MIGRATIONS: Record<number, (data: any) => any> = {
     arena: old.arena ?? createDefaultArenaSave(),
     version: 2,
   }),
+  // v2 → v3 (Phase 2B): type-only expansion — new optional fields on
+  // ArenaRunState (perkLevels, takenPassives, statPerkCounts). No data
+  // mutation needed; existing activeRun objects carry them as undefined.
+  2: (old) => ({ ...old, version: 3 }),
 };
 
 function migrate(raw: unknown): SaveData {

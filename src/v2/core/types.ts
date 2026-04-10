@@ -12,7 +12,7 @@
  */
 
 export const SAVE_KEY = "match3_save_v2";
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /** Basic combat stats attached to the player avatar (before inventory). */
 export interface PlayerStats {
@@ -187,6 +187,12 @@ export interface ArenaRunState {
    * lazily fills it on first read when missing.
    */
   plannedEnemies?: string[];
+  /** Phase 2B perk progression — skill perk levels accumulated during this run. */
+  perkLevels?: Record<string, number>;
+  /** Phase 2B perk progression — IDs of one-time passive perks taken this run. */
+  takenPassives?: string[];
+  /** Phase 2B perk progression — stat perk pick counts accumulated this run. */
+  statPerkCounts?: Record<string, number>;
 }
 
 export interface ArenaSave {
