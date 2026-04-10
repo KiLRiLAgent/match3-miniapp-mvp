@@ -16,6 +16,7 @@ import { gameState } from "../core/GameState";
 import type { ItemInstance, ItemStats } from "../core/types";
 import type { ItemSlot } from "../content/types";
 import { ITEMS } from "../content/items";
+import { getSellPrice } from "../content/items/pricing";
 
 /** Hard cap on backpack size. Excess `add()` calls return `null`. */
 const MAX_BACKPACK_SLOTS = 8;
@@ -116,6 +117,38 @@ class InventorySystem {
       }
     });
     return true;
+  }
+
+  /**
+   * Remove an item and credit the player with its sell price in a single
+   * atomic `gameState.patch`. Clears any equipped slot pointing at this item.
+   * Returns `{ ok: true, gold, sold }` on success, or `{ ok: false, reason }`
+   * when the instance is not found.
+   */
+  removeItemAndRefund(
+    instanceId: string,
+  ): { ok: true; gold: number; sold: string } | { ok: false; reason: "not_found" } {
+    const save = gameState.get();
+    const instance = save.inventory.items.find((it) => it.id === instanceId);
+    if (!instance) return { ok: false, reason: "not_found" };
+
+    const def = ITEMS[instance.itemDefId];
+    if (!def) return { ok: false, reason: "not_found" };
+
+    const sellPrice = getSellPrice(def.rarity);
+
+    gameState.patch((s) => {
+      s.inventory.items = s.inventory.items.filter((it) => it.id !== instanceId);
+      for (const slot of SLOT_ORDER) {
+        if (s.inventory.equipped[slot] === instanceId) {
+          delete s.inventory.equipped[slot];
+        }
+      }
+      s.inventory.gold += sellPrice;
+    });
+    gameState.flush();
+
+    return { ok: true, gold: sellPrice, sold: def.name };
   }
 
   /**

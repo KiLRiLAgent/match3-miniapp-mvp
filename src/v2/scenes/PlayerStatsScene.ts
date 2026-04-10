@@ -48,6 +48,9 @@ import { progressionSystem } from "../systems/ProgressionSystem";
 import { inventorySystem } from "../systems/InventorySystem";
 import { ITEMS } from "../content/items";
 import { itemCardModal } from "../ui/ItemCardModal";
+import { sellConfirmModal } from "../ui/SellConfirmModal";
+import { toast } from "../ui/Toast";
+import { getSellPrice } from "../content/items/pricing";
 import { createBackButton, createTitle, createSubtitle } from "../ui/SceneChrome";
 import {
   RARITY_COLOR_BY_TIER,
@@ -85,6 +88,13 @@ const INFO_ICON_STROKE = 0xe6c068;
 const INFO_ICON_TEXT_COLOR = "#e6c068";
 const STATS_SUMMARY_COLOR = "#d4b8e8";
 const STATS_SUMMARY_FONT_SIZE = 12;
+
+// Phase 2B — sell icon layout (backpack rows only).
+const SELL_ICON_RADIUS = 10;
+const SELL_ICON_PADDING_RIGHT = 8;
+const SELL_ICON_BG = 0x2a4518;
+const SELL_ICON_STROKE = 0x6abf2a;
+const SELL_ICON_TEXT_COLOR = "#e6c068";
 
 // Back button height (dp).
 
@@ -151,6 +161,7 @@ export class PlayerStatsScene extends Phaser.Scene {
     // first is a no-op for the other.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       if (itemCardModal.isOpen()) itemCardModal.close();
+      if (sellConfirmModal.isOpen()) sellConfirmModal.close();
     });
   }
 
@@ -193,12 +204,12 @@ export class PlayerStatsScene extends Phaser.Scene {
       // first post-close tap on the info icon.
       this.scrollDraggedThisGesture = false;
 
-      // EDIT 4 — do not start a drag while the info modal is open. The
+      // EDIT 4 — do not start a drag while a modal is open. The
       // modal's backdrop is the topmost interactive element and absorbs
       // pointerdown via BUG-2 fix stopPropagation anyway, but this guard
       // prevents the drag-start state from being primed for the subsequent
       // pointermove stream.
-      if (itemCardModal.isOpen()) return;
+      if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
 
       dragStartY = p.y;
       dragStartScrollY = this.scrollY;
@@ -215,7 +226,7 @@ export class PlayerStatsScene extends Phaser.Scene {
       // modal. Without this bail, dragging over the modal backdrop would
       // still feed delta into `rootLayer.setY`, visually confusing and
       // leaving `scrollDraggedThisGesture` in a stale state after close.
-      if (itemCardModal.isOpen()) return;
+      if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
       // BUG-2 hardening: ignore pointermove for gestures whose scene-level
       // pointerdown was cancelled by stopPropagation (backdrop / close
       // button / panel close paths). Covers the tap-and-slide-to-close
@@ -660,35 +671,58 @@ export class PlayerStatsScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
     layer.add(nameText);
 
-    const suffix = isEquipped ? "надето" : SLOT_LABELS[def.slot];
-    const suffixColor = isEquipped ? V2_COLORS.bonusColor : V2_COLORS.subtitleColor;
-    // Suffix sits just left of the info icon, right-aligned.
-    const suffixX =
-      rowCx + width / 2 - (INFO_ICON_RADIUS * 2 + INFO_ICON_PADDING_RIGHT * 2) * d;
-    const suffixText = this.add
-      .text(suffixX, rowCy, suffix, {
-        fontSize: `${12 * d}px`,
-        color: suffixColor,
-        fontFamily: V2_FONTS.primary,
-        fontStyle: "italic",
-      })
-      .setOrigin(1, 0.5);
-    layer.add(suffixText);
+    // Right-side layout: info icon is always rightmost, then sell icon for
+    // non-equipped rows, then suffix. Non-equipped rows hide suffix to make
+    // room for the sell icon.
+    const infoIconX =
+      rowCx + width / 2 - (INFO_ICON_PADDING_RIGHT + INFO_ICON_RADIUS) * d;
 
-    // Inline stats summary sits between the name and the suffix. We render
-    // right-aligned to `suffixText.x - suffixText.width - gap` so the
-    // layout auto-adjusts to suffix width.
-    const summary = buildStatsSummary(def);
-    if (summary.length > 0) {
-      const summaryX = suffixText.x - suffixText.width - 8 * d;
-      const summaryText = this.add
-        .text(summaryX, rowCy, summary, {
-          fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
-          color: STATS_SUMMARY_COLOR,
+    if (isEquipped) {
+      // Equipped rows: "надето" suffix + info icon (no sell icon).
+      const suffixX =
+        rowCx + width / 2 - (INFO_ICON_RADIUS * 2 + INFO_ICON_PADDING_RIGHT * 2) * d;
+      const suffixText = this.add
+        .text(suffixX, rowCy, "надето", {
+          fontSize: `${12 * d}px`,
+          color: V2_COLORS.bonusColor,
           fontFamily: V2_FONTS.primary,
+          fontStyle: "italic",
         })
         .setOrigin(1, 0.5);
-      layer.add(summaryText);
+      layer.add(suffixText);
+
+      const summary = buildStatsSummary(def);
+      if (summary.length > 0) {
+        const summaryX = suffixText.x - suffixText.width - 8 * d;
+        const summaryText = this.add
+          .text(summaryX, rowCy, summary, {
+            fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
+            color: STATS_SUMMARY_COLOR,
+            fontFamily: V2_FONTS.primary,
+          })
+          .setOrigin(1, 0.5);
+        layer.add(summaryText);
+      }
+    } else {
+      // Non-equipped rows: sell icon sits left of info icon, suffix hidden.
+      const sellIconX =
+        infoIconX - INFO_ICON_RADIUS * d - SELL_ICON_PADDING_RIGHT * d - SELL_ICON_RADIUS * d;
+      this.createSellIcon(layer, sellIconX, rowCy, () =>
+        this.handleSellTap(instance, def),
+      );
+
+      const summary = buildStatsSummary(def);
+      if (summary.length > 0) {
+        const summaryX = sellIconX - SELL_ICON_RADIUS * d - 8 * d;
+        const summaryText = this.add
+          .text(summaryX, rowCy, summary, {
+            fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
+            color: STATS_SUMMARY_COLOR,
+            fontFamily: V2_FONTS.primary,
+          })
+          .setOrigin(1, 0.5);
+        layer.add(summaryText);
+      }
     }
 
     // Backpack row info icon — comparison base is the currently-equipped
@@ -699,9 +733,7 @@ export class PlayerStatsScene extends Phaser.Scene {
     const comparisonBase =
       equippedInSlot && equippedInSlot.id !== instance.id ? equippedDef : undefined;
 
-    const iconX =
-      rowCx + width / 2 - (INFO_ICON_PADDING_RIGHT + INFO_ICON_RADIUS) * d;
-    this.createInfoIcon(layer, iconX, rowCy, () =>
+    this.createInfoIcon(layer, infoIconX, rowCy, () =>
       this.openItemInfoModal(def, comparisonBase),
     );
 
@@ -725,7 +757,7 @@ export class PlayerStatsScene extends Phaser.Scene {
    * bgs. Two-line defensive guard future-proofs against modal depth changes.
    */
   private handleSlotTap(slot: ItemSlot): void {
-    if (itemCardModal.isOpen()) return;
+    if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
     if (this.scrollDraggedThisGesture) return;
     const equipped = inventorySystem.getEquipped(slot);
     if (equipped) {
@@ -756,7 +788,7 @@ export class PlayerStatsScene extends Phaser.Scene {
    * Modal-open guard (§8 / EDIT 3): same rationale as `handleSlotTap`.
    */
   private handleBackpackTap(instance: ItemInstance): void {
-    if (itemCardModal.isOpen()) return;
+    if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
     if (this.scrollDraggedThisGesture) return;
     const def = ITEMS[instance.itemDefId];
     if (!def) return;
@@ -777,6 +809,69 @@ export class PlayerStatsScene extends Phaser.Scene {
       item: def,
       comparisonBase,
     });
+  }
+
+  /**
+   * Open sell confirmation modal for a backpack item. On confirm, executes
+   * the atomic removeItemAndRefund, shows a toast, and refreshes the scene.
+   */
+  private handleSellTap(instance: ItemInstance, def: ItemDef): void {
+    const sellPrice = getSellPrice(def.rarity);
+    sellConfirmModal.open(this, {
+      item: def,
+      sellPrice,
+      onConfirm: () => {
+        const result = inventorySystem.removeItemAndRefund(instance.id);
+        if (result.ok) {
+          toast.show(this, {
+            message: `Продано: ${result.sold} (+${result.gold}g)`,
+            type: "info",
+          });
+          this.refresh();
+        }
+      },
+    });
+  }
+
+  /**
+   * Create a small circular sell icon (green tint). Same hit-area pattern
+   * as createInfoIcon — separate interactive, respects scrollDraggedThisGesture.
+   */
+  private createSellIcon(
+    layer: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    onTap: () => void,
+  ): void {
+    const d = DPR;
+    const radius = SELL_ICON_RADIUS * d;
+
+    const bg = this.add.circle(x, y, radius, SELL_ICON_BG, 0.95);
+    bg.setStrokeStyle(1 * d, SELL_ICON_STROKE);
+    bg.setInteractive(
+      new Phaser.Geom.Circle(0, 0, radius),
+      Phaser.Geom.Circle.Contains,
+    );
+    layer.add(bg);
+
+    const text = this.add
+      .text(x, y, "$", {
+        fontSize: `${14 * d}px`,
+        color: SELL_ICON_TEXT_COLOR,
+        fontFamily: V2_FONTS.primary,
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
+    layer.add(text);
+
+    bg.on("pointerdown", () => {
+      if (this.scrollDraggedThisGesture) return;
+      if (itemCardModal.isOpen() || sellConfirmModal.isOpen()) return;
+      onTap();
+    });
+
+    layer.bringToTop(bg);
+    layer.bringToTop(text);
   }
 
   /**
