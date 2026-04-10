@@ -24,6 +24,8 @@ import { relationshipSystem } from "./RelationshipSystem";
 import { progressionSystem } from "./ProgressionSystem";
 import { inventorySystem } from "./InventorySystem";
 import { buffSystem } from "./BuffSystem";
+import { applyStatPerksToStats, getStartMpBonus } from "./arenaStatPerkSystem";
+import { getManaBonusAtStart } from "./PassivePerkEffects";
 import { getBossLayerHpArray } from "../../game/config";
 import type {
   CombatContext,
@@ -82,12 +84,19 @@ class EncounterBuilder {
     // returns the input unchanged — non-arena fights see ZERO behavior
     // change (DECISIONS R2).
     const buffedStats = buffSystem.applyToStats(save.player.stats);
+    // Phase 2B: fold accumulated stat perks onto buffed stats. When no active
+    // run or no stat perks picked, returns input unchanged.
+    const run = save.arena.activeRun;
+    const withPerks = applyStatPerksToStats(buffedStats, run?.statPerkCounts ?? {});
+    // Compute starting mana bonus from stat_start_mp perks + mana_surge passive.
+    const startMpBonus = getStartMpBonus(run?.statPerkCounts ?? {}) + getManaBonusAtStart();
     const playerStats: PlayerCombatStats = {
-      hpMax: buffedStats.hp,
-      manaMax: buffedStats.mp,
-      physAttack: buffedStats.physAttack,
-      magAttack: buffedStats.magAttack,
-      crit: buffedStats.crit,
+      hpMax: withPerks.hp,
+      manaMax: withPerks.mp,
+      physAttack: withPerks.physAttack,
+      magAttack: withPerks.magAttack,
+      crit: withPerks.crit,
+      ...(startMpBonus > 0 ? { manaStart: startMpBonus } : {}),
     };
 
     // Deep clone — relationshipSystem.getState() returns LIVE reference for

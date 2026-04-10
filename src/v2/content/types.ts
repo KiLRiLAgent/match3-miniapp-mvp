@@ -373,6 +373,8 @@ export interface PlayerCombatStats {
   physAttack: number;
   magAttack: number;
   crit: number;
+  /** Phase 2B: starting mana override from stat_start_mp perks + mana_surge passive. */
+  manaStart?: number;
 }
 
 /**
