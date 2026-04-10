@@ -109,6 +109,8 @@ export interface CharacterDef {
   };
   /** First dialogue shown when the player meets this character. */
   defaultDialogueId: string;
+  /** Optional greeting phrases for inter-boss transitions (brief §30-31). */
+  greetings?: string[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

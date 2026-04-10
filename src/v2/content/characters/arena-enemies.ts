@@ -40,6 +40,7 @@ const arenaBandit: CharacterDef = {
   relationshipThresholds: { friendly: 0, romance: 0, hostileViaCynicism: 100 },
   assets: { portraitNeutral: "placeholder_arena_bandit" },
   defaultDialogueId: "arena_no_dialogue",
+  greetings: ["Здорова, падший!", "Твоё золото моё", "Сначала молитва, потом казнь"],
 };
 
 const arenaDarkMage: CharacterDef = {
@@ -58,6 +59,7 @@ const arenaDarkMage: CharacterDef = {
   relationshipThresholds: { friendly: 0, romance: 0, hostileViaCynicism: 100 },
   assets: { portraitNeutral: "placeholder_arena_dark_mage" },
   defaultDialogueId: "arena_no_dialogue",
+  greetings: ["Чувствую твой страх", "Тьма поглотит тебя", "Твоя магия слаба"],
 };
 
 const arenaWarden: CharacterDef = {
@@ -76,6 +78,7 @@ const arenaWarden: CharacterDef = {
   relationshipThresholds: { friendly: 0, romance: 0, hostileViaCynicism: 100 },
   assets: { portraitNeutral: "placeholder_arena_warden" },
   defaultDialogueId: "arena_no_dialogue",
+  greetings: ["Ты не пройдёшь", "Долг превыше всего", "Покайся или умри"],
 };
 
 const arenaApostate: CharacterDef = {
@@ -94,6 +97,7 @@ const arenaApostate: CharacterDef = {
   relationshipThresholds: { friendly: 0, romance: 0, hostileViaCynicism: 100 },
   assets: { portraitNeutral: "placeholder_arena_apostate" },
   defaultDialogueId: "arena_no_dialogue",
+  greetings: ["Я видел истину", "Боги тебя забыли", "Падший к падшему"],
 };
 
 const arenaDemon: CharacterDef = {
@@ -112,6 +116,7 @@ const arenaDemon: CharacterDef = {
   relationshipThresholds: { friendly: 0, romance: 0, hostileViaCynicism: 100 },
   assets: { portraitNeutral: "placeholder_arena_demon" },
   defaultDialogueId: "arena_no_dialogue",
+  greetings: ["Наконец, достойный противник", "Твоя душа будет моей", "Ты зашёл слишком далеко"],
 };
 
 export const ARENA_ENEMIES: Record<string, CharacterDef> = {
