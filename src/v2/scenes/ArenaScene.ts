@@ -59,6 +59,8 @@ export class ArenaScene extends Phaser.Scene {
     const d = DPR;
 
     gameState.ensureLoaded();
+    // Phase 2B: migrate incompatible old 6-floor runs before reading state.
+    arenaSystem.checkActiveRunCompatibility();
     const arena = gameState.get().arena;
     const activeRun = arenaSystem.getActiveRun();
 
@@ -73,8 +75,11 @@ export class ArenaScene extends Phaser.Scene {
 
     // Stats block
     const statsY = 210 * d + SAFE_AREA.top * d;
+    const diffMult = arenaSystem.getDifficultyMultiplier();
+    const runNumber = arena.totalRunsCompleted + 1;
+
     this.add
-      .text(cx, statsY, `Лучший этаж: ${arena.bestScore}/6`, {
+      .text(cx, statsY, `Лучший этаж: ${arena.bestScore}/10`, {
         fontSize: `${20 * d}px`,
         color: V2_COLORS.valueColor,
         fontFamily: V2_FONTS.primary,
@@ -95,11 +100,25 @@ export class ArenaScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
+    this.add
+      .text(
+        cx,
+        statsY + 58 * d,
+        `Забег #${runNumber} — сложность ×${diffMult.toFixed(2)}`,
+        {
+          fontSize: `${14 * d}px`,
+          color: V2_COLORS.subtitleColor,
+          fontFamily: V2_FONTS.primary,
+          fontStyle: "italic",
+        },
+      )
+      .setOrigin(0.5);
+
     // CTA buttons — centered vertically in the lower half.
     const ctaY = camH * 0.58;
     if (activeRun) {
       this.add
-        .text(cx, ctaY - 60 * d, `Активный run: этаж ${activeRun.floor}/6`, {
+        .text(cx, ctaY - 60 * d, `Активный run: этаж ${activeRun.floor}/10`, {
           fontSize: `${15 * d}px`,
           color: V2_COLORS.subtitleColor,
           fontFamily: V2_FONTS.primary,
@@ -125,7 +144,7 @@ export class ArenaScene extends Phaser.Scene {
     // Result toast when returning from completed/failed run (R13).
     if (this.sceneData.runJustCompleted) {
       toast.show(this, {
-        message: `Победа! Лучший этаж: ${arena.bestScore}/6`,
+        message: `Победа! Лучший этаж: ${arena.bestScore}/10`,
         type: "info",
         durationMs: 5000,
       });

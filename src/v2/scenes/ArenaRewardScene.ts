@@ -82,7 +82,7 @@ export class ArenaRewardScene extends Phaser.Scene {
       strokeDp: 4,
     });
 
-    createSubtitle(this, cx, 130 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/6`);
+    createSubtitle(this, cx, 130 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/10`);
 
     // Choice count: base 3 + buff_luck stacks (clamped so layout fits).
     const extra = buffSystem.getExtraRewardCount();

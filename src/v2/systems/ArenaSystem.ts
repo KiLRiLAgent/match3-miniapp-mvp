@@ -1,12 +1,14 @@
 /**
- * ArenaSystem — single source of truth for arena run state mutations
- * (Phase 2A).
+ * ArenaSystem — single source of truth for arena run state mutations.
  *
- * A run is the roguelike unit: 5 normal fights + 1 boss fight across floors
- * 1..6. Persistent state (XP, gold, items) from cleared floors accumulates
- * into `activeRun.accumulatedRewards` and is flushed to SaveData on run
- * completion OR abort (defeat). Permadeath resets `activeRun` to null after
- * the flush — the current floor's lost fight contributes nothing.
+ * Phase 2B rework: a run is 10 fights (9 normal + 1 final boss, floors 1..10).
+ * Persistent state (XP, gold, items) from cleared floors accumulates into
+ * `activeRun.accumulatedRewards` and is flushed to SaveData on run completion
+ * OR abort (defeat). Permadeath resets `activeRun` to null after the flush.
+ *
+ * Per-run difficulty scaling: `difficultyMultiplier = 1.15^totalRunsCompleted`
+ * applied to HP + phys/mag attack (NOT layers). Read by CombatBridgeScene
+ * and passed to ArenaEncounterGenerator.generate().
  *
  * Mirrors RelationshipSystem / ProgressionSystem / InventorySystem singleton
  * pattern: pure logic, zero Phaser deps, all writes flow through
@@ -18,8 +20,9 @@ import type { ActiveBuff, ArenaRunState } from "../core/types";
 import { ARENA_ENEMIES } from "../content/characters/arena-enemies";
 import { progressionSystem } from "./ProgressionSystem";
 import { inventorySystem } from "./InventorySystem";
+import { ARENA_TOTAL_FLOORS, BUFF_FLOORS } from "./ArenaEncounterGenerator";
 
-const BOSS_FLOOR = 6;
+const BOSS_FLOOR = ARENA_TOTAL_FLOORS;
 const BOSS_ENEMY_ID = "arena_demon";
 
 /** Non-boss enemy pool (floors 1..5). Derived from ARENA_ENEMIES registry. */
@@ -54,9 +57,9 @@ class ArenaSystem {
   }
 
   /**
-   * Return the characterIds of all 6 planned floors for the active run.
-   * Lazy-fills `plannedEnemies` on pre-fix mid-run saves (backward compat —
-   * no SAVE_VERSION bump). Returns an empty array if no run is active.
+   * Return the characterIds of all 10 planned floors for the active run.
+   * Lazy-fills `plannedEnemies` on pre-fix mid-run saves (backward compat).
+   * Returns an empty array if no run is active.
    */
   getPlannedEnemies(): readonly string[] {
     const run = gameState.get().arena.activeRun;
@@ -64,8 +67,8 @@ class ArenaSystem {
     if (run.plannedEnemies && run.plannedEnemies.length === BOSS_FLOOR) {
       return run.plannedEnemies;
     }
-    // Backward-compat: pre-2A+ save without plannedEnemies. Reconstruct as
-    // best we can — past floors are unknown so we seed with the current
+    // Backward-compat: pre-2B save with 6 floors or missing plannedEnemies.
+    // Reconstruct — past floors are unknown so we seed with the current
     // enemy for [currentFloor] and fresh rolls for future floors.
     const filled: string[] = new Array(BOSS_FLOOR).fill("");
     filled[run.floor - 1] = run.enemyType;
@@ -78,6 +81,49 @@ class ArenaSystem {
       if (s.arena.activeRun) s.arena.activeRun.plannedEnemies = filled;
     });
     return filled;
+  }
+
+  /**
+   * Per-run difficulty multiplier: `1.15^totalRunsCompleted`.
+   * Run 1 = 1.00x, Run 2 = 1.15x, Run 3 ≈ 1.32x, etc.
+   */
+  getDifficultyMultiplier(): number {
+    const totalRuns = gameState.get().arena.totalRunsCompleted;
+    return Math.pow(1.15, totalRuns);
+  }
+
+  /** True if this floor should show a buff pick (ArenaRewardScene) after victory. */
+  isBuffFloor(floor: number): boolean {
+    return BUFF_FLOORS.has(floor);
+  }
+
+  /**
+   * Check for an incompatible active run from a pre-Phase 2B save (6-floor
+   * structure). If detected, flush accumulated rewards to persistent state
+   * and null the run so the player can start fresh with the new 10-floor
+   * structure. No-op if no run is active or run is already compatible.
+   */
+  checkActiveRunCompatibility(): void {
+    const run = gameState.get().arena.activeRun;
+    if (!run) return;
+    // Old 6-floor runs won't have perkLevels and will have floor > 0.
+    // More reliably: if plannedEnemies exists but length !== BOSS_FLOOR (10),
+    // the run was started under the old 6-floor regime.
+    const isOldRun =
+      (run.plannedEnemies && run.plannedEnemies.length !== BOSS_FLOOR) ||
+      (run.perkLevels === undefined && run.floor > 0 && !run.plannedEnemies);
+    if (!isOldRun) return;
+
+    // Flush any accumulated rewards from the old run.
+    progressionSystem.applyXpGain(run.accumulatedRewards.xp);
+    gameState.patch((s) => {
+      s.inventory.gold += run.accumulatedRewards.gold;
+      s.arena.activeRun = null;
+    });
+    for (const itemDefId of run.accumulatedRewards.items) {
+      inventorySystem.add(itemDefId);
+    }
+    gameState.flush();
   }
 
   /**
@@ -230,9 +276,8 @@ class ArenaSystem {
   }
 
   /**
-   * Pre-roll all 6 floors of a run at `startNewRun`. Floors 1..5 use the
-   * standard random pool; floor 6 is always the boss. Kept alongside
-   * `pickEnemyForFloor` so legacy mid-run lazy-fill still works.
+   * Pre-roll all 10 floors of a run at `startNewRun`. Floors 1..9 use the
+   * standard random pool; floor 10 is always the boss (arena_demon).
    */
   private pickAllEnemiesForRun(): string[] {
     const result: string[] = [];

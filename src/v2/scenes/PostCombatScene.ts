@@ -330,16 +330,22 @@ export class PostCombatScene extends Phaser.Scene {
     // PostCombatData fields needed.
     if (arenaEncounterGenerator.isArenaEncounter(result.encounterId)) {
       if (result.victory) {
+        // Snapshot the floor BEFORE advanceFloor bumps it.
+        const clearedFloor = arenaSystem.getActiveRun()?.floor ?? 0;
         arenaSystem.advanceFloor({
           xp: result.xpGained,
           gold: result.goldGained,
           items: result.lootedItems ?? [],
         });
-        // advanceFloor returns null when boss floor cleared (run finalized).
-        if (arenaSystem.getActiveRun()) {
+        // advanceFloor returns null when final boss cleared (run finalized).
+        if (!arenaSystem.getActiveRun()) {
+          sceneRouter.replace(this, "ArenaScene", { runJustCompleted: true });
+        } else if (arenaSystem.isBuffFloor(clearedFloor)) {
+          // Buff pick after floors 3, 6, 9.
           sceneRouter.replace(this, "ArenaRewardScene");
         } else {
-          sceneRouter.replace(this, "ArenaScene", { runJustCompleted: true });
+          // Direct advance — no buff pick, go straight to next fight.
+          sceneRouter.replace(this, "ArenaRunScene");
         }
       } else {
         arenaSystem.abortRun();

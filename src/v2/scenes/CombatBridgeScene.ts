@@ -25,6 +25,7 @@ import { gameState } from "../core/GameState";
 import { eventBus } from "../core/EventBus";
 import { encounterBuilder } from "../systems/EncounterBuilder";
 import { arenaEncounterGenerator } from "../systems/ArenaEncounterGenerator";
+import { arenaSystem } from "../systems/ArenaSystem";
 import { ENCOUNTERS } from "../content/encounters";
 import type {
   CombatContext,
@@ -84,7 +85,8 @@ export class CombatBridgeScene extends Phaser.Scene {
     // `null` for non-arena ids so the chain falls through naturally.
     let encounterDef: EncounterDef | undefined = ENCOUNTERS[this.encounterId];
     if (!encounterDef) {
-      const generated = arenaEncounterGenerator.generate(this.encounterId);
+      const diffMult = arenaSystem.getDifficultyMultiplier();
+      const generated = arenaEncounterGenerator.generate(this.encounterId, diffMult);
       if (generated) {
         encounterDef = generated;
       } else {

@@ -22,8 +22,9 @@ import { BUFFS } from "../content/buffs";
 import { CharacterPortrait } from "../ui/CharacterPortrait";
 import type { ArenaRunState, PlayerStats } from "../core/types";
 import type { BuffEffectType } from "../content/types";
+import { ARENA_TOTAL_FLOORS } from "../systems/ArenaEncounterGenerator";
 
-const TOTAL_FLOORS = 6;
+const TOTAL_FLOORS = ARENA_TOTAL_FLOORS;
 
 /** Emoji prefix per stat for the stats-preview panel + buff list. */
 const STAT_EMOJI: Record<keyof PlayerStats, string> = {
@@ -76,7 +77,7 @@ export class ArenaRunScene extends Phaser.Scene {
     // Title — floor counter with boss banner.
     const isBoss = arenaSystem.isBossFloor(run.floor);
     this.add
-      .text(cx, 70 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/6`, {
+      .text(cx, 70 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/${TOTAL_FLOORS}`, {
         fontSize: `${24 * d}px`,
         color: isBoss ? BOSS_COLOR : V2_COLORS.titleColor,
         fontFamily: V2_FONTS.primary,
