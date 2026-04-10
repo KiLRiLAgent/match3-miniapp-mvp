@@ -41,15 +41,8 @@ const PHASE_2A_ACTIVE_EFFECTS: ReadonlySet<BuffEffectType> = new Set<BuffEffectT
   "extraReward",
 ]);
 
-const BG_COLOR = 0x1a0f2e;
-const TITLE_COLOR = "#e6c068";
-const SUBTITLE_COLOR = "#9f7fc7";
-const FOOTER_COLOR = "#8a7ab0";
-const CARD_BG = 0x231436;
-const CARD_BG_HOVER = 0x33224c;
-const CARD_NAME_COLOR = "#e6c068";
-const CARD_DESC_COLOR = "#d4b8e8";
-const FONT = "'Exo 2', Arial, sans-serif";
+import { createTitle, createSubtitle } from "../ui/SceneChrome";
+import { V2_COLORS, V2_FONTS } from "../ui/theme";
 
 // Buff-rarity border palette — separate from item rarity (common/rare/epic).
 const RARITY_COLORS: Record<string, number> = {
@@ -83,27 +76,13 @@ export class ArenaRewardScene extends Phaser.Scene {
       return;
     }
 
-    this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
+    this.add.rectangle(0, 0, camW, camH, V2_COLORS.bg).setOrigin(0);
 
-    this.add
-      .text(cx, 90 * d + SAFE_AREA.top * d, "Выбери баф", {
-        fontSize: `${30 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 4 * d,
-      })
-      .setOrigin(0.5);
+    createTitle(this, cx, 90 * d + SAFE_AREA.top * d, "Выбери баф", {
+      strokeDp: 4,
+    });
 
-    this.add
-      .text(cx, 130 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/6`, {
-        fontSize: `${14 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "italic",
-      })
-      .setOrigin(0.5);
+    createSubtitle(this, cx, 130 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/6`);
 
     // Choice count: base 3 + buff_luck stacks (clamped so layout fits).
     const extra = buffSystem.getExtraRewardCount();
@@ -125,8 +104,8 @@ export class ArenaRewardScene extends Phaser.Scene {
     this.add
       .text(cx, footerY, "После выбора начнётся следующий бой", {
         fontSize: `${12 * d}px`,
-        color: FOOTER_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.emptySlotColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
       })
       .setOrigin(0.5);
@@ -172,15 +151,15 @@ export class ArenaRewardScene extends Phaser.Scene {
     const borderColor = RARITY_COLORS[def.rarity] ?? RARITY_COLORS.common;
 
     const bg = this.add
-      .rectangle(cx, cy, w, h, CARD_BG, 0.95)
+      .rectangle(cx, cy, w, h, V2_COLORS.rowBg, 0.95)
       .setStrokeStyle(2 * d, borderColor)
       .setInteractive({ useHandCursor: true });
 
     this.add
       .text(cx, cy - 22 * d, def.name, {
         fontSize: `${18 * d}px`,
-        color: CARD_NAME_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.titleColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -188,15 +167,15 @@ export class ArenaRewardScene extends Phaser.Scene {
     this.add
       .text(cx, cy + 14 * d, def.description, {
         fontSize: `${12 * d}px`,
-        color: CARD_DESC_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.bodyColor,
+        fontFamily: V2_FONTS.primary,
         wordWrap: { width: w - 24 * d },
         align: "center",
       })
       .setOrigin(0.5);
 
-    bg.on("pointerover", () => bg.setFillStyle(CARD_BG_HOVER, 1));
-    bg.on("pointerout", () => bg.setFillStyle(CARD_BG, 0.95));
+    bg.on("pointerover", () => bg.setFillStyle(V2_COLORS.rowBgHover, 1));
+    bg.on("pointerout", () => bg.setFillStyle(V2_COLORS.rowBg, 0.95));
     bg.on("pointerdown", () => this.selectBuff(def.id));
   }
 

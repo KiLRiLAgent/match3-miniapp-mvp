@@ -31,18 +31,11 @@ import { CharacterPortrait } from "../ui/CharacterPortrait";
 import { toast } from "../ui/Toast";
 import type { LocationHotspot } from "../content/types";
 
-const FONT = "'Exo 2', Arial, sans-serif";
-const TITLE_COLOR = "#e6c068";
-const DESC_COLOR = "#b8a8d0";
+import { createBackButton } from "../ui/SceneChrome";
+import { V2_COLORS, V2_FONTS } from "../ui/theme";
+
 const HOTSPOT_LABEL_COLOR = "#f4e4c1";
 const TOAST_COLOR = "#9f7fc7";
-
-const BACK_BG = 0x2a1845;
-const BACK_BG_HOVER = 0x3a2358;
-const BACK_STROKE = 0x9f7fc7;
-const BACK_TEXT = "#b8a8d0";
-const BACK_BUTTON_WIDTH = 200;
-const BACK_BUTTON_HEIGHT = 48;
 
 const HOTSPOT_PORTRAIT_SIZE = 100;
 const HOTSPOT_HALO_RADIUS = 64;
@@ -115,8 +108,8 @@ export class LocationScene extends Phaser.Scene {
     this.add
       .text(cx, 70 * d + SAFE_AREA.top * d, loc.name, {
         fontSize: `${28 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.titleColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 3 * d,
@@ -126,8 +119,8 @@ export class LocationScene extends Phaser.Scene {
     this.add
       .text(cx, 116 * d + SAFE_AREA.top * d, loc.description, {
         fontSize: `${14 * d}px`,
-        color: DESC_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.secondaryText,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
         align: "center",
         wordWrap: { width: camW - 60 * d },
@@ -139,7 +132,9 @@ export class LocationScene extends Phaser.Scene {
     }
 
     const backY = camH - 70 * d - SAFE_AREA.bottom * d;
-    this.createBackButton(cx, backY, () => sceneRouter.pop(this));
+    createBackButton(this, cx, backY, "← На карту", () => sceneRouter.pop(this), {
+      widthDp: 200,
+    });
   }
 
   private createHotspot(
@@ -173,7 +168,7 @@ export class LocationScene extends Phaser.Scene {
       .text(x, y + haloRadius + 18 * d, hotspot.label, {
         fontSize: `${18 * d}px`,
         color: HOTSPOT_LABEL_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -227,7 +222,7 @@ export class LocationScene extends Phaser.Scene {
       .text(camW / 2, camH / 2, "Сейчас здесь нечего сказать.", {
         fontSize: `${20 * d}px`,
         color: TOAST_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
         backgroundColor: "#1a0f2e",
         padding: { x: 18 * d, y: 12 * d },
@@ -263,7 +258,7 @@ export class LocationScene extends Phaser.Scene {
       .text(camW / 2, camH / 2, `[${locId}]\nфон не загружен`, {
         fontSize: `${16 * d}px`,
         color: TOAST_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
         align: "center",
       })
@@ -281,33 +276,4 @@ export class LocationScene extends Phaser.Scene {
     });
   }
 
-  private createBackButton(x: number, y: number, onClick: () => void): void {
-    const d = DPR;
-    const width = BACK_BUTTON_WIDTH * d;
-    const height = BACK_BUTTON_HEIGHT * d;
-
-    const bg = this.add
-      .rectangle(x, y, width, height, BACK_BG, 0.95)
-      .setStrokeStyle(2 * d, BACK_STROKE)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, "← На карту", {
-        fontSize: `${18 * d}px`,
-        color: BACK_TEXT,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(BACK_BG_HOVER, 1);
-      text.setColor("#e6c068");
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(BACK_BG, 0.95);
-      text.setColor(BACK_TEXT);
-    });
-    bg.on("pointerdown", onClick);
-  }
 }

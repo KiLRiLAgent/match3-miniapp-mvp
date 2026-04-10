@@ -48,29 +48,18 @@ import { progressionSystem } from "../systems/ProgressionSystem";
 import { inventorySystem } from "../systems/InventorySystem";
 import { ITEMS } from "../content/items";
 import { itemCardModal } from "../ui/ItemCardModal";
+import { createBackButton, createTitle, createSubtitle } from "../ui/SceneChrome";
 import {
   RARITY_COLOR_BY_TIER,
   SLOT_LABELS,
   buildStatsSummary,
 } from "../ui/itemFormat";
+import { V2_COLORS, V2_FONTS } from "../ui/theme";
 import type { ItemDef, ItemSlot } from "../content/types";
 import type { ItemInstance } from "../core/types";
 
-// Palette — mirrors HubScene / CharacterGalleryScene "dark purple" theme.
-const BG_COLOR = 0x1a0f2e;
-const TITLE_COLOR = "#e6c068";
-const SUBTITLE_COLOR = "#9f7fc7";
-const SECTION_HEADER_COLOR = "#9f7fc7";
-const BODY_COLOR = "#d4b8e8";
-const VALUE_COLOR = "#f4e4c1";
-const BONUS_COLOR = "#4caf50";
-const EMPTY_SLOT_COLOR = "#8a7ab0";
-const FONT = "'Exo 2', Arial, sans-serif";
-
 // Avatar placeholder.
 const AVATAR_RADIUS = 36;
-const AVATAR_BG = 0x2a1845;
-const AVATAR_STROKE = 0xe6c068;
 
 // XP bar.
 const XP_BAR_BG = 0x222244;
@@ -79,10 +68,7 @@ const XP_BAR_STROKE = 0xe6c068;
 const XP_BAR_WIDTH = 260;
 const XP_BAR_HEIGHT = 14;
 
-// Row backgrounds.
-const ROW_BG = 0x231436;
-const ROW_BG_HOVER = 0x33224c;
-const ROW_STROKE = 0x4a2d6e;
+// Row backgrounds — reuse theme values.
 /**
  * Phase 2B widened from 320 → 360 to make room for the inline stats summary
  * column + info icon on equipment and backpack rows. Item-info-display feature.
@@ -100,14 +86,7 @@ const INFO_ICON_TEXT_COLOR = "#e6c068";
 const STATS_SUMMARY_COLOR = "#d4b8e8";
 const STATS_SUMMARY_FONT_SIZE = 12;
 
-// Back button.
-const BACK_BG = 0x2a1845;
-const BACK_BG_HOVER = 0x3a2358;
-const BACK_STROKE = 0x9f7fc7;
-const BACK_TEXT = "#b8a8d0";
-const BACK_TEXT_HOVER = "#e6c068";
-const BACK_BUTTON_WIDTH = 180;
-const BACK_BUTTON_HEIGHT = 48;
+// Back button height (dp).
 
 // Layout anchors (logical — multiplied by DPR at render time).
 const CONTENT_TOP_Y = 160;
@@ -153,30 +132,14 @@ export class PlayerStatsScene extends Phaser.Scene {
     const cx = camW / 2;
     const d = DPR;
 
-    this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
+    this.add.rectangle(0, 0, camW, camH, V2_COLORS.bg).setOrigin(0);
 
-    this.add
-      .text(cx, 96 * d + SAFE_AREA.top * d, "Статистика", {
-        fontSize: `${30 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 3 * d,
-      })
-      .setOrigin(0.5);
+    createTitle(this, cx, 96 * d + SAFE_AREA.top * d, "Статистика");
 
-    this.add
-      .text(cx, 138 * d + SAFE_AREA.top * d, "Уровень, снаряжение, рюкзак", {
-        fontSize: `${16 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "italic",
-      })
-      .setOrigin(0.5);
+    createSubtitle(this, cx, 138 * d + SAFE_AREA.top * d, "Уровень, снаряжение, рюкзак");
 
     const backY = camH - 70 * d - SAFE_AREA.bottom * d;
-    this.createBackButton(cx, backY, () => sceneRouter.pop(this));
+    createBackButton(this, cx, backY, "← В Hub", () => sceneRouter.pop(this));
 
     this.setupScroll();
     this.refresh();
@@ -371,16 +334,16 @@ export class PlayerStatsScene extends Phaser.Scene {
     const avatarCx = cx;
     const avatarCy = y + radius;
 
-    const avatarBg = this.add.circle(avatarCx, avatarCy, radius, AVATAR_BG, 0.95);
-    avatarBg.setStrokeStyle(2 * d, AVATAR_STROKE);
+    const avatarBg = this.add.circle(avatarCx, avatarCy, radius, V2_COLORS.avatarBg, 0.95);
+    avatarBg.setStrokeStyle(2 * d, V2_COLORS.avatarStroke);
     layer.add(avatarBg);
 
     const initial = (player.name || "?").charAt(0).toUpperCase();
     const avatarText = this.add
       .text(avatarCx, avatarCy, initial, {
         fontSize: `${32 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.titleColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -390,8 +353,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const nameText = this.add
       .text(cx, nameY, player.name || "Безымянный", {
         fontSize: `${20 * d}px`,
-        color: VALUE_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.valueColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0);
@@ -402,8 +365,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const levelText = this.add
       .text(cx, levelY, `Уровень ${level}`, {
         fontSize: `${16 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.subtitleColor,
+        fontFamily: V2_FONTS.primary,
       })
       .setOrigin(0.5, 0);
     layer.add(levelText);
@@ -454,8 +417,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const labelText = this.add
       .text(cx, y + barHeight + 4 * d, label, {
         fontSize: `${12 * d}px`,
-        color: BODY_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.bodyColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
       })
       .setOrigin(0.5, 0);
@@ -474,8 +437,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const header = this.add
       .text(cx, y, label, {
         fontSize: `${14 * d}px`,
-        color: SECTION_HEADER_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.subtitleColor,
+        fontFamily: V2_FONTS.primary,
       })
       .setOrigin(0.5, 0);
     layer.add(header);
@@ -507,12 +470,12 @@ export class PlayerStatsScene extends Phaser.Scene {
         bonus > 0
           ? `${row.label}: ${total} (${base} + ${bonus})`
           : `${row.label}: ${total}`;
-      const color = bonus > 0 ? BONUS_COLOR : VALUE_COLOR;
+      const color = bonus > 0 ? V2_COLORS.bonusColor : V2_COLORS.valueColor;
       const line = this.add
         .text(cx, currentY, text, {
           fontSize: `${14 * d}px`,
           color,
-          fontFamily: FONT,
+          fontFamily: V2_FONTS.primary,
         })
         .setOrigin(0.5, 0);
       layer.add(line);
@@ -549,8 +512,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const rowCy = y + height / 2;
 
     const bg = this.add
-      .rectangle(rowCx, rowCy, width, height, ROW_BG, 0.95)
-      .setStrokeStyle(1 * d, ROW_STROKE)
+      .rectangle(rowCx, rowCy, width, height, V2_COLORS.rowBg, 0.95)
+      .setStrokeStyle(1 * d, V2_COLORS.rowStroke)
       .setInteractive({ useHandCursor: true });
     layer.add(bg);
 
@@ -562,8 +525,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const labelText = this.add
       .text(rowCx - width / 2 + 14 * d, rowCy, slotLabel, {
         fontSize: `${14 * d}px`,
-        color: BODY_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.bodyColor,
+        fontFamily: V2_FONTS.primary,
       })
       .setOrigin(0, 0.5);
     layer.add(labelText);
@@ -573,8 +536,8 @@ export class PlayerStatsScene extends Phaser.Scene {
       const emptyText = this.add
         .text(rowCx + width / 2 - 14 * d, rowCy, "пусто", {
           fontSize: `${14 * d}px`,
-          color: EMPTY_SLOT_COLOR,
-          fontFamily: FONT,
+          color: V2_COLORS.emptySlotColor,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic",
         })
         .setOrigin(1, 0.5);
@@ -588,7 +551,7 @@ export class PlayerStatsScene extends Phaser.Scene {
         .text(nameX, rowCy, equippedDef.name, {
           fontSize: `${14 * d}px`,
           color: nameColor,
-          fontFamily: FONT,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "bold",
         })
         .setOrigin(0, 0.5);
@@ -602,7 +565,7 @@ export class PlayerStatsScene extends Phaser.Scene {
           .text(summaryX, rowCy, summary, {
             fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
             color: STATS_SUMMARY_COLOR,
-            fontFamily: FONT,
+            fontFamily: V2_FONTS.primary,
           })
           .setOrigin(1, 0.5);
         layer.add(summaryText);
@@ -616,8 +579,8 @@ export class PlayerStatsScene extends Phaser.Scene {
       );
     }
 
-    bg.on("pointerover", () => bg.setFillStyle(ROW_BG_HOVER, 1));
-    bg.on("pointerout", () => bg.setFillStyle(ROW_BG, 0.95));
+    bg.on("pointerover", () => bg.setFillStyle(V2_COLORS.rowBgHover, 1));
+    bg.on("pointerout", () => bg.setFillStyle(V2_COLORS.rowBg, 0.95));
     bg.on("pointerdown", () => this.handleSlotTap(slot));
   }
 
@@ -633,8 +596,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const headerText = this.add
       .text(cx, y, `Рюкзак: ${items.length} / 8`, {
         fontSize: `${13 * d}px`,
-        color: BODY_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.bodyColor,
+        fontFamily: V2_FONTS.primary,
       })
       .setOrigin(0.5, 0);
     layer.add(headerText);
@@ -644,8 +607,8 @@ export class PlayerStatsScene extends Phaser.Scene {
       const emptyText = this.add
         .text(cx, currentY, "Пусто. Награды выпадают после боёв.", {
           fontSize: `${13 * d}px`,
-          color: EMPTY_SLOT_COLOR,
-          fontFamily: FONT,
+          color: V2_COLORS.emptySlotColor,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic",
         })
         .setOrigin(0.5, 0);
@@ -679,8 +642,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     const rowCy = y + height / 2;
 
     const bg = this.add
-      .rectangle(rowCx, rowCy, width, height, ROW_BG, 0.95)
-      .setStrokeStyle(1 * d, ROW_STROKE)
+      .rectangle(rowCx, rowCy, width, height, V2_COLORS.rowBg, 0.95)
+      .setStrokeStyle(1 * d, V2_COLORS.rowStroke)
       .setInteractive({ useHandCursor: true });
     layer.add(bg);
 
@@ -691,14 +654,14 @@ export class PlayerStatsScene extends Phaser.Scene {
       .text(rowCx - width / 2 + 14 * d, rowCy, def.name, {
         fontSize: `${14 * d}px`,
         color: nameColor,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0, 0.5);
     layer.add(nameText);
 
     const suffix = isEquipped ? "надето" : SLOT_LABELS[def.slot];
-    const suffixColor = isEquipped ? BONUS_COLOR : SUBTITLE_COLOR;
+    const suffixColor = isEquipped ? V2_COLORS.bonusColor : V2_COLORS.subtitleColor;
     // Suffix sits just left of the info icon, right-aligned.
     const suffixX =
       rowCx + width / 2 - (INFO_ICON_RADIUS * 2 + INFO_ICON_PADDING_RIGHT * 2) * d;
@@ -706,7 +669,7 @@ export class PlayerStatsScene extends Phaser.Scene {
       .text(suffixX, rowCy, suffix, {
         fontSize: `${12 * d}px`,
         color: suffixColor,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
       })
       .setOrigin(1, 0.5);
@@ -722,7 +685,7 @@ export class PlayerStatsScene extends Phaser.Scene {
         .text(summaryX, rowCy, summary, {
           fontSize: `${STATS_SUMMARY_FONT_SIZE * d}px`,
           color: STATS_SUMMARY_COLOR,
-          fontFamily: FONT,
+          fontFamily: V2_FONTS.primary,
         })
         .setOrigin(1, 0.5);
       layer.add(summaryText);
@@ -742,8 +705,8 @@ export class PlayerStatsScene extends Phaser.Scene {
       this.openItemInfoModal(def, comparisonBase),
     );
 
-    bg.on("pointerover", () => bg.setFillStyle(ROW_BG_HOVER, 1));
-    bg.on("pointerout", () => bg.setFillStyle(ROW_BG, 0.95));
+    bg.on("pointerover", () => bg.setFillStyle(V2_COLORS.rowBgHover, 1));
+    bg.on("pointerout", () => bg.setFillStyle(V2_COLORS.rowBg, 0.95));
     bg.on("pointerdown", () => this.handleBackpackTap(instance));
   }
 
@@ -852,7 +815,7 @@ export class PlayerStatsScene extends Phaser.Scene {
       .text(x, y, "i", {
         fontSize: `${14 * d}px`,
         color: INFO_ICON_TEXT_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -898,37 +861,4 @@ export class PlayerStatsScene extends Phaser.Scene {
     return ids;
   }
 
-  // ───────────────────────────────────────────────────────────────────────
-  // Back button
-  // ───────────────────────────────────────────────────────────────────────
-
-  private createBackButton(x: number, y: number, onClick: () => void): void {
-    const d = DPR;
-    const width = BACK_BUTTON_WIDTH * d;
-    const height = BACK_BUTTON_HEIGHT * d;
-
-    const bg = this.add
-      .rectangle(x, y, width, height, BACK_BG, 0.95)
-      .setStrokeStyle(2 * d, BACK_STROKE)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, "← В Hub", {
-        fontSize: `${18 * d}px`,
-        color: BACK_TEXT,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(BACK_BG_HOVER, 1);
-      text.setColor(BACK_TEXT_HOVER);
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(BACK_BG, 0.95);
-      text.setColor(BACK_TEXT);
-    });
-    bg.on("pointerdown", onClick);
-  }
 }

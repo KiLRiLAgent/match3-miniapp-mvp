@@ -41,30 +41,11 @@ import { setActiveMode } from "../../game/version";
 import { gameState } from "../core/GameState";
 import { sceneRouter } from "../core/SceneRouter";
 import { progressionSystem } from "../systems/ProgressionSystem";
+import { createPrimaryButton, createSecondaryButton, createTitle, createSubtitle } from "../ui/SceneChrome";
+import { V2_COLORS, V2_FONTS } from "../ui/theme";
 
-const BG_COLOR = 0x1a0f2e;
-const TITLE_COLOR = "#e6c068";
-const SUBTITLE_COLOR = "#9f7fc7";
-const GREETING_COLOR = "#d4b8e8";
-const FONT = "'Exo 2', Arial, sans-serif";
-
-const PRIMARY_BG = 0x4a2d6e;
-const PRIMARY_BG_HOVER = 0x6a4a90;
-const PRIMARY_STROKE = 0xe6c068;
-const PRIMARY_TEXT = "#f4e4c1";
-const PRIMARY_TEXT_HOVER = "#ffffff";
-
-const SECONDARY_BG = 0x2a1845;
-const SECONDARY_BG_HOVER = 0x3a2358;
-const SECONDARY_STROKE = 0x9f7fc7;
-const SECONDARY_TEXT = "#b8a8d0";
-const SECONDARY_TEXT_HOVER = "#e6c068";
-
-const PRIMARY_BUTTON_WIDTH = 300;
 const PRIMARY_BUTTON_HEIGHT = 52;
 const PRIMARY_BUTTON_GAP = 12;
-const SECONDARY_BUTTON_WIDTH = 260;
-const SECONDARY_BUTTON_HEIGHT = 52;
 
 // Phase 1C XP bar — thin progress strip under the greeting. Reuses the
 // PlayerStatsScene colour palette for visual consistency. Width is narrower
@@ -122,27 +103,14 @@ export class HubScene extends Phaser.Scene {
     // pops back to Hub, this re-creates the single-entry stack from scratch.
     sceneRouter.setRoot("HubScene");
 
-    this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
+    this.add.rectangle(0, 0, camW, camH, V2_COLORS.bg).setOrigin(0);
 
-    this.add
-      .text(cx, 90 * d + SAFE_AREA.top * d, "Университет Падших", {
-        fontSize: `${34 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 4 * d,
-      })
-      .setOrigin(0.5);
+    createTitle(this, cx, 90 * d + SAFE_AREA.top * d, "Университет Падших", {
+      fontDp: 34,
+      strokeDp: 4,
+    });
 
-    this.add
-      .text(cx, 134 * d + SAFE_AREA.top * d, "v2 · β", {
-        fontSize: `${16 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "italic",
-      })
-      .setOrigin(0.5);
+    createSubtitle(this, cx, 134 * d + SAFE_AREA.top * d, "v2 · β");
 
     this.add
       .text(
@@ -151,8 +119,8 @@ export class HubScene extends Phaser.Scene {
         `Добро пожаловать, ${save.player.name}! Уровень ${level}`,
         {
           fontSize: `${20 * d}px`,
-          color: GREETING_COLOR,
-          fontFamily: FONT,
+          color: V2_COLORS.bodyColor,
+          fontFamily: V2_FONTS.primary,
         },
       )
       .setOrigin(0.5);
@@ -165,24 +133,25 @@ export class HubScene extends Phaser.Scene {
     const stackCenterY = camH * 0.52;
     const firstY = stackCenterY - buttonStep * 2;
 
-    this.createPrimaryButton(cx, firstY, "🗺 Карта", () => {
+    const btnOpts = { widthDp: 300, heightDp: PRIMARY_BUTTON_HEIGHT, fontDp: 24 };
+    createPrimaryButton(this, cx, firstY, "🗺 Карта", () => {
       sceneRouter.push(this, "StoryMapScene");
-    });
-    this.createPrimaryButton(cx, firstY + buttonStep, "👤 Персонаж", () => {
+    }, btnOpts);
+    createPrimaryButton(this, cx, firstY + buttonStep, "👤 Персонаж", () => {
       sceneRouter.push(this, "PlayerStatsScene");
-    });
-    this.createPrimaryButton(cx, firstY + buttonStep * 2, "📖 Галерея", () => {
+    }, btnOpts);
+    createPrimaryButton(this, cx, firstY + buttonStep * 2, "📖 Галерея", () => {
       sceneRouter.push(this, "CharacterGalleryScene");
-    });
-    this.createPrimaryButton(cx, firstY + buttonStep * 3, "⚔️ Арена", () => {
+    }, btnOpts);
+    createPrimaryButton(this, cx, firstY + buttonStep * 3, "⚔️ Арена", () => {
       sceneRouter.push(this, "ArenaScene");
-    });
-    this.createPrimaryButton(cx, firstY + buttonStep * 4, "🛒 Магазин", () => {
+    }, btnOpts);
+    createPrimaryButton(this, cx, firstY + buttonStep * 4, "🛒 Магазин", () => {
       sceneRouter.push(this, "ShopScene");
-    });
+    }, btnOpts);
 
     const secondaryY = camH - 80 * d - SAFE_AREA.bottom * d;
-    this.createSecondaryButton(cx, secondaryY, "← Назад в v1", () => {
+    createSecondaryButton(this, cx, secondaryY, "← Назад в v1", () => {
       setActiveMode("v1");
       window.location.reload();
     });
@@ -230,79 +199,10 @@ export class HubScene extends Phaser.Scene {
       .text(cx, y + barHeight + XP_LABEL_GAP * d, label, {
         fontSize: `${XP_LABEL_FONT_SIZE * d}px`,
         color: XP_BAR_LABEL_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
       })
       .setOrigin(0.5, 0);
   }
 
-  private createPrimaryButton(
-    x: number,
-    y: number,
-    label: string,
-    onClick: () => void,
-  ): void {
-    const d = DPR;
-    const width = PRIMARY_BUTTON_WIDTH * d;
-    const height = PRIMARY_BUTTON_HEIGHT * d;
-
-    const bg = this.add
-      .rectangle(x, y, width, height, PRIMARY_BG, 0.95)
-      .setStrokeStyle(3 * d, PRIMARY_STROKE)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontSize: `${24 * d}px`,
-        color: PRIMARY_TEXT,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(PRIMARY_BG_HOVER, 1);
-      text.setColor(PRIMARY_TEXT_HOVER);
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(PRIMARY_BG, 0.95);
-      text.setColor(PRIMARY_TEXT);
-    });
-    bg.on("pointerdown", onClick);
-  }
-
-  private createSecondaryButton(
-    x: number,
-    y: number,
-    label: string,
-    onClick: () => void,
-  ): void {
-    const d = DPR;
-    const width = SECONDARY_BUTTON_WIDTH * d;
-    const height = SECONDARY_BUTTON_HEIGHT * d;
-
-    const bg = this.add
-      .rectangle(x, y, width, height, SECONDARY_BG, 0.95)
-      .setStrokeStyle(2 * d, SECONDARY_STROKE)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontSize: `${18 * d}px`,
-        color: SECONDARY_TEXT,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(SECONDARY_BG_HOVER, 1);
-      text.setColor(SECONDARY_TEXT_HOVER);
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(SECONDARY_BG, 0.95);
-      text.setColor(SECONDARY_TEXT);
-    });
-    bg.on("pointerdown", onClick);
-  }
 }

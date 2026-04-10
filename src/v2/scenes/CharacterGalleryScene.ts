@@ -39,22 +39,15 @@ import { CHARACTERS } from "../content/characters";
 import { ENCOUNTERS } from "../content/encounters";
 import { CharacterPortrait } from "../ui/CharacterPortrait";
 import { RelationshipMeter } from "../ui/RelationshipMeter";
+import {
+  createBackButton,
+  createPrimaryButton,
+  createTitle,
+  createSubtitle,
+} from "../ui/SceneChrome";
+import { V2_COLORS, V2_FONTS } from "../ui/theme";
 import type { CharacterDef, Emotion } from "../content/types";
 import type { RelationshipState } from "../core/types";
-
-// Palette — mirrors HubScene / PostCombatScene "dark purple" theme.
-const BG_COLOR = 0x1a0f2e;
-const TITLE_COLOR = "#e6c068";
-const SUBTITLE_COLOR = "#9f7fc7";
-const FONT = "'Exo 2', Arial, sans-serif";
-
-const BACK_BG = 0x2a1845;
-const BACK_BG_HOVER = 0x3a2358;
-const BACK_STROKE = 0x9f7fc7;
-const BACK_TEXT = "#b8a8d0";
-const BACK_TEXT_HOVER = "#e6c068";
-const BACK_BUTTON_WIDTH = 180;
-const BACK_BUTTON_HEIGHT = 48;
 
 // Grid layout — logical (pre-DPR) units.
 const PORTRAIT_SIZE = 96;
@@ -81,11 +74,6 @@ const MODAL_SECTION_HEADER_COLOR = "#9f7fc7";
 const MODAL_METER_WIDTH_RATIO = 0.82;
 const MODAL_METER_ROW_HEIGHT = 14;
 
-const CLOSE_BG = 0x4a2d6e;
-const CLOSE_BG_HOVER = 0x6a4a90;
-const CLOSE_STROKE = 0xe6c068;
-const CLOSE_TEXT = "#f4e4c1";
-const CLOSE_TEXT_HOVER = "#ffffff";
 const CLOSE_BUTTON_WIDTH = 180;
 const CLOSE_BUTTON_HEIGHT = 48;
 
@@ -124,27 +112,11 @@ export class CharacterGalleryScene extends Phaser.Scene {
     const cx = camW / 2;
     const d = DPR;
 
-    this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
+    this.add.rectangle(0, 0, camW, camH, V2_COLORS.bg).setOrigin(0);
 
-    this.add
-      .text(cx, 96 * d + SAFE_AREA.top * d, "Галерея персонажей", {
-        fontSize: `${30 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 3 * d,
-      })
-      .setOrigin(0.5);
+    createTitle(this, cx, 96 * d + SAFE_AREA.top * d, "Галерея персонажей");
 
-    this.add
-      .text(cx, 138 * d + SAFE_AREA.top * d, "Встреченные души", {
-        fontSize: `${16 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "italic",
-      })
-      .setOrigin(0.5);
+    createSubtitle(this, cx, 138 * d + SAFE_AREA.top * d, "Встреченные души");
 
     this.completedCharacterIds = this.computeCompletedCharacterIds();
 
@@ -154,7 +126,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
         .text(cx, camH / 2, "Ты ещё никого не встретил...", {
           fontSize: `${18 * d}px`,
           color: EMPTY_STATE_COLOR,
-          fontFamily: FONT,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic",
         })
         .setOrigin(0.5);
@@ -163,7 +135,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
     }
 
     const backY = camH - 70 * d - SAFE_AREA.bottom * d;
-    this.createBackButton(cx, backY, () => sceneRouter.pop(this));
+    createBackButton(this, cx, backY, "← В Hub", () => sceneRouter.pop(this));
   }
 
   // ───────────────────────────────────────────────────────────────────────
@@ -373,7 +345,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
       .text(x, y + portraitSize / 2 + LABEL_GAP * d, def.name, {
         fontSize: `${16 * d}px`,
         color: "#f4e4c1",
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -389,7 +361,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
           {
             fontSize: `${12 * d}px`,
             color: "#4caf50",
-            fontFamily: FONT,
+            fontFamily: V2_FONTS.primary,
             fontStyle: "italic",
           },
         )
@@ -471,7 +443,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
       .text(cx, y, def.name, {
         fontSize: `${24 * d}px`,
         color: MODAL_TITLE_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 3 * d,
@@ -486,7 +458,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
         .text(cx, y, "Побеждена ✓", {
           fontSize: `${14 * d}px`,
           color: "#4caf50",
-          fontFamily: FONT,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic",
         })
         .setOrigin(0.5, 0);
@@ -500,7 +472,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
       .text(cx, y, this.truncateBackstory(def.backstory), {
         fontSize: `${13 * d}px`,
         color: MODAL_BACKSTORY_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
         wordWrap: { width: backstoryWidth },
         align: "center",
@@ -514,7 +486,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
       .text(cx, y, "── Отношения ──", {
         fontSize: `${14 * d}px`,
         color: MODAL_SECTION_HEADER_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
       })
       .setOrigin(0.5, 0);
     layer.add(sectionHeader);
@@ -546,7 +518,7 @@ export class CharacterGalleryScene extends Phaser.Scene {
       .text(cx, y, status.label, {
         fontSize: `${16 * d}px`,
         color: status.color,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0);
@@ -554,9 +526,16 @@ export class CharacterGalleryScene extends Phaser.Scene {
 
     // Close button — bottom of panel.
     const closeY = cy + panelHeight / 2 - 48 * d;
-    const closeButton = this.createCloseButton(cx, closeY);
-    layer.add(closeButton.bg);
-    layer.add(closeButton.text);
+    const closeBtn = createPrimaryButton(
+      this,
+      cx,
+      closeY,
+      "Закрыть",
+      () => this.closeModal(),
+      { widthDp: CLOSE_BUTTON_WIDTH, heightDp: CLOSE_BUTTON_HEIGHT },
+    );
+    layer.add(closeBtn.bg);
+    layer.add(closeBtn.text);
   }
 
   private closeModal(): void {
@@ -564,74 +543,5 @@ export class CharacterGalleryScene extends Phaser.Scene {
       this.modalLayer.destroy();
       this.modalLayer = undefined;
     }
-  }
-
-  private createCloseButton(
-    x: number,
-    y: number,
-  ): { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text } {
-    const d = DPR;
-    const width = CLOSE_BUTTON_WIDTH * d;
-    const height = CLOSE_BUTTON_HEIGHT * d;
-
-    const bg = this.add
-      .rectangle(x, y, width, height, CLOSE_BG, 0.95)
-      .setStrokeStyle(2 * d, CLOSE_STROKE)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, "Закрыть", {
-        fontSize: `${18 * d}px`,
-        color: CLOSE_TEXT,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(CLOSE_BG_HOVER, 1);
-      text.setColor(CLOSE_TEXT_HOVER);
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(CLOSE_BG, 0.95);
-      text.setColor(CLOSE_TEXT);
-    });
-    bg.on("pointerdown", () => this.closeModal());
-
-    return { bg, text };
-  }
-
-  // ───────────────────────────────────────────────────────────────────────
-  // Back button
-  // ───────────────────────────────────────────────────────────────────────
-
-  private createBackButton(x: number, y: number, onClick: () => void): void {
-    const d = DPR;
-    const width = BACK_BUTTON_WIDTH * d;
-    const height = BACK_BUTTON_HEIGHT * d;
-
-    const bg = this.add
-      .rectangle(x, y, width, height, BACK_BG, 0.95)
-      .setStrokeStyle(2 * d, BACK_STROKE)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, "← В Hub", {
-        fontSize: `${18 * d}px`,
-        color: BACK_TEXT,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(BACK_BG_HOVER, 1);
-      text.setColor(BACK_TEXT_HOVER);
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(BACK_BG, 0.95);
-      text.setColor(BACK_TEXT);
-    });
-    bg.on("pointerdown", onClick);
   }
 }

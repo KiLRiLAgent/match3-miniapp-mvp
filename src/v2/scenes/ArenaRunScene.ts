@@ -48,21 +48,10 @@ const BUFF_EFFECT_EMOJI: Record<BuffEffectType, string> = {
   reviveOnDeath: "🔥",
 };
 
-const FONT = "'Exo 2', Arial, sans-serif";
-const BG_COLOR = 0x1a0f2e;
-const TITLE_COLOR = "#e6c068";
-const SUBTITLE_COLOR = "#9f7fc7";
-const VALUE_COLOR = "#f4e4c1";
-const BODY_COLOR = "#d4b8e8";
-const EMPTY_COLOR = "#8a7ab0";
-const BOSS_COLOR = "#c83e3e";
+import { createPrimaryButton, createSecondaryButton } from "../ui/SceneChrome";
+import { V2_COLORS, V2_FONTS } from "../ui/theme";
 
-const PRIMARY_BG = 0x4a2d6e;
-const PRIMARY_BG_HOVER = 0x6a4a90;
-const PRIMARY_STROKE = 0xe6c068;
-const SECONDARY_BG = 0x2a1845;
-const SECONDARY_BG_HOVER = 0x3a2358;
-const SECONDARY_STROKE = 0x9f7fc7;
+const BOSS_COLOR = "#c83e3e";
 
 export class ArenaRunScene extends Phaser.Scene {
   constructor() {
@@ -82,15 +71,15 @@ export class ArenaRunScene extends Phaser.Scene {
       return;
     }
 
-    this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
+    this.add.rectangle(0, 0, camW, camH, V2_COLORS.bg).setOrigin(0);
 
     // Title — floor counter with boss banner.
     const isBoss = arenaSystem.isBossFloor(run.floor);
     this.add
       .text(cx, 70 * d + SAFE_AREA.top * d, `Этаж ${run.floor}/6`, {
         fontSize: `${24 * d}px`,
-        color: isBoss ? BOSS_COLOR : TITLE_COLOR,
-        fontFamily: FONT,
+        color: isBoss ? BOSS_COLOR : V2_COLORS.titleColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -99,7 +88,7 @@ export class ArenaRunScene extends Phaser.Scene {
         .text(cx, 100 * d + SAFE_AREA.top * d, "ФИНАЛЬНЫЙ БОСС", {
           fontSize: `${13 * d}px`,
           color: BOSS_COLOR,
-          fontFamily: FONT,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic bold",
         })
         .setOrigin(0.5);
@@ -125,8 +114,8 @@ export class ArenaRunScene extends Phaser.Scene {
         `Накоплено:  XP ${run.accumulatedRewards.xp}  ·  💰 ${run.accumulatedRewards.gold}  ·  📦 ${run.accumulatedRewards.items.length}`,
         {
           fontSize: `${11 * d}px`,
-          color: SUBTITLE_COLOR,
-          fontFamily: FONT,
+          color: V2_COLORS.subtitleColor,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic",
         },
       )
@@ -136,45 +125,21 @@ export class ArenaRunScene extends Phaser.Scene {
     // encounterId pattern (`arena_floor_N_<enemyType>`) is parsed by
     // arenaEncounterGenerator on the receiving side.
     const fightY = camH - 150 * d - SAFE_AREA.bottom * d;
-    this.createButton(
-      cx,
-      fightY,
-      300,
-      64,
-      24,
-      "⚔ В бой",
-      PRIMARY_BG,
-      PRIMARY_BG_HOVER,
-      PRIMARY_STROKE,
-      3,
-      () => {
-        sceneRouter.push(this, "CombatBridgeScene", {
-          encounterId: `arena_floor_${run.floor}_${run.enemyType}`,
-          onVictoryNode: "arena_victory",
-          onDefeatNode: "arena_defeat",
-          returnToDialogueId: "",
-        });
-      },
-    );
+    createPrimaryButton(this, cx, fightY, "⚔ В бой", () => {
+      sceneRouter.push(this, "CombatBridgeScene", {
+        encounterId: `arena_floor_${run.floor}_${run.enemyType}`,
+        onVictoryNode: "arena_victory",
+        onDefeatNode: "arena_defeat",
+        returnToDialogueId: "",
+      });
+    });
 
     // Secondary — abort the run (rewards from cleared floors are still flushed).
     const abortY = camH - 90 * d - SAFE_AREA.bottom * d;
-    this.createButton(
-      cx,
-      abortY,
-      240,
-      48,
-      16,
-      "← Прервать run",
-      SECONDARY_BG,
-      SECONDARY_BG_HOVER,
-      SECONDARY_STROKE,
-      2,
-      () => {
-        arenaSystem.abortRun();
-        sceneRouter.replace(this, "ArenaScene");
-      },
-    );
+    createSecondaryButton(this, cx, abortY, "← Прервать run", () => {
+      arenaSystem.abortRun();
+      sceneRouter.replace(this, "ArenaScene");
+    }, { widthDp: 240, heightDp: 48, fontDp: 16 });
   }
 
   /**
@@ -274,7 +239,7 @@ export class ArenaRunScene extends Phaser.Scene {
           .text(columnX, nodeY, "✓", {
             fontSize: `${16 * d}px`,
             color: "#4caf50",
-            fontFamily: FONT,
+            fontFamily: V2_FONTS.primary,
             fontStyle: "bold",
           })
           .setOrigin(0.5);
@@ -282,15 +247,15 @@ export class ArenaRunScene extends Phaser.Scene {
 
       // Floor number badge — small label to the left of the node.
       const labelColor = isCurrent
-        ? TITLE_COLOR
+        ? V2_COLORS.titleColor
         : isBossNode
           ? BOSS_COLOR
-          : SUBTITLE_COLOR;
+          : V2_COLORS.subtitleColor;
       this.add
         .text(columnX - size / 2 - 14 * d, nodeY, `${f}`, {
           fontSize: `${12 * d}px`,
           color: labelColor,
-          fontFamily: FONT,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "bold",
         })
         .setOrigin(1, 0.5);
@@ -300,8 +265,8 @@ export class ArenaRunScene extends Phaser.Scene {
         this.add
           .text(columnX, nodeY + size / 2 + 14 * d, enemyName, {
             fontSize: `${13 * d}px`,
-            color: VALUE_COLOR,
-            fontFamily: FONT,
+            color: V2_COLORS.valueColor,
+            fontFamily: V2_FONTS.primary,
             fontStyle: "bold",
           })
           .setOrigin(0.5);
@@ -324,8 +289,8 @@ export class ArenaRunScene extends Phaser.Scene {
     this.add
       .text(cx, topY, "Твои силы", {
         fontSize: `${13 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.subtitleColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
       })
       .setOrigin(0.5, 0);
@@ -361,16 +326,16 @@ export class ArenaRunScene extends Phaser.Scene {
       this.add
         .text(cx - 90 * d, y, leftText, {
           fontSize: `${12 * d}px`,
-          color: muted ? EMPTY_COLOR : BODY_COLOR,
-          fontFamily: FONT,
+          color: muted ? V2_COLORS.emptySlotColor : V2_COLORS.bodyColor,
+          fontFamily: V2_FONTS.primary,
         })
         .setOrigin(0, 0.5);
 
       this.add
         .text(cx + 60 * d, y, rightText, {
           fontSize: `${12 * d}px`,
-          color: muted ? EMPTY_COLOR : VALUE_COLOR,
-          fontFamily: FONT,
+          color: muted ? V2_COLORS.emptySlotColor : V2_COLORS.valueColor,
+          fontFamily: V2_FONTS.primary,
           fontStyle: muted ? "normal" : "bold",
         })
         .setOrigin(1, 0.5);
@@ -379,8 +344,8 @@ export class ArenaRunScene extends Phaser.Scene {
         this.add
           .text(cx + 90 * d, y, `+${delta}${sfx}`, {
             fontSize: `${12 * d}px`,
-            color: TITLE_COLOR,
-            fontFamily: FONT,
+            color: V2_COLORS.titleColor,
+            fontFamily: V2_FONTS.primary,
             fontStyle: "bold",
           })
           .setOrigin(1, 0.5);
@@ -409,8 +374,8 @@ export class ArenaRunScene extends Phaser.Scene {
     this.add
       .text(cx, topY, "Активные навыки", {
         fontSize: `${13 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.subtitleColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
       })
       .setOrigin(0.5, 0);
@@ -420,8 +385,8 @@ export class ArenaRunScene extends Phaser.Scene {
       this.add
         .text(cx, y, "— пока никаких —", {
           fontSize: `${11 * d}px`,
-          color: EMPTY_COLOR,
-          fontFamily: FONT,
+          color: V2_COLORS.emptySlotColor,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic",
         })
         .setOrigin(0.5, 0);
@@ -437,52 +402,12 @@ export class ArenaRunScene extends Phaser.Scene {
       this.add
         .text(cx, y, label, {
           fontSize: `${12 * d}px`,
-          color: BODY_COLOR,
-          fontFamily: FONT,
+          color: V2_COLORS.bodyColor,
+          fontFamily: V2_FONTS.primary,
         })
         .setOrigin(0.5, 0);
       y += 16 * d;
     }
   }
 
-  /**
-   * Inline button factory — duplicates the ArenaScene pattern by design.
-   * Task #18 will hoist both into `src/v2/ui/SceneChrome.ts`.
-   */
-  private createButton(
-    x: number,
-    y: number,
-    widthDp: number,
-    heightDp: number,
-    fontDp: number,
-    label: string,
-    bgColor: number,
-    bgHover: number,
-    strokeColor: number,
-    strokeDp: number,
-    onClick: () => void,
-  ): void {
-    const d = DPR;
-    const bg = this.add
-      .rectangle(x, y, widthDp * d, heightDp * d, bgColor, 0.95)
-      .setStrokeStyle(strokeDp * d, strokeColor)
-      .setInteractive({ useHandCursor: true });
-    const text = this.add
-      .text(x, y, label, {
-        fontSize: `${fontDp * d}px`,
-        color: "#f4e4c1",
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-    bg.on("pointerover", () => {
-      bg.setFillStyle(bgHover, 1);
-      text.setColor("#ffffff");
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(bgColor, 0.95);
-      text.setColor("#f4e4c1");
-    });
-    bg.on("pointerdown", onClick);
-  }
 }

@@ -18,25 +18,18 @@ import { DPR, SAFE_AREA } from "../../game/config";
 import { sceneRouter } from "../core/SceneRouter";
 import { storyFlags } from "../systems/StoryFlags";
 import { LOCATIONS } from "../content/locations";
+import { createBackButton, createTitle, createSubtitle } from "../ui/SceneChrome";
+import { V2_COLORS, V2_FONTS } from "../ui/theme";
 import type { LocationDef } from "../content/types";
 
+/** StoryMap uses a darker BG than the default V2_COLORS.bg. */
 const BG_COLOR = 0x0d0820;
-const TITLE_COLOR = "#e6c068";
-const SUBTITLE_COLOR = "#8a7ab0";
-const FONT = "'Exo 2', Arial, sans-serif";
 
 const NODE_FILL = 0x4a2d6e;
 const NODE_FILL_HOVER = 0x6a4a90;
 const NODE_STROKE = 0xe6c068;
 const NODE_LABEL_COLOR = "#f4e4c1";
 const NODE_RADIUS = 64;
-
-const BACK_BG = 0x2a1845;
-const BACK_BG_HOVER = 0x3a2358;
-const BACK_STROKE = 0x9f7fc7;
-const BACK_TEXT = "#b8a8d0";
-const BACK_BUTTON_WIDTH = 180;
-const BACK_BUTTON_HEIGHT = 48;
 
 export class StoryMapScene extends Phaser.Scene {
   constructor() {
@@ -51,25 +44,11 @@ export class StoryMapScene extends Phaser.Scene {
 
     this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
 
-    this.add
-      .text(cx, 90 * d + SAFE_AREA.top * d, "Карта кампуса", {
-        fontSize: `${30 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 3 * d,
-      })
-      .setOrigin(0.5);
+    createTitle(this, cx, 90 * d + SAFE_AREA.top * d, "Карта кампуса");
 
-    this.add
-      .text(cx, 134 * d + SAFE_AREA.top * d, "Выбери место, куда хочешь пойти", {
-        fontSize: `${16 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "italic",
-      })
-      .setOrigin(0.5);
+    createSubtitle(this, cx, 134 * d + SAFE_AREA.top * d, "Выбери место, куда хочешь пойти", {
+      color: V2_COLORS.emptySlotColor,
+    });
 
     const unlocked = Object.values(LOCATIONS).filter((loc) => this.isUnlocked(loc));
 
@@ -78,7 +57,7 @@ export class StoryMapScene extends Phaser.Scene {
         .text(cx, camH / 2, "Нет доступных локаций", {
           fontSize: `${20 * d}px`,
           color: "#9f7fc7",
-          fontFamily: FONT,
+          fontFamily: V2_FONTS.primary,
         })
         .setOrigin(0.5);
     } else {
@@ -89,7 +68,7 @@ export class StoryMapScene extends Phaser.Scene {
     }
 
     const backY = camH - 70 * d - SAFE_AREA.bottom * d;
-    this.createBackButton(cx, backY, () => sceneRouter.pop(this));
+    createBackButton(this, cx, backY, "← В Hub", () => sceneRouter.pop(this));
   }
 
   /**
@@ -135,7 +114,7 @@ export class StoryMapScene extends Phaser.Scene {
       .text(x, y, loc.name, {
         fontSize: `${18 * d}px`,
         color: NODE_LABEL_COLOR,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -145,8 +124,8 @@ export class StoryMapScene extends Phaser.Scene {
       this.add
         .text(x, y + radius + 16 * d, this.buildProgressLabel(loc), {
           fontSize: `${13 * d}px`,
-          color: SUBTITLE_COLOR,
-          fontFamily: FONT,
+          color: V2_COLORS.emptySlotColor,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic",
         })
         .setOrigin(0.5);
@@ -178,33 +157,4 @@ export class StoryMapScene extends Phaser.Scene {
     return "";
   }
 
-  private createBackButton(x: number, y: number, onClick: () => void): void {
-    const d = DPR;
-    const width = BACK_BUTTON_WIDTH * d;
-    const height = BACK_BUTTON_HEIGHT * d;
-
-    const bg = this.add
-      .rectangle(x, y, width, height, BACK_BG, 0.95)
-      .setStrokeStyle(2 * d, BACK_STROKE)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, "← В Hub", {
-        fontSize: `${18 * d}px`,
-        color: BACK_TEXT,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(BACK_BG_HOVER, 1);
-      text.setColor("#e6c068");
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(BACK_BG, 0.95);
-      text.setColor(BACK_TEXT);
-    });
-    bg.on("pointerdown", onClick);
-  }
 }

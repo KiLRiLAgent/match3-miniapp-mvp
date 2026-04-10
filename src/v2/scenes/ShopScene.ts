@@ -29,42 +29,18 @@ import { gameState } from "../core/GameState";
 import { sceneRouter } from "../core/SceneRouter";
 import { shopSystem } from "../systems/ShopSystem";
 import type { ShopOffer } from "../systems/ShopSystem";
+import { createBackButton, createTitle } from "../ui/SceneChrome";
 import { toast } from "../ui/Toast";
+import { V2_COLORS, V2_FONTS } from "../ui/theme";
 import type { ItemDef, ItemRarity } from "../content/types";
 
-const BG_COLOR = 0x1a0f2e;
-const TITLE_COLOR = "#e6c068";
-const SUBTITLE_COLOR = "#9f7fc7";
-const BODY_COLOR = "#d4b8e8";
-const FONT = "'Exo 2', Arial, sans-serif";
-
-const CARD_BG = 0x231436;
-const CARD_BG_HOVER = 0x33224c;
-
-const SECONDARY_BG = 0x2a1845;
-const SECONDARY_BG_HOVER = 0x3a2358;
-const SECONDARY_STROKE = 0x9f7fc7;
-const SECONDARY_TEXT = "#b8a8d0";
-const SECONDARY_TEXT_HOVER = "#e6c068";
-
-const RARITY_COLORS: Record<ItemRarity, string> = {
-  common: "#9f8a7a",
-  rare: "#5b8fe6",
-  epic: "#a070d8",
-  legendary: "#e6c068",
-};
+import { RARITY_COLOR_BY_TIER, SLOT_LABELS } from "../ui/itemFormat";
 
 const RARITY_BORDER: Record<ItemRarity, number> = {
   common: 0x9f8a7a,
   rare: 0x5b8fe6,
   epic: 0xa070d8,
   legendary: 0xe6c068,
-};
-
-const SLOT_LABELS: Record<ItemDef["slot"], string> = {
-  weapon: "Оружие",
-  armor: "Броня",
-  accessory: "Аксессуар",
 };
 
 const PURCHASE_FAILURE_MESSAGES: Record<
@@ -79,9 +55,6 @@ const PURCHASE_FAILURE_MESSAGES: Record<
 const CARD_WIDTH = 320;
 const CARD_HEIGHT = 78;
 const CARD_GAP = 10;
-
-const BACK_BUTTON_WIDTH = 180;
-const BACK_BUTTON_HEIGHT = 44;
 
 /** Drag-threshold for scroll vs tap disambiguation. */
 const SCROLL_DRAG_THRESHOLD = 6;
@@ -135,25 +108,19 @@ export class ShopScene extends Phaser.Scene {
 
     gameState.ensureLoaded();
 
-    this.add.rectangle(0, 0, camW, camH, BG_COLOR).setOrigin(0);
+    this.add.rectangle(0, 0, camW, camH, V2_COLORS.bg).setOrigin(0);
 
-    this.add
-      .text(cx, 90 * d + SAFE_AREA.top * d, "🛒 Магазин", {
-        fontSize: `${32 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 4 * d,
-      })
-      .setOrigin(0.5);
+    createTitle(this, cx, 90 * d + SAFE_AREA.top * d, "🛒 Магазин", {
+      fontDp: 32,
+      strokeDp: 4,
+    });
 
     const gold = gameState.get().inventory.gold;
     this.add
       .text(cx, 130 * d + SAFE_AREA.top * d, `Золото: ${gold}`, {
         fontSize: `${16 * d}px`,
-        color: TITLE_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.titleColor,
+        fontFamily: V2_FONTS.primary,
       })
       .setOrigin(0.5);
 
@@ -165,8 +132,8 @@ export class ShopScene extends Phaser.Scene {
       this.add
         .text(cx, 200 * d + SAFE_AREA.top * d, "Магазин пуст. Зайди позже.", {
           fontSize: `${14 * d}px`,
-          color: SUBTITLE_COLOR,
-          fontFamily: FONT,
+          color: V2_COLORS.subtitleColor,
+          fontFamily: V2_FONTS.primary,
           fontStyle: "italic",
         })
         .setOrigin(0.5);
@@ -199,21 +166,9 @@ export class ShopScene extends Phaser.Scene {
     }
 
     const backY = camH - 70 * d - SAFE_AREA.bottom * d;
-    this.createButton(
-      cx,
-      backY,
-      BACK_BUTTON_WIDTH,
-      BACK_BUTTON_HEIGHT,
-      18,
-      "← В Hub",
-      SECONDARY_BG,
-      SECONDARY_BG_HOVER,
-      SECONDARY_STROKE,
-      SECONDARY_TEXT,
-      SECONDARY_TEXT_HOVER,
-      2,
-      () => sceneRouter.pop(this),
-    );
+    createBackButton(this, cx, backY, "← В Hub", () => sceneRouter.pop(this), {
+      heightDp: 44,
+    });
 
     // B13/FE-7 fix: surface the carry-over success toast from a prior
     // scene.restart() AFTER the new scene has its own Toast scaffolding
@@ -242,15 +197,15 @@ export class ShopScene extends Phaser.Scene {
     const borderColor = RARITY_BORDER[offer.item.rarity];
 
     const bg = this.add
-      .rectangle(cx, cy, w, h, CARD_BG, 0.95)
+      .rectangle(cx, cy, w, h, V2_COLORS.rowBg, 0.95)
       .setStrokeStyle(2 * d, borderColor)
       .setInteractive({ useHandCursor: true });
 
     const nameText = this.add
       .text(cx - w / 2 + 14 * d, cy - 22 * d, offer.item.name, {
         fontSize: `${15 * d}px`,
-        color: RARITY_COLORS[offer.item.rarity],
-        fontFamily: FONT,
+        color: RARITY_COLOR_BY_TIER[offer.item.rarity],
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(0, 0.5);
@@ -258,26 +213,26 @@ export class ShopScene extends Phaser.Scene {
     const statsText = this.add
       .text(cx - w / 2 + 14 * d, cy - 2 * d, this.buildStatsSummary(offer.item), {
         fontSize: `${11 * d}px`,
-        color: BODY_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.bodyColor,
+        fontFamily: V2_FONTS.primary,
       })
       .setOrigin(0, 0.5);
 
     const slotText = this.add
       .text(cx - w / 2 + 14 * d, cy + 18 * d, SLOT_LABELS[offer.item.slot], {
         fontSize: `${10 * d}px`,
-        color: SUBTITLE_COLOR,
-        fontFamily: FONT,
+        color: V2_COLORS.subtitleColor,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "italic",
       })
       .setOrigin(0, 0.5);
 
-    const priceColor = canAfford ? TITLE_COLOR : "#a85454";
+    const priceColor = canAfford ? V2_COLORS.titleColor : "#a85454";
     const priceText = this.add
       .text(cx + w / 2 - 14 * d, cy - 8 * d, `${offer.price}`, {
         fontSize: `${17 * d}px`,
         color: priceColor,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
         fontStyle: "bold",
       })
       .setOrigin(1, 0.5);
@@ -286,12 +241,12 @@ export class ShopScene extends Phaser.Scene {
       .text(cx + w / 2 - 14 * d, cy + 14 * d, "золота", {
         fontSize: `${10 * d}px`,
         color: priceColor,
-        fontFamily: FONT,
+        fontFamily: V2_FONTS.primary,
       })
       .setOrigin(1, 0.5);
 
-    bg.on("pointerover", () => bg.setFillStyle(CARD_BG_HOVER, 1));
-    bg.on("pointerout", () => bg.setFillStyle(CARD_BG, 0.95));
+    bg.on("pointerover", () => bg.setFillStyle(V2_COLORS.rowBgHover, 1));
+    bg.on("pointerout", () => bg.setFillStyle(V2_COLORS.rowBg, 0.95));
     bg.on("pointerdown", () => {
       if (this.scrollDraggedThisGesture) return;
       this.handlePurchase(offer);
@@ -374,49 +329,4 @@ export class ShopScene extends Phaser.Scene {
     });
   }
 
-  /**
-   * Shared button factory — mirrors ArenaScene to keep Phase 2A bundle lean.
-   * Task #18 will extract this into `src/v2/ui/SceneChrome.ts` and delete
-   * both inline copies.
-   */
-  private createButton(
-    x: number,
-    y: number,
-    widthDp: number,
-    heightDp: number,
-    fontDp: number,
-    label: string,
-    bgColor: number,
-    bgHover: number,
-    strokeColor: number,
-    textColor: string,
-    textHover: string,
-    strokeDp: number,
-    onClick: () => void,
-  ): void {
-    const d = DPR;
-    const bg = this.add
-      .rectangle(x, y, widthDp * d, heightDp * d, bgColor, 0.95)
-      .setStrokeStyle(strokeDp * d, strokeColor)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontSize: `${fontDp * d}px`,
-        color: textColor,
-        fontFamily: FONT,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
-
-    bg.on("pointerover", () => {
-      bg.setFillStyle(bgHover, 1);
-      text.setColor(textHover);
-    });
-    bg.on("pointerout", () => {
-      bg.setFillStyle(bgColor, 0.95);
-      text.setColor(textColor);
-    });
-    bg.on("pointerdown", onClick);
-  }
 }
