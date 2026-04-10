@@ -77,7 +77,7 @@ const PERK_DEFS: PerkDef[] = [
  * Per-level stats for each skill.
  * Index 0 = level 1 (unlock), index 4 = level 5 (max).
  */
-const SKILL_LEVEL_TABLE: Record<SkillId, Array<{ cost: number; cooldown: number; damage?: number; heal?: number; stunTurns?: number; hammerPattern?: "single" | "cross" | "square" }>> = {
+export const SKILL_LEVEL_TABLE: Record<SkillId, Array<{ cost: number; cooldown: number; damage?: number; heal?: number; stunTurns?: number; hammerPattern?: "single" | "cross" | "square" }>> = {
   powerStrike: [
     { cost: 40, cooldown: 3, damage: 10 },  // physAttack * 10
     { cost: 40, cooldown: 3, damage: 15 },  // physAttack * 15
