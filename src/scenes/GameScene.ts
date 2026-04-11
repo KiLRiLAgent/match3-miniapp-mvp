@@ -3666,7 +3666,6 @@ export class GameScene extends Phaser.Scene {
 
     if (this.hitCounterText) {
       this.hitCounterText.setText(`${count} Hits!`);
-      this.sfxHitCounter(count);
       // Scale bounce on update
       this.hitCounterText.setScale(0.8);
       this.tweens.add({
@@ -3678,7 +3677,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.sfxHitCounter(count);
     this.hitCounterText = this.add
       .text(x, y, `${count} Hits!`, {
         fontSize: "22px",
