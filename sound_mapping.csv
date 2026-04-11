@@ -9,10 +9,10 @@ enemy_bombs.mp3,enemyBombs,Установка бомб боссом (катсц�
 enemy_bomb_explode.mp3,enemyBombExplode,Взрыв бомб — таймер дошёл до 0 и урон игроку,Bomb explosion — timer reached 0,1,ready
 enemy_shield.mp3,enemyShield,Активация щита босса / урон заблокирован,Boss shield activate / damage blocked,1,ready
 enemy_shield_destroyed.mp3,enemyShieldDestroyed,Щит босса истёк — босс снова уязвим,Boss shield expired,1,ready
-enemy_hit_1.mp3,enemyHit1,Урон по боссу — вариант 1 (рандомный выбор из 4),Boss takes damage — variant 1,1,ready
-enemy_hit_2.mp3,enemyHit2,Урон по боссу — вариант 2,Boss takes damage — variant 2,1,ready
-enemy_hit_3.mp3,enemyHit3,Урон по боссу — вариант 3,Boss takes damage — variant 3,1,ready
-enemy_hit_4.mp3,enemyHit4,Урон по боссу — вариант 4,Boss takes damage — variant 4,1,ready
+enemy_hit_1.mp3,enemyHit1,Урон по боссу + каскадные попадания (Hit counter) — вариант 1,Boss damage + cascade hits — variant 1,1,ready
+enemy_hit_2.mp3,enemyHit2,Урон по боссу + каскадные попадания — вариант 2,Boss damage + cascade hits — variant 2,1,ready
+enemy_hit_3.mp3,enemyHit3,Урон по боссу + каскадные попадания — вариант 3,Boss damage + cascade hits — variant 3,1,ready
+enemy_hit_4.mp3,enemyHit4,Урон по боссу + каскадные попадания — вариант 4,Boss damage + cascade hits — variant 4,1,ready
 enemy_level_destroyed.mp3,enemyLevelDestroyed,Снятие слоя HP босса (x10 → x9),Boss HP layer destroyed,1,ready
 explosion_mode.mp3,explosionMode,Вход в режим молота (выбор фишки для взрыва),Hammer mode activation,1,ready
 low_health.mp3,lowHealth,Мало HP < 30% — звук сердцебиения,Low HP warning — heartbeat,1,ready
