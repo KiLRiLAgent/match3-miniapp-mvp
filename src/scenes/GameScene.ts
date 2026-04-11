@@ -242,16 +242,6 @@ export class GameScene extends Phaser.Scene {
     this.sfx(hits[Math.floor(Math.random() * hits.length)]);
   }
 
-  private sfxHitCounter(count: number) {
-    const keys: (string | null)[] = [
-      null, null,
-      ASSET_KEYS.sfx.critX2, ASSET_KEYS.sfx.critX3,
-      ASSET_KEYS.sfx.critX4, ASSET_KEYS.sfx.critX5,
-      ASSET_KEYS.sfx.critX6,
-    ];
-    const key = keys[Math.min(count, 6)];
-    if (key) this.sfx(key);
-  }
 
   // Данные о состоянии фона/босса из интро (для плавного перехода)
 
