@@ -38,7 +38,7 @@ export class IntroScene extends Phaser.Scene {
       try {
         const existing = this.sound.get(ASSET_KEYS.music.bgm);
         if (existing) existing.destroy();
-        const bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
+        const bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 1 * getVolume() });
         if (!isMuted()) bgm.play();
       } catch { /* audio not available */ }
     }

@@ -222,7 +222,7 @@ export class GameScene extends Phaser.Scene {
     super("GameScene");
   }
 
-  private sfx(key: string, volume = 0.5) {
+  private sfx(key: string, volume = 1) {
     if (isMuted()) return;
     if (!this.cache.audio.exists(key)) return;
     const finalVolume = volume * getVolume();
@@ -328,7 +328,7 @@ export class GameScene extends Phaser.Scene {
         this.bgm = existing;
       } else if (this.cache.audio.exists(ASSET_KEYS.music.bgm)) {
         try {
-          this.bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 0.3 * getVolume() });
+          this.bgm = this.sound.add(ASSET_KEYS.music.bgm, { loop: true, volume: 1 * getVolume() });
           if (!isMuted()) this.bgm.play();
         } catch { /* audio not available */ }
       }
@@ -1491,7 +1491,7 @@ export class GameScene extends Phaser.Scene {
     const actualGain = this.mana - oldMana;
 
     if (actualGain > 0) {
-      this.sfx(ASSET_KEYS.sfx.gemDestroy, 0.3);
+      this.sfx(ASSET_KEYS.sfx.gemDestroy);
       this.manaBar?.setValue(this.mana, this.getEffectivePlayerManaMax());
       this.manaBar?.flash();
       if (this.playerAvatar) {
@@ -1813,7 +1813,7 @@ export class GameScene extends Phaser.Scene {
     newTiles: Array<{ tile: Tile; pos: Position }>;
   }) {
     if (collapse.moves.length > 0 || collapse.newTiles.length > 0) {
-      this.sfx(ASSET_KEYS.sfx.gemFalldown, 0.3);
+      this.sfx(ASSET_KEYS.sfx.gemFalldown);
     }
     const tweens: Promise<void>[] = [];
 

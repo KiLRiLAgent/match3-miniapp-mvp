@@ -1,29 +1,29 @@
 file_name,code_key,event_ru,event_en,volume,status
-gem_swipe.mp3,gemSwipe,Свайп тайла — тайлы поменялись местами,Tile swap,0.5,ready
-gem_tap.mp3,gemTap,Тап по тайлу / использование скилла,Tile tap / skill use,0.5,ready
-gem_destroy.mp3,gemDestroy,Матч / уничтожение фишек,Match / tile destroy,0.5,ready
-gem_falldown.mp3,gemFalldown,Падение фишек после матча,Tiles falling down,0.3,ready
-enemy_attack.mp3,enemyAttack,Обычная атака босса (катсцена),Boss normal attack,0.5,ready
-enemy_power_attack.mp3,enemyPowerAttack,Мощный удар босса (ульта) + дрейн маны,Boss power strike + mana drain,0.5,ready
-enemy_bombs.mp3,enemyBombs,Установка бомб боссом (катсцена),Boss places bombs,0.5,ready
-enemy_bomb_explode.mp3,enemyBombExplode,Взрыв бомб — таймер дошёл до 0 и урон игроку,Bomb explosion — timer reached 0,0.5,ready
-enemy_shield.mp3,enemyShield,Активация щита босса / урон заблокирован,Boss shield activate / damage blocked,0.5,ready
-enemy_shield_destroyed.mp3,enemyShieldDestroyed,Щит босса истёк — босс снова уязвим,Boss shield expired,0.5,ready
-enemy_hit_1.mp3,enemyHit1,Урон по боссу — вариант 1 (рандомный выбор из 4),Boss takes damage — variant 1,0.5,ready
-enemy_hit_2.mp3,enemyHit2,Урон по боссу — вариант 2,Boss takes damage — variant 2,0.5,ready
-enemy_hit_3.mp3,enemyHit3,Урон по боссу — вариант 3,Boss takes damage — variant 3,0.5,ready
-enemy_hit_4.mp3,enemyHit4,Урон по боссу — вариант 4,Boss takes damage — variant 4,0.5,ready
-enemy_level_destroyed.mp3,enemyLevelDestroyed,Снятие слоя HP босса (x10 → x9),Boss HP layer destroyed,0.5,ready
-explosion_mode.mp3,explosionMode,Вход в режим молота (выбор фишки для взрыва),Hammer mode activation,0.5,ready
-low_health.mp3,lowHealth,Мало HP < 30% — звук сердцебиения,Low HP warning — heartbeat,0.5,ready
-crit_x2.mp3,critX2,CRIT x2 / Hit counter 2 Hits!,CRIT x2 / Hit counter 2,0.5,ready
-crit_x3.mp3,critX3,CRIT x3 / Hit counter 3 Hits!,CRIT x3 / Hit counter 3,0.5,ready
-crit_x4.mp3,critX4,Hit counter 4 Hits!,Hit counter 4,0.5,ready
-crit_x5.mp3,critX5,Hit counter 5 Hits!,Hit counter 5,0.5,ready
-crit_x6.mp3,critX6,Hit counter 6+ Hits!,Hit counter 6+,0.5,ready
-ui_levelup.mp3,uiLevelup,Уровень повышен — экран перков,Level up — perk screen,0.5,ready
-ui_card_select.mp3,uiCardSelect,Выбор карточки перка,Perk card selected,0.5,ready
-ui_tap.mp3,uiTap,Клик по UI-кнопке (Restart / Retry / Settings),UI button click,0.5,ready
-defeat.mp3,defeat,Поражение — HP игрока = 0,Defeat — player HP = 0,0.5,ready
-music_bgm.mp3,bgm,Фоновая музыка (loop),Background music (loop),0.3,ready
+gem_swipe.mp3,gemSwipe,Свайп тайла — тайлы поменялись местами,Tile swap,1,ready
+gem_tap.mp3,gemTap,Тап по тайлу / использование скилла,Tile tap / skill use,1,ready
+gem_destroy.mp3,gemDestroy,Матч / уничтожение фишек,Match / tile destroy,1,ready
+gem_falldown.mp3,gemFalldown,Падение фишек после матча,Tiles falling down,1,ready
+enemy_attack.mp3,enemyAttack,Обычная атака босса (катсцена),Boss normal attack,1,ready
+enemy_power_attack.mp3,enemyPowerAttack,Мощный удар босса (ульта) + дрейн маны,Boss power strike + mana drain,1,ready
+enemy_bombs.mp3,enemyBombs,Установка бомб боссом (катсцена),Boss places bombs,1,ready
+enemy_bomb_explode.mp3,enemyBombExplode,Взрыв бомб — таймер дошёл до 0 и урон игроку,Bomb explosion — timer reached 0,1,ready
+enemy_shield.mp3,enemyShield,Активация щита босса / урон заблокирован,Boss shield activate / damage blocked,1,ready
+enemy_shield_destroyed.mp3,enemyShieldDestroyed,Щит босса истёк — босс снова уязвим,Boss shield expired,1,ready
+enemy_hit_1.mp3,enemyHit1,Урон по боссу — вариант 1 (рандомный выбор из 4),Boss takes damage — variant 1,1,ready
+enemy_hit_2.mp3,enemyHit2,Урон по боссу — вариант 2,Boss takes damage — variant 2,1,ready
+enemy_hit_3.mp3,enemyHit3,Урон по боссу — вариант 3,Boss takes damage — variant 3,1,ready
+enemy_hit_4.mp3,enemyHit4,Урон по боссу — вариант 4,Boss takes damage — variant 4,1,ready
+enemy_level_destroyed.mp3,enemyLevelDestroyed,Снятие слоя HP босса (x10 → x9),Boss HP layer destroyed,1,ready
+explosion_mode.mp3,explosionMode,Вход в режим молота (выбор фишки для взрыва),Hammer mode activation,1,ready
+low_health.mp3,lowHealth,Мало HP < 30% — звук сердцебиения,Low HP warning — heartbeat,1,ready
+crit_x2.mp3,critX2,CRIT x2 / Hit counter 2 Hits!,CRIT x2 / Hit counter 2,1,ready
+crit_x3.mp3,critX3,CRIT x3 / Hit counter 3 Hits!,CRIT x3 / Hit counter 3,1,ready
+crit_x4.mp3,critX4,Hit counter 4 Hits!,Hit counter 4,1,ready
+crit_x5.mp3,critX5,Hit counter 5 Hits!,Hit counter 5,1,ready
+crit_x6.mp3,critX6,Hit counter 6+ Hits!,Hit counter 6+,1,ready
+ui_levelup.mp3,uiLevelup,Уровень повышен — экран перков,Level up — perk screen,1,ready
+ui_card_select.mp3,uiCardSelect,Выбор карточки перка,Perk card selected,1,ready
+ui_tap.mp3,uiTap,Клик по UI-кнопке (Restart / Retry / Settings),UI button click,1,ready
+defeat.mp3,defeat,Поражение — HP игрока = 0,Defeat — player HP = 0,1,ready
+music_bgm.mp3,bgm,Фоновая музыка (loop),Background music (loop),1,ready
 victory.mp3,victory,Победа — HP босса = 0,Victory — boss HP = 0,—,MISSING
