@@ -234,6 +234,25 @@ export class GameScene extends Phaser.Scene {
     this.sound.play(key, { volume: finalVolume });
   }
 
+  private sfxEnemyHit() {
+    const hits = [
+      ASSET_KEYS.sfx.enemyHit1, ASSET_KEYS.sfx.enemyHit2,
+      ASSET_KEYS.sfx.enemyHit3, ASSET_KEYS.sfx.enemyHit4,
+    ];
+    this.sfx(hits[Math.floor(Math.random() * hits.length)]);
+  }
+
+  private sfxHitCounter(count: number) {
+    const keys: (string | null)[] = [
+      null, null,
+      ASSET_KEYS.sfx.critX2, ASSET_KEYS.sfx.critX3,
+      ASSET_KEYS.sfx.critX4, ASSET_KEYS.sfx.critX5,
+      ASSET_KEYS.sfx.critX6,
+    ];
+    const key = keys[Math.min(count, 6)];
+    if (key) this.sfx(key);
+  }
+
   // Данные о состоянии фона/босса из интро (для плавного перехода)
 
   create(data?: GameSceneInitData) {
@@ -1084,6 +1103,7 @@ export class GameScene extends Phaser.Scene {
       const world = this.toWorld(t.pos);
       const isMega = t.multiplier >= CRIT_MULTIPLIERS.match5;
       const label = isMega ? `MEGA CRIT! x${t.multiplier}` : `CRIT! x${t.multiplier}`;
+      this.sfx(isMega ? ASSET_KEYS.sfx.critX3 : ASSET_KEYS.sfx.critX2);
       const text = this.add
         .text(world.x, world.y - CELL_SIZE * 0.8, label, {
           fontSize: isMega ? "28px" : "24px",
@@ -1134,6 +1154,7 @@ export class GameScene extends Phaser.Scene {
 
   private showVignette() {
     if (this.vignetteGfx) return; // already visible
+    this.sfx(ASSET_KEYS.sfx.lowHealth);
 
     const gfx = this.add.graphics();
     gfx.setDepth(this.VIGNETTE_DEPTH);
@@ -1242,6 +1263,7 @@ export class GameScene extends Phaser.Scene {
 
     try {
       // Show "Уровень повышен" banner first (without overlay)
+      this.sfx(ASSET_KEYS.sfx.uiLevelup);
       await tweenPromise(this, {
         targets: [bannerGfx, levelText],
         alpha: 1,
@@ -1293,6 +1315,7 @@ export class GameScene extends Phaser.Scene {
             manaCost,
             desc,
             async () => {
+              this.sfx(ASSET_KEYS.sfx.uiCardSelect);
               // Selected card scales up and fades
               await card.playSelect();
               // Dismiss other cards
@@ -1397,7 +1420,7 @@ export class GameScene extends Phaser.Scene {
 
     this.bossHp = Math.max(0, this.bossHp - effectiveDamage);
     this.stats.totalDamageDealt += effectiveDamage;
-    this.sfx(ASSET_KEYS.sfx.gemDestroy);
+    this.sfxEnemyHit();
     hapticMedium();
     this.bossHpBar?.setValue(this.bossHp, this.getEffectiveBossHpMax()); // v2:
     this.bossHpBar?.flash();
@@ -1412,6 +1435,7 @@ export class GameScene extends Phaser.Scene {
     // v2: effective layer index respects encounterContext bossStats override
     const newLayerIdx = this.effectiveBossLayerIndex(this.bossHp);
     if (newLayerIdx < this.prevBossLayerIdx && newLayerIdx > 0) {
+      this.sfx(ASSET_KEYS.sfx.enemyLevelDestroyed);
       // Count how many layers were crossed (supports multi-layer skip from CRIT)
       this.pendingPerkCount += this.prevBossLayerIdx - newLayerIdx;
       // v2: defuser passive — defuse all bombs when breaking a boss HP layer
@@ -2073,7 +2097,7 @@ export class GameScene extends Phaser.Scene {
     const positions = this.getHammerPositions(pos);
 
     this.busy = true;
-    this.sfx(ASSET_KEYS.sfx.gemTap);
+    this.sfx(ASSET_KEYS.sfx.explosionMode);
 
     // Remove all tiles in pattern
     for (const p of positions) {
@@ -2127,6 +2151,7 @@ export class GameScene extends Phaser.Scene {
     this.stopHintTimer();
     this.gameOver = true;
     this.busy = true;
+    // TODO: replace with ASSET_KEYS.sfx.victory when Victory.mp3 is delivered
     this.sfx(ASSET_KEYS.sfx.gemDestroy);
     hapticVictory();
     // v2: in encounter mode, emit RawCombatResult via callback and skip game-end modal
@@ -2683,6 +2708,7 @@ export class GameScene extends Phaser.Scene {
         });
       }
       if (this.bossShieldDuration <= 0) {
+        this.sfx(ASSET_KEYS.sfx.enemyShieldDestroyed);
         this.hideBossShieldOverlay();
       }
     }
@@ -2982,6 +3008,7 @@ export class GameScene extends Phaser.Scene {
 
     const { overlay, fullscreenBack, fullscreenBoss, abilityText } = this.createAbilityCutscene(config.name);
     await this.showAbilityCutscene(overlay, fullscreenBack, fullscreenBoss, abilityText);
+    this.sfx(ASSET_KEYS.sfx.enemyBombs); // play at cutscene text, not at bomb animation
     await wait(this, 600);
 
     // Hide cutscene and restore boss art BEFORE placing bombs
@@ -3034,7 +3061,7 @@ export class GameScene extends Phaser.Scene {
   private async executePowerStrike() {
     const config = BOSS_ABILITIES.powerStrike;
     await this.withCutscene(config.name, async () => {
-      this.sfx(ASSET_KEYS.sfx.enemyAttack);
+      this.sfx(ASSET_KEYS.sfx.enemyPowerAttack);
       this.cameras.main.shake(300, 0.02 / DPR);
       this.applyDamageToPlayer(config.damage);
       this.flashPlayerAvatar();
@@ -3043,7 +3070,7 @@ export class GameScene extends Phaser.Scene {
 
       const manaDrain = Math.min(this.mana, config.manaDrain);
       if (manaDrain > 0) {
-        this.sfx(ASSET_KEYS.sfx.enemyAttack);
+        this.sfx(ASSET_KEYS.sfx.enemyPowerAttack);
         this.mana -= manaDrain;
         this.manaBar?.setValue(this.mana, this.getEffectivePlayerManaMax()); // v2:
         this.manaBar?.flash();
@@ -3056,7 +3083,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private async animateBombsAppear(bombs: Array<{ pos: Position; tile: Tile }>) {
-    this.sfx(ASSET_KEYS.sfx.enemyBombs);
+    // Bomb placement sfx moved to cutscene start (executeBombs) per sound designer feedback
     const tweens: Promise<void>[] = [];
 
     bombs.forEach(({ pos, tile }) => {
@@ -3110,7 +3137,7 @@ export class GameScene extends Phaser.Scene {
         duration: 350,
         ease: "Quad.easeIn",
         onComplete: () => {
-          this.sfx(ASSET_KEYS.sfx.enemyBombs);
+          this.sfx(ASSET_KEYS.sfx.enemyBombExplode);
           this.cameras.main.shake(120, 0.012 / DPR);
           this.flashPlayerAvatar();
           resolve();
@@ -3367,7 +3394,7 @@ export class GameScene extends Phaser.Scene {
     this.stopHintTimer();
     this.gameOver = true;
     this.busy = true;
-    this.sfx(ASSET_KEYS.sfx.gemDestroy);
+    this.sfx(ASSET_KEYS.sfx.defeat);
     hapticDefeat();
     // v2: in encounter mode, emit RawCombatResult via callback and skip game-end modal
     if (this.emitV2CombatResult(false)) return;
@@ -3639,6 +3666,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.hitCounterText) {
       this.hitCounterText.setText(`${count} Hits!`);
+      this.sfxHitCounter(count);
       // Scale bounce on update
       this.hitCounterText.setScale(0.8);
       this.tweens.add({
@@ -3650,6 +3678,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.sfxHitCounter(count);
     this.hitCounterText = this.add
       .text(x, y, `${count} Hits!`, {
         fontSize: "22px",
