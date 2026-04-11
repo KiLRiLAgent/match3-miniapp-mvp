@@ -965,11 +965,14 @@ export class GameScene extends Phaser.Scene {
       }
 
       // Additional CRIT waves: apply only damage with delay between hits
+      // crit_x2..x6 sounds play per wave INSTEAD of enemy_hit
       if (maxMultiplier > 1 && !this.gameOver) {
         const baseDamage = this.computeDamageFromCounts(outcome.counts);
+        const critKeys = [ASSET_KEYS.sfx.critX2, ASSET_KEYS.sfx.critX3, ASSET_KEYS.sfx.critX4, ASSET_KEYS.sfx.critX5, ASSET_KEYS.sfx.critX6];
         for (let wave = 1; wave < maxMultiplier && !this.gameOver; wave++) {
           await wait(this, ANIMATION_DURATIONS.critWaveDelay);
-          this.applyCritWaveDamage(baseDamage, actor);
+          this.sfx(critKeys[Math.min(wave - 1, critKeys.length - 1)]);
+          this.applyCritWaveDamage(baseDamage, actor, true);
           if (actor === "player" && baseDamage > 0 && this.bossShieldDuration <= 0) {
             this.cascadeHitCount++;
             this.updateHitCounter(this.cascadeHitCount);
@@ -1076,10 +1079,10 @@ export class GameScene extends Phaser.Scene {
     return physDamage + Math.floor(magDamage * PLAYER_MAG_DAMAGE_MULTIPLIER);
   }
 
-  private applyCritWaveDamage(damage: number, actor: "player" | "boss") {
+  private applyCritWaveDamage(damage: number, actor: "player" | "boss", muteHitSfx = false) {
     if (damage <= 0) return;
     if (actor === "player") {
-      this.applyDamageToBoss(damage);
+      this.applyDamageToBoss(damage, false, muteHitSfx);
     } else {
       this.applyDamageToPlayer(damage);
     }
@@ -1093,7 +1096,6 @@ export class GameScene extends Phaser.Scene {
       const world = this.toWorld(t.pos);
       const isMega = t.multiplier >= CRIT_MULTIPLIERS.match5;
       const label = isMega ? `MEGA CRIT! x${t.multiplier}` : `CRIT! x${t.multiplier}`;
-      this.sfx(isMega ? ASSET_KEYS.sfx.critX3 : ASSET_KEYS.sfx.critX2);
       const text = this.add
         .text(world.x, world.y - CELL_SIZE * 0.8, label, {
           fontSize: isMega ? "28px" : "24px",
@@ -1365,7 +1367,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private applyDamageToBoss(damage: number, skipSlash = false) {
+  private applyDamageToBoss(damage: number, skipSlash = false, muteHitSfx = false) {
     if (damage <= 0) return;
 
     // Проверка щита
@@ -1410,7 +1412,7 @@ export class GameScene extends Phaser.Scene {
 
     this.bossHp = Math.max(0, this.bossHp - effectiveDamage);
     this.stats.totalDamageDealt += effectiveDamage;
-    this.sfxEnemyHit();
+    if (!muteHitSfx) this.sfxEnemyHit();
     hapticMedium();
     this.bossHpBar?.setValue(this.bossHp, this.getEffectiveBossHpMax()); // v2:
     this.bossHpBar?.flash();

@@ -16,11 +16,11 @@ enemy_hit_4.mp3,enemyHit4,Урон по боссу — вариант 4,Boss tak
 enemy_level_destroyed.mp3,enemyLevelDestroyed,Снятие слоя HP босса (x10 → x9),Boss HP layer destroyed,1,ready
 explosion_mode.mp3,explosionMode,Вход в режим молота (выбор фишки для взрыва),Hammer mode activation,1,ready
 low_health.mp3,lowHealth,Мало HP < 30% — звук сердцебиения,Low HP warning — heartbeat,1,ready
-crit_x2.mp3,critX2,CRIT x2 (матч 4 фишек),CRIT x2 (4-match),1,ready
-crit_x3.mp3,critX3,MEGA CRIT x3 (матч 5+ фишек),MEGA CRIT x3 (5+ match),1,ready
-crit_x4.mp3,critX4,Не используется (резерв),Not used (reserved),1,unused
-crit_x5.mp3,critX5,Не используется (резерв),Not used (reserved),1,unused
-crit_x6.mp3,critX6,Не используется (резерв),Not used (reserved),1,unused
+crit_x2.mp3,critX2,CRIT волна 1 (доп. удар при 4+ матче),CRIT wave 1 (extra hit on 4+ match),1,ready
+crit_x3.mp3,critX3,CRIT волна 2 (доп. удар при 5+ матче),CRIT wave 2 (extra hit on 5+ match),1,ready
+crit_x4.mp3,critX4,CRIT волна 3 (резерв для будущих множителей),CRIT wave 3 (reserved),1,ready
+crit_x5.mp3,critX5,CRIT волна 4 (резерв),CRIT wave 4 (reserved),1,ready
+crit_x6.mp3,critX6,CRIT волна 5+ (резерв),CRIT wave 5+ (reserved),1,ready
 ui_levelup.mp3,uiLevelup,Уровень повышен — экран перков,Level up — perk screen,1,ready
 ui_card_select.mp3,uiCardSelect,Выбор карточки перка,Perk card selected,1,ready
 ui_tap.mp3,uiTap,Клик по UI-кнопке (Restart / Retry / Settings),UI button click,1,ready
