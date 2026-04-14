@@ -163,7 +163,8 @@ export class HubScene extends Phaser.Scene {
    * the fill ratio measures progress *inside* the current level — NOT against
    * the absolute zero baseline (`.conventions/anti-patterns/avoid-absolute-progress-bar.md`).
    *
-   * Shows "МАКС" label and a full bar at the maximum level (xpToNext === 0).
+   * Fallback: shows "МАКС" label and a full bar if xpToNext === 0 (defensive
+   * only — level cap was removed, so xpToNext is always positive in practice).
    */
   private renderXpBar(cx: number, y: number, playerXp: number, level: number): void {
     const d = DPR;

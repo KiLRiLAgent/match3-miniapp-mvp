@@ -425,7 +425,8 @@ export class PlayerStatsScene extends Phaser.Scene {
     // Fill ratio measures progress *within the current level*, not against
     // the absolute zero baseline. We get level-entry XP from ProgressionSystem
     // (cumulative XP that was required to reach the current level) and divide
-    // earned-this-level by the level span. At MAX level we show a full bar.
+    // earned-this-level by the level span. Fallback "МАКС" branch is defensive
+    // only — level cap was removed, so xpToNext is always positive in practice.
     let fillRatio = 1;
     let label = "МАКС";
     if (xpToNext > 0) {
