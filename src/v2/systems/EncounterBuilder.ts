@@ -97,6 +97,9 @@ class EncounterBuilder {
       magAttack: withPerks.magAttack,
       crit: withPerks.crit,
       ...(startMpBonus > 0 ? { manaStart: startMpBonus } : {}),
+      // v2: arena HP/mana carry-over — pass remaining stats from previous fight
+      ...(run?.carriedHp !== undefined ? { carriedHp: run.carriedHp } : {}),
+      ...(run?.carriedMana !== undefined ? { carriedMana: run.carriedMana } : {}),
     };
 
     // Deep clone — relationshipSystem.getState() returns LIVE reference for

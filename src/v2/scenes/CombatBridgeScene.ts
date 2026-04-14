@@ -198,6 +198,11 @@ export class CombatBridgeScene extends Phaser.Scene {
         arenaSystem.setSkillCooldowns(raw.finalSkillCooldowns);
       }
 
+      // v2: arena HP/mana carry-over — save remaining stats after arena victory
+      if (raw.victory && raw.remainingHp !== undefined && raw.remainingMana !== undefined && arenaSystem.getActiveRun()) {
+        arenaSystem.saveCarriedStats(raw.remainingHp, raw.remainingMana);
+      }
+
       // MITIGATION-3 / RISK-9: explicit flush bypasses 2-second autosave debounce.
       // beforeunload is unreliable on mobile Telegram WebView (iOS WKWebView doesn't
       // fire on swipe-away). Without this, force-quit immediately after victory would

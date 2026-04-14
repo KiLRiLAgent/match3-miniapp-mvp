@@ -5,7 +5,7 @@ If you lost context after compaction, read this file.
 - Check current phase below and follow its instructions
 - Update this file after each event
 
-## Phase: EXECUTION
+## Phase: VERIFICATION
 ## Complexity: MEDIUM
 ## Team Name: feature-item-info-display
 
@@ -54,12 +54,14 @@ When you change Phase to VERIFICATION, execute these steps IN ORDER:
 ## Tasks
 - #1: Create itemFormat helper + ItemCardModal component — COMPLETED (coder-a, commit 9b4fe39)
 - #2: Integrate inline stats + info icons + modal into PlayerStatsScene — COMPLETED (coder-a, commit 8238c0a, 123.09 kB)
-- #3: Update .conventions/ with item-card-modal and itemFormat patterns — DRAFTED, awaiting commit (tech-lead, pending final bundle-number sync + commit + push)
+- #3: Update .conventions/ with item-card-modal and itemFormat patterns — COMPLETED (tech-lead, commit 4338d14, 123.09 kB unchanged)
 
 ## Active Coders: 0 (max: 3)
-- coder-a: IDLE, ready for shutdown after Task #3 lands
+- coder-a: IDLE, ready for shutdown
+- tech-lead: IDLE, ready for shutdown
 
-## Active Task #3 Author: tech-lead (about to sync final numbers and commit)
+## Final v2 chunk size: 123.09 kB (R2B-4 interim ceiling 125 kB, 1.91 kB headroom)
+## Phase 2B hard revert target: 90 kB (delta −33.09 kB via R2B-2 dedup)
 
 ## Notes
 - Brief: .briefs/item-info-display.md

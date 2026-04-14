@@ -200,6 +200,10 @@ const MIGRATIONS: Record<number, (data: any) => any> = {
     };
     return next;
   },
+  // v4 → v5 (arena HP/mana carry-over): new optional fields on ArenaRunState
+  // (carriedHp, carriedMana). No data mutation needed — existing activeRun
+  // objects carry them as undefined (first fight = full HP).
+  4: (old) => ({ ...old, version: 5 }),
 };
 
 function migrate(raw: unknown): SaveData {

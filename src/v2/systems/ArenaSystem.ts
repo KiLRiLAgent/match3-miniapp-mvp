@@ -255,6 +255,20 @@ class ArenaSystem {
   }
 
   /**
+   * v2: arena HP/mana carry-over — store remaining HP and mana in the active
+   * run state. Called from CombatBridgeScene after each arena fight victory.
+   */
+  saveCarriedStats(hp: number, mana: number): void {
+    const run = gameState.get().arena.activeRun;
+    if (!run) return;
+    gameState.patch((s) => {
+      if (!s.arena.activeRun) return;
+      s.arena.activeRun.carriedHp = hp;
+      s.arena.activeRun.carriedMana = mana;
+    });
+  }
+
+  /**
    * v2: arena cooldown persistence — store final skill cooldowns in the
    * active run state. Called from CombatBridgeScene after each arena fight.
    */

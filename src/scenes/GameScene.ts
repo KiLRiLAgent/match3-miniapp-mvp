@@ -398,6 +398,13 @@ export class GameScene extends Phaser.Scene {
     if (this.encounterContext?.playerStats.manaStart) {
       this.mana = Math.max(this.mana, this.encounterContext.playerStats.manaStart); // v2: manaStart override
     }
+    // v2: arena HP carry-over — use remaining HP/mana from previous fight
+    if (this.encounterContext?.playerStats.carriedHp !== undefined) {
+      this.playerHp = Math.min(this.encounterContext.playerStats.carriedHp, this.playerHp);
+    }
+    if (this.encounterContext?.playerStats.carriedMana !== undefined) {
+      this.mana = Math.max(this.mana, this.encounterContext.playerStats.carriedMana);
+    }
     this.currentTurn = "player";
     this.gameOver = false;
     this.busy = false;
@@ -2171,6 +2178,9 @@ export class GameScene extends Phaser.Scene {
       turnsPlayed: this.stats.turnsPlayed,
       // v2: arena cooldown persistence — include final skill cooldowns
       finalSkillCooldowns: { ...this.skillCooldowns },
+      // v2: arena HP/mana carry-over — include remaining stats
+      remainingHp: this.playerHp,
+      remainingMana: this.mana,
     };
     this.onCombatComplete(raw);
     return true;

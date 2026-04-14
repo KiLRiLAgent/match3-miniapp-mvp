@@ -375,6 +375,10 @@ export interface PlayerCombatStats {
   crit: number;
   /** Phase 2B: starting mana override from stat_start_mp perks + mana_surge passive. */
   manaStart?: number;
+  /** v2: arena HP carry-over — starting HP for this fight (undefined = full). */
+  carriedHp?: number;
+  /** v2: arena mana carry-over — starting mana for this fight (undefined = 0 + bonuses). */
+  carriedMana?: number;
 }
 
 /**
@@ -475,6 +479,10 @@ export interface RawCombatResult {
   turnsPlayed: number;
   /** v2: arena cooldown persistence — final skill cooldowns at end of fight. */
   finalSkillCooldowns?: Record<string, number>;
+  /** v2: arena HP carry-over — player HP remaining at end of fight. */
+  remainingHp?: number;
+  /** v2: arena mana carry-over — player mana remaining at end of fight. */
+  remainingMana?: number;
 }
 
 /**

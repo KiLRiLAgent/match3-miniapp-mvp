@@ -104,7 +104,9 @@ export class ArenaRunScene extends Phaser.Scene {
     const leftX = camW * 0.28;
     const panelTopY = 150 * d + SAFE_AREA.top * d;
     const afterStatsY = this.renderStatsPanel(leftX, panelTopY);
-    this.renderBuffList(leftX, afterStatsY + 16 * d);
+    // v2: arena HP/mana carry-over — show current HP/mana status between fights.
+    const afterCarriedY = this.renderCarriedStats(leftX, afterStatsY + 12 * d, run);
+    this.renderBuffList(leftX, afterCarriedY + 12 * d);
 
     // Accumulated rewards — small strip below left column.
     const rewardsY = camH - 220 * d - SAFE_AREA.bottom * d;
@@ -354,6 +356,102 @@ export class ArenaRunScene extends Phaser.Scene {
 
       y += rowH;
     }
+    return y;
+  }
+
+  /**
+   * v2: arena HP/mana carry-over — show HP and mana status between fights.
+   * First fight shows "Полное здоровье", subsequent fights show carried values
+   * with simple bar visualization. Returns the bottom Y for layout chaining.
+   */
+  private renderCarriedStats(cx: number, topY: number, run: ArenaRunState): number {
+    const d = DPR;
+    const base = gameState.get().player.stats;
+    const effective = buffSystem.applyToStats(base);
+
+    const hpMax = effective.hp;
+    const mpMax = effective.mp;
+    const currentHp = run.carriedHp !== undefined ? Math.min(run.carriedHp, hpMax) : hpMax;
+    const currentMp = run.carriedMana !== undefined ? run.carriedMana : 0;
+    const isFirstFight = run.carriedHp === undefined;
+
+    this.add
+      .text(cx, topY, "Состояние", {
+        fontSize: `${13 * d}px`,
+        color: V2_COLORS.subtitleColor,
+        fontFamily: V2_FONTS.primary,
+        fontStyle: "italic",
+      })
+      .setOrigin(0.5, 0);
+
+    let y = topY + 20 * d;
+
+    if (isFirstFight) {
+      this.add
+        .text(cx, y, "❤ Полное здоровье", {
+          fontSize: `${12 * d}px`,
+          color: "#4caf50",
+          fontFamily: V2_FONTS.primary,
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5, 0);
+      y += 18 * d;
+    } else {
+      // HP bar
+      const barW = 140 * d;
+      const barH = 10 * d;
+      const barX = cx - barW / 2;
+
+      this.add
+        .text(cx - barW / 2 - 4 * d, y + barH / 2, "❤", {
+          fontSize: `${11 * d}px`,
+          color: "#4caf50",
+          fontFamily: V2_FONTS.primary,
+        })
+        .setOrigin(1, 0.5);
+
+      // HP background
+      this.add.rectangle(barX + barW / 2, y + barH / 2, barW, barH, 0x333333).setOrigin(0.5);
+      // HP fill
+      const hpRatio = hpMax > 0 ? currentHp / hpMax : 0;
+      const hpColor = hpRatio > 0.5 ? 0x4caf50 : hpRatio > 0.25 ? 0xffa000 : 0xc83e3e;
+      if (hpRatio > 0) {
+        this.add.rectangle(barX + (barW * hpRatio) / 2, y + barH / 2, barW * hpRatio, barH, hpColor).setOrigin(0.5);
+      }
+      // HP text
+      this.add
+        .text(cx + barW / 2 + 6 * d, y + barH / 2, `${currentHp}/${hpMax}`, {
+          fontSize: `${10 * d}px`,
+          color: V2_COLORS.valueColor,
+          fontFamily: V2_FONTS.primary,
+        })
+        .setOrigin(0, 0.5);
+      y += barH + 8 * d;
+
+      // Mana bar
+      this.add
+        .text(cx - barW / 2 - 4 * d, y + barH / 2, "💧", {
+          fontSize: `${11 * d}px`,
+          color: "#3b82f6",
+          fontFamily: V2_FONTS.primary,
+        })
+        .setOrigin(1, 0.5);
+
+      this.add.rectangle(barX + barW / 2, y + barH / 2, barW, barH, 0x333333).setOrigin(0.5);
+      const mpRatio = mpMax > 0 ? Math.min(currentMp / mpMax, 1) : 0;
+      if (mpRatio > 0) {
+        this.add.rectangle(barX + (barW * mpRatio) / 2, y + barH / 2, barW * mpRatio, barH, 0x3b82f6).setOrigin(0.5);
+      }
+      this.add
+        .text(cx + barW / 2 + 6 * d, y + barH / 2, `${currentMp}/${mpMax}`, {
+          fontSize: `${10 * d}px`,
+          color: V2_COLORS.valueColor,
+          fontFamily: V2_FONTS.primary,
+        })
+        .setOrigin(0, 0.5);
+      y += barH + 8 * d;
+    }
+
     return y;
   }
 

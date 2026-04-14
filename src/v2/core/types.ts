@@ -12,7 +12,7 @@
  */
 
 export const SAVE_KEY = "match3_save_v2";
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** Basic combat stats attached to the player avatar (before inventory). */
 export interface PlayerStats {
@@ -207,6 +207,10 @@ export interface ArenaRunState {
   statPerkCounts?: Record<string, number>;
   /** v2: arena cooldown persistence — skill cooldowns carried over between fights. */
   skillCooldowns?: Record<string, number>;
+  /** v2: arena HP carry-over — remaining HP after last fight (undefined = full). */
+  carriedHp?: number;
+  /** v2: arena mana carry-over — remaining mana after last fight (undefined = 0 + bonuses). */
+  carriedMana?: number;
 }
 
 export interface ArenaSave {
