@@ -61,7 +61,8 @@ this stage am I."
 
 ## Reference
 
-- `src/v2/systems/ProgressionSystem.ts` → `getLevelEntryXp()` helper
+- `src/v2/systems/ProgressionSystem.ts` → `getLevelEntryXp()` helper (uses
+  `getXpThreshold(level)` which works for any level, not just the static table)
 - `src/v2/scenes/PlayerStatsScene.ts` → `renderXpBar()` correct usage
 - Phase 1B Task #7 drive-by fix (commit 43ea4e8 — original implementation
   measured against absolute zero, was caught during review)
