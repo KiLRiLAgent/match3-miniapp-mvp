@@ -398,7 +398,9 @@ export class GameScene extends Phaser.Scene {
     if (this.encounterContext?.playerStats.manaStart) {
       this.mana = Math.max(this.mana, this.encounterContext.playerStats.manaStart); // v2: manaStart override
     }
-    // v2: arena HP carry-over — use remaining HP/mana from previous fight
+    // v2: arena HP carry-over — use remaining HP/mana from previous fight.
+    // Applied AFTER manaStart so carriedMana acts as a floor alongside perk bonuses
+    // (intentional: player keeps the higher of perk bonus or carried remainder).
     if (this.encounterContext?.playerStats.carriedHp !== undefined) {
       this.playerHp = Math.min(this.encounterContext.playerStats.carriedHp, this.playerHp);
     }
