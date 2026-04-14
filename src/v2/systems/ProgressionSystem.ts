@@ -32,18 +32,37 @@ import type {
 } from "../core/types";
 
 /**
- * Cumulative XP required to reach each level.
+ * Cumulative XP required to reach each level (levels 1-11).
  *
  * `XP_TABLE[n]` is the total XP needed to BE at level `n+1`. Level 1 requires
  * 0 XP (start state), level 2 requires 100 XP, ..., level 11 requires 5050
- * XP. Level 11 is the current cap -- any XP beyond that is retained on the
- * player record but does not grant further level-ups.
+ * XP. Beyond level 11, XP thresholds are computed dynamically by
+ * `getXpThreshold()` which continues the existing curve pattern.
  */
 const XP_TABLE: readonly number[] = [
   0, 100, 250, 500, 850, 1300, 1850, 2500, 3250, 4100, 5050,
 ];
 
-const MAX_LEVEL = XP_TABLE.length; // 11
+/**
+ * Compute cumulative XP required to reach a given level (1-indexed).
+ * Levels 1-11 use the static XP_TABLE. Beyond level 11, the curve continues
+ * with increments growing by ~100 XP per level (matching the XP_TABLE pattern:
+ * deltas are 100, 150, 250, 350, 450, 550, 650, 750, 850, 950).
+ * Level 12 delta = 1050, level 13 delta = 1150, etc.
+ */
+function getXpThreshold(level: number): number {
+  if (level <= 1) return 0;
+  if (level <= XP_TABLE.length) return XP_TABLE[level - 1];
+  // Continue the curve: last known delta at level 11 is 950 (5050 - 4100).
+  // Each subsequent level adds 100 more to the delta.
+  let xp = XP_TABLE[XP_TABLE.length - 1]; // 5050 at level 11
+  let delta = 950; // delta from level 10→11
+  for (let l = XP_TABLE.length + 1; l <= level; l++) {
+    delta += 100;
+    xp += delta;
+  }
+  return xp;
+}
 
 /** Stat value gained per allocated point. */
 export const STAT_PER_POINT = {
@@ -107,13 +126,11 @@ class ProgressionSystem {
   }
 
   /**
-   * XP remaining before the next level-up. Returns `0` once the player is
-   * at `MAX_LEVEL`.
+   * XP remaining before the next level-up. Always positive — no level cap.
    */
   getXpToNextLevel(): number {
     const player = gameState.get().player;
-    if (player.level >= MAX_LEVEL) return 0;
-    const nextThreshold = XP_TABLE[player.level];
+    const nextThreshold = getXpThreshold(player.level + 1);
     return Math.max(0, nextThreshold - player.xp);
   }
 
@@ -122,8 +139,7 @@ class ProgressionSystem {
    */
   getLevelEntryXp(): number {
     const level = gameState.get().player.level;
-    if (level <= 1) return 0;
-    return XP_TABLE[level - 1];
+    return getXpThreshold(level);
   }
 
   /**
@@ -143,19 +159,13 @@ class ProgressionSystem {
       previousLevel = save.player.level;
       save.player.xp += Math.floor(amount);
 
-      while (
-        save.player.level < MAX_LEVEL &&
-        save.player.xp >= XP_TABLE[save.player.level]
-      ) {
+      while (save.player.xp >= getXpThreshold(save.player.level + 1)) {
         save.player.level += 1;
         // Grant 1 pending stat point per level gained.
         save.player.pendingStatPoints = (save.player.pendingStatPoints ?? 0) + 1;
       }
 
-      save.player.xpToNext =
-        save.player.level >= MAX_LEVEL
-          ? 0
-          : XP_TABLE[save.player.level] - save.player.xp;
+      save.player.xpToNext = getXpThreshold(save.player.level + 1) - save.player.xp;
 
       newLevel = save.player.level;
     });
@@ -259,7 +269,7 @@ class ProgressionSystem {
     gameState.patch((save) => {
       save.player.level = 1;
       save.player.xp = 0;
-      save.player.xpToNext = XP_TABLE[1] ?? 0;
+      save.player.xpToNext = getXpThreshold(2);
       save.player.allocatedStats = { hp: 0, mp: 0, physAttack: 0, magAttack: 0 };
       save.player.pendingStatPoints = 0;
       save.player.stats = {
