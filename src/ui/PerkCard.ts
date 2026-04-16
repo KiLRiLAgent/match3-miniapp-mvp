@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { MAX_PERK_LEVEL } from "../game/PerkManager";
 import type { PerkDef } from "../game/PerkManager";
 import { ASSET_KEYS } from "../game/assets";
+import { TileKind } from "../match3/types";
 
 const CARD_COLORS = {
   bg: 0x1a1a2e,
@@ -65,6 +66,8 @@ export class PerkCard extends Phaser.GameObjects.Container {
     const fontMul = enhanced ? 1.25 : 1.0;
     const starMul = enhanced ? 1.5 : 1.0;
     const titleMul = enhanced ? 1.2 : 1.0;
+    const iconMul = enhanced ? 1.18 : 1.0;
+    const manaMul = enhanced ? 1.7 : 1.0;
 
     // Glow border (behind card, slightly larger)
     this.borderGlow = scene.add.graphics();
@@ -100,7 +103,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
 
     // Skill icon in circle (like game skill buttons)
     const iconY = -halfH + titleH + Math.round(38 * scale * titleMul);
-    const circleR = Math.round(28 * scale * (enhanced ? 1.18 : 1));
+    const circleR = Math.round(28 * scale * iconMul);
     const iconCircleGfx = scene.add.graphics();
     iconCircleGfx.fillStyle(0x2a2a4a, 0.9);
     iconCircleGfx.fillCircle(0, iconY, circleR);
@@ -109,7 +112,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
 
     const iconText = scene.add
       .text(0, iconY, perk.icon, {
-        fontSize: `${Math.round(32 * scale * (enhanced ? 1.18 : 1))}px`,
+        fontSize: `${Math.round(32 * scale * iconMul)}px`,
         color: CARD_COLORS.icon,
         fontFamily: "'Exo 2', Arial, sans-serif",
         resolution: 2,
@@ -117,13 +120,13 @@ export class PerkCard extends Phaser.GameObjects.Container {
       .setOrigin(0.5);
 
     // Mana cost — blue water-drop icon overlapping icon circle (top-left).
-    // Enhanced режим использует ASSET_KEYS.tiles.mana (синий каплеподобный тайл)
-    // c числом стоимости, отрисованным поверх иконки. Fallback на старый круг
+    // Enhanced режим использует ASSET_KEYS.tiles[TileKind.Mana] (синий каплеподобный
+    // тайл) c числом стоимости, отрисованным поверх иконки. Fallback на старый круг
     // оставлен для не-enhanced вызовов и на случай отсутствия текстуры.
     const dropX = -circleR + Math.round(4 * scale);
     const dropY = iconY - circleR + Math.round(4 * scale);
-    const dropR = Math.round(13 * scale * (enhanced ? 1.7 : 1));
-    const manaTexKey = ASSET_KEYS.tiles.mana;
+    const dropR = Math.round(13 * scale * manaMul);
+    const manaTexKey = ASSET_KEYS.tiles[TileKind.Mana];
     const useManaSprite = enhanced && scene.textures.exists(manaTexKey);
     let manaIcon: Phaser.GameObjects.GameObject;
     if (useManaSprite) {
@@ -139,7 +142,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
     }
     const costText = scene.add
       .text(dropX, dropY, `${manaCost}`, {
-        fontSize: `${Math.round(11 * scale * (enhanced ? 1.7 : 1))}px`,
+        fontSize: `${Math.round(11 * scale * manaMul)}px`,
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
@@ -159,11 +162,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
       const isFilled = i < currentLevel;
       const isNext = i === currentLevel;
       const char = isFilled || isNext ? STAR_CHAR : STAR_EMPTY_CHAR;
-      const color = isFilled
-        ? "#ffd700"
-        : isNext
-          ? "#ffd700"
-          : "#444466";
+      const color = isFilled || isNext ? "#ffd700" : "#444466";
 
       const star = scene.add
         .text(starsStartX + i * starSpacing, starsY, char, {
