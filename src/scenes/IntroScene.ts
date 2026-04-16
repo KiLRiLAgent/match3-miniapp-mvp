@@ -3,7 +3,7 @@ import { ASSET_KEYS } from "../game/assets";
 import { GAME_WIDTH, GAME_HEIGHT, GAME_PARAMS, DPR } from "../game/config";
 import { INTRO_ANIMATION, INTRO_EASING } from "../game/animations";
 import { SpeechBubble } from "../ui/SpeechBubble";
-import { wait, waitOrTap, tweenPromise } from "../utils/helpers";
+import { wait, tweenPromise } from "../utils/helpers";
 import { isMuted, getVolume } from "../utils/audioSettings";
 import { GameScene } from "./GameScene";
 
@@ -47,33 +47,81 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private skipRequested = false;
+  private skipResolvers: Array<() => void> = [];
+  private skipZone?: Phaser.GameObjects.Rectangle;
+  private blockers: Phaser.GameObjects.Rectangle[] = [];
+
+  /**
+   * Tap-or-timer wait that tracks its blocker rect so requestSkip() can clean it up.
+   * Replaces the unmanaged `waitOrTap` helper (RISK-9: orphan blocker leak).
+   */
+  private async awaitOrTap(ms: number, depth: number): Promise<void> {
+    return new Promise<void>((resolve) => {
+      let done = false;
+      const blocker = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+        .setDepth(depth).setInteractive();
+      this.blockers.push(blocker);
+      const finish = () => {
+        if (done) return;
+        done = true;
+        blocker.destroy();
+        this.blockers = this.blockers.filter((b) => b !== blocker);
+        resolve();
+      };
+      blocker.once("pointerdown", finish);
+      this.time.delayedCall(ms, finish);
+    });
+  }
+
+  /** Promise that resolves immediately when skipRequested becomes true. */
+  private waitForSkip(): Promise<void> {
+    if (this.skipRequested) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      this.skipResolvers.push(resolve);
+    });
+  }
+
+  /** Race a step against skip — returns whichever finishes first. */
+  private async raceSkip<T>(p: Promise<T>): Promise<void> {
+    await Promise.race([p, this.waitForSkip()]);
+  }
+
+  private requestSkip() {
+    if (this.skipRequested) return;
+    this.skipRequested = true;
+    // Stop ALL tweens on the scene so awaited tweenPromise resolves immediately
+    this.tweens.killAll();
+    // Destroy any pending awaitOrTap blockers (RISK-9 cleanup)
+    this.blockers.forEach((b) => b.destroy());
+    this.blockers = [];
+    // Wake up any pending raceSkip awaits
+    const resolvers = this.skipResolvers;
+    this.skipResolvers = [];
+    resolvers.forEach((r) => r());
+  }
 
   private async runIntroSequence() {
     await document.fonts.ready;
 
-    // Tap anywhere to skip entire intro
-    const skipZone = this.add
+    // Tap anywhere to skip entire intro — single shot
+    this.skipZone = this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0)
       .setDepth(999)
       .setInteractive();
-    skipZone.once("pointerdown", () => {
-      this.skipRequested = true;
-      skipZone.destroy();
-    });
+    this.skipZone.once("pointerdown", () => this.requestSkip());
 
-    await this.step1_backgroundAppear();
+    await this.raceSkip(this.step1_backgroundAppear());
     if (this.skipRequested) { await this.step6_transitionToGame(); return; }
-    await this.step2_safiraAppear();
+    await this.raceSkip(this.step2_safiraAppear());
     if (this.skipRequested) { await this.step6_transitionToGame(); return; }
-    await this.step3_firstDialogue();
+    await this.raceSkip(this.step3_firstDialogue());
     if (this.skipRequested) { await this.step6_transitionToGame(); return; }
-    await this.step4_poseChangeDialogue();
+    await this.raceSkip(this.step4_poseChangeDialogue());
     if (this.skipRequested) { await this.step6_transitionToGame(); return; }
-    await this.step5_zoomAndVS();
+    await this.raceSkip(this.step5_zoomAndVS());
     if (this.skipRequested) { await this.step6_transitionToGame(); return; }
     await this.step6_transitionToGame();
-    skipZone.destroy();
   }
 
   // Scale фона для покрытия всего экрана (начало интро)
@@ -169,7 +217,7 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble.setDepth(10);
 
     await this.speechBubble.fadeIn();
-    await waitOrTap(this, INTRO_ANIMATION.speechBubbleHold, 11);
+    await this.awaitOrTap(INTRO_ANIMATION.speechBubbleHold, 11);
   }
 
   private async step4_poseChangeDialogue(): Promise<void> {
@@ -229,7 +277,7 @@ export class IntroScene extends Phaser.Scene {
     this.safira = newSafira;
     this.safiraGlow = newSafiraGlow;
 
-    await waitOrTap(this, INTRO_ANIMATION.speechBubbleHold, 11);
+    await this.awaitOrTap(INTRO_ANIMATION.speechBubbleHold, 11);
 
     if (this.speechBubble) {
       await this.speechBubble.fadeOut();
@@ -279,7 +327,7 @@ export class IntroScene extends Phaser.Scene {
     });
 
     await Promise.all([bgZoomPromise, vsPromise]);
-    await waitOrTap(this, INTRO_ANIMATION.vsHold, 21);
+    await this.awaitOrTap(INTRO_ANIMATION.vsHold, 21);
   }
 
   private createVSScreen(): Phaser.GameObjects.Container {
@@ -419,6 +467,10 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private async step6_transitionToGame(): Promise<void> {
+    // Tear down skip zone — GameScene must receive its own taps
+    this.skipZone?.destroy();
+    this.skipZone = undefined;
+
     // 1. Запускаем GameScene первой (bg/boss рендерятся за vsContainer)
     this.scene.launch("GameScene", {
       fromIntro: true,

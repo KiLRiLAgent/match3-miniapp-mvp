@@ -38,6 +38,7 @@ import type { BaseTileKind, Match, Position, PotentialMove, Tile, CountTotals } 
 import { Meter } from "../ui/Meter";
 import { LayeredMeter } from "../ui/LayeredMeter";
 import { SkillButton } from "../ui/SkillButton";
+import { SkillApplyOverlay } from "../ui/SkillApplyOverlay";
 import { SettingsPanel } from "../ui/SettingsPanel";
 import { CooldownIcon } from "../ui/CooldownIcon";
 import { showDamageNumber } from "../ui/DamageNumber";
@@ -128,6 +129,9 @@ export class GameScene extends Phaser.Scene {
   private hammerOverlay?: Phaser.GameObjects.Rectangle;
   private hammerHint?: Phaser.GameObjects.Text;
   private settingsOpen = false;
+  private skillApplyOverlay?: SkillApplyOverlay;
+  private skillOverlayBusyToken = false;
+  private skillHighlightTweens: Phaser.Tweens.Tween[] = [];
 
   private bossAbilityManager!: BossAbilityManager;
   private cooldownIcon?: CooldownIcon;
@@ -255,8 +259,15 @@ export class GameScene extends Phaser.Scene {
     this.manaBar = undefined;
     this.cooldownIcon = undefined;
     this.playerAvatar = undefined;
+    this.hammerOverlay?.destroy();
+    this.hammerHint?.destroy();
     this.hammerOverlay = undefined;
     this.hammerHint = undefined;
+    this.hammerMode = false;
+    this.skillApplyOverlay?.destroy();
+    this.skillApplyOverlay = undefined;
+    this.skillOverlayBusyToken = false;
+    this.skillHighlightTweens = [];
     this.bossShieldOverlay = undefined;
     this.bossShieldGlowTween = undefined;
     this.bossShieldText = undefined;
@@ -1960,16 +1971,127 @@ export class GameScene extends Phaser.Scene {
 
   private activateSkill(id: SkillId) {
     if (!this.canPlayerAct()) return;
+    if (this.skillApplyOverlay) return; // already open
+    // v1 only — confirmation overlay disabled in v2 arena flow (use direct activation)
+    if (this.encounterContext) {
+      this.executeSkill(id);
+      return;
+    }
     // v2: arena perks may unlock skills independently of v1 perkManager
     const arenaUnlocked = this.arenaPerksEnabled && this.arenaSkillStats?.(id)?.unlocked;
     if (!this.perkManager?.isUnlocked(id) && !arenaUnlocked) return;
-    this.stopHintTimer();
 
     const cfg = this.getEffectiveSkillCfg(id); // v2: arena perk overrides
-
-    // Проверяем кулдаун
     if (this.skillCooldowns[id] > 0) return;
-    // Проверяем ману
+    if (this.mana < cfg.cost) return;
+
+    this.stopHintTimer();
+    // Block board input while overlay is open
+    this.busy = true;
+    this.skillOverlayBusyToken = true;
+
+    const level = this.perkManager?.getLevel(id) ?? 0;
+    this.skillApplyOverlay = new SkillApplyOverlay(this, {
+      skill: cfg,
+      level,
+      onOpen: () => this.openSkillHighlights(id, cfg),
+      onClose: () => this.closeSkillHighlights(),
+      onConfirm: () => {
+        this.skillApplyOverlay = undefined;
+        // Release busy lock BEFORE executing — executeSkill checks canPlayerAct
+        if (this.skillOverlayBusyToken) {
+          this.busy = false;
+          this.skillOverlayBusyToken = false;
+        }
+        this.executeSkill(id);
+      },
+      onCancel: () => {
+        this.skillApplyOverlay = undefined;
+        if (this.skillOverlayBusyToken) {
+          this.busy = false;
+          this.skillOverlayBusyToken = false;
+        }
+        this.updateHud();
+        this.startHintTimer();
+      },
+    });
+
+    // v2 safety: scene.stop() before user confirms — release lock so callers don't hang
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.closeSkillHighlights(); // ensure tweens/state cleaned up before destroy
+      this.skillApplyOverlay?.destroy();
+      this.skillApplyOverlay = undefined;
+      if (this.skillOverlayBusyToken) {
+        this.busy = false;
+        this.skillOverlayBusyToken = false;
+      }
+    });
+  }
+
+  /** Highlight HP/MP bars + skill icon based on what the skill affects. Tweens captured for cleanup. */
+  private openSkillHighlights(id: SkillId, cfg: ReturnType<GameScene["getEffectiveSkillCfg"]>) {
+    const tweens: Phaser.Tweens.Tween[] = [];
+    // Skill icon glow — pulse the corresponding skill button
+    const btn = this.skillButtons[id];
+    if (btn) {
+      tweens.push(this.tweens.add({
+        targets: btn,
+        scale: { from: 1, to: 1.12 },
+        duration: 600,
+        ease: "Sine.easeInOut",
+        yoyo: true,
+        repeat: -1,
+      }));
+    }
+    // Player HP pulse if heal
+    if (cfg.heal > 0 && this.playerHpBar) {
+      tweens.push(this.tweens.add({
+        targets: this.playerHpBar,
+        alpha: { from: 1, to: 0.55 },
+        duration: 500,
+        ease: "Sine.easeInOut",
+        yoyo: true,
+        repeat: -1,
+      }));
+    }
+    // Boss HP pulse if damage (preview "what will be hit")
+    if (cfg.damage > 0 && this.bossHpBar) {
+      tweens.push(this.tweens.add({
+        targets: this.bossHpBar,
+        alpha: { from: 1, to: 0.55 },
+        duration: 500,
+        ease: "Sine.easeInOut",
+        yoyo: true,
+        repeat: -1,
+      }));
+    }
+    this.skillHighlightTweens = tweens;
+  }
+
+  /** Stop all highlight tweens and restore alpha/scale to defaults. Idempotent. */
+  private closeSkillHighlights() {
+    if (!this.skillHighlightTweens || this.skillHighlightTweens.length === 0) return;
+    for (const t of this.skillHighlightTweens) {
+      if (t && t.isPlaying()) t.stop();
+    }
+    this.skillHighlightTweens = [];
+    // Restore visual defaults
+    SKILL_IDS.forEach((sid) => {
+      const b = this.skillButtons[sid];
+      if (b) b.setScale(1);
+    });
+    if (this.playerHpBar) this.playerHpBar.setAlpha(1);
+    if (this.bossHpBar) this.bossHpBar.setAlpha(1);
+  }
+
+  private executeSkill(id: SkillId) {
+    if (!this.canPlayerAct()) return;
+    const arenaUnlocked = this.arenaPerksEnabled && this.arenaSkillStats?.(id)?.unlocked;
+    if (!this.perkManager?.isUnlocked(id) && !arenaUnlocked) return;
+
+    const cfg = this.getEffectiveSkillCfg(id);
+    // Re-validate (state may have shifted between open and confirm)
+    if (this.skillCooldowns[id] > 0) return;
     if (this.mana < cfg.cost) return;
 
     this.mana -= cfg.cost;
