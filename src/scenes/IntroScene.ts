@@ -91,12 +91,19 @@ export class IntroScene extends Phaser.Scene {
   private requestSkip() {
     if (this.skipRequested) return;
     this.skipRequested = true;
-    // Stop ALL tweens on the scene so awaited tweenPromise resolves immediately
-    this.tweens.killAll();
+    // Resolve all active tweens so any pending tweenPromise resolves cleanly.
+    // killAll would skip onComplete and leave Promises dangling. One-shot tweens
+    // get .complete() so finalValues apply (better visuals); infinite tweens
+    // (repeat: -1 used by VS pulses) get .stop() since .complete on infinite is a no-op.
+    this.tweens.getTweens().forEach((t) => {
+      const isInfinite = (t as unknown as { repeat?: number }).repeat === -1;
+      if (isInfinite) t.stop();
+      else t.complete();
+    });
     // Destroy any pending awaitOrTap blockers AND cancel their timers (RISK-9 cleanup)
     this.blockers.forEach((b) => { b.timer.remove(); b.rect.destroy(); });
     this.blockers = [];
-    // Wake up any pending raceSkip awaits
+    // Wake up any pending raceSkip awaits (covers tweenless awaits like wait())
     const resolvers = this.skipResolvers;
     this.skipResolvers = [];
     resolvers.forEach((r) => r());
