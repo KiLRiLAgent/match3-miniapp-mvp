@@ -205,7 +205,8 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
         resolution: 2,
       },
     ).setOrigin(0.5);
-    const cdLabel = cfg.cooldown === 1 ? "ход" : cfg.cooldown < 5 ? "хода" : "ходов";
+    // Skill cooldown range realistically 1-6 turns; binary "ход"/"ходов" suffices.
+    const cdLabel = cfg.cooldown === 1 ? "ход" : "ходов";
     const cdText = new Phaser.GameObjects.Text(
       scene, rowLeft + HOURGLASS_SIZE + 8, rowY,
       `${cfg.cooldown} ${cdLabel} перезарядки`,

@@ -1331,6 +1331,13 @@ export class GameScene extends Phaser.Scene {
       const cardsAreaBottom = UI_LAYOUT.playerHpBarY - 12;
       const cardY = (cardsAreaTop + cardsAreaBottom) / 2;
 
+      // Capture coords of the *selected* card BEFORE it gets destroyed — we
+      // need them as the source point for the gold VFX trail (Task #2).
+      // Defaults are safe: if pick somehow happens without a captured card
+      // (shouldn't), we fall back to screen centre and the VFX still completes.
+      let selectedSourceX = GAME_WIDTH / 2;
+      let selectedSourceY = cardY;
+
       const selectedPerk = await new Promise<PerkDef>((resolve) => {
         const cards: PerkCard[] = [];
 
@@ -1350,6 +1357,11 @@ export class GameScene extends Phaser.Scene {
             desc,
             async () => {
               this.sfx(ASSET_KEYS.sfx.uiCardSelect);
+              // Snapshot world position BEFORE any destructive animation —
+              // PerkCard.playSelect doesn't move the card, but capturing
+              // here is the safe contract: VFX source is the card's centre.
+              selectedSourceX = card.x;
+              selectedSourceY = card.y;
               // Selected card scales up and fades
               await card.playSelect();
               // Dismiss other cards
@@ -1375,13 +1387,26 @@ export class GameScene extends Phaser.Scene {
       // Apply perk
       const result = this.perkManager.applyPerk(selectedPerk.skillId);
 
-      // Reposition buttons if new skill unlocked
+      // Reposition buttons if new skill unlocked.
+      // RISK-3 (TECH LEAD): VFX target MUST be captured AFTER repositionSkillButtons,
+      // otherwise a freshly-unlocked skill button would still be at its old slot
+      // (off-screen / wrong position) when we sample its coords.
       if (result.isNewUnlock) {
         this.repositionSkillButtons();
       }
 
       // Update skill button UI with new costs/values
       this.updateHud();
+
+      // Gold VFX: fly from selected card -> destination skill button.
+      // Source coords were snapshotted in the click callback; target coords are
+      // sampled NOW (post-reposition) so a NEW unlock lands on the correct slot.
+      // Awaited to guarantee the landing flash is shown before fadeout starts.
+      await this.flyPerkSelectVfx(
+        selectedSourceX,
+        selectedSourceY,
+        selectedPerk.skillId,
+      );
 
       // Fade out overlay and level text
       await Promise.all([
@@ -1407,6 +1432,105 @@ export class GameScene extends Phaser.Scene {
       subtitleText.destroy();
       // Do NOT set busy = false here — caller (resolveBoard / processPerks) manages busy state
     }
+  }
+
+  /**
+   * Gold VFX trail flying from a selected perk card to the destination skill
+   * button, ending in a brief icon flash + scale pulse on landing.
+   *
+   * Called from `showPerkSelection` AFTER `repositionSkillButtons` so the
+   * target coords reflect the *final* slot for newly-unlocked skills
+   * (Task #2 RISK-3 — sampling earlier would miss freshly-unlocked buttons).
+   *
+   * Pattern reference: `src/ui/FlyingTile.ts`. Inlined here as a single
+   * fire-and-forget helper instead of factored out — only one call site.
+   */
+  private async flyPerkSelectVfx(sourceX: number, sourceY: number, skillId: SkillId): Promise<void> {
+    const targetBtn = this.skillButtons[skillId];
+    // No skill button available (defensive — shouldn't happen since perk applied
+    // either unlocks or upgrades). Skip VFX and return immediately.
+    if (!targetBtn) return;
+
+    const target = targetBtn.getIconWorldPosition();
+
+    // Mid-arc point above the line for a graceful curve.
+    const midX = (sourceX + target.x) / 2;
+    const midY = Math.min(sourceY, target.y) - 60;
+
+    // Gold sprite — small image, depth above overlays (overlay sits at depth 200,
+    // perk text at 201/202, so 250 keeps the spark visible during transit).
+    const VFX_DEPTH = 250;
+    const TRAIL_DEPTH = 249;
+    const DURATION = 480;
+    const SIZE = 26;
+
+    const sprite = this.add.image(sourceX, sourceY, ASSET_KEYS.tiles[TileKind.Mana])
+      .setDisplaySize(SIZE, SIZE)
+      .setTint(0xffd700)
+      .setDepth(VFX_DEPTH);
+    const trailGfx = this.add.graphics().setDepth(TRAIL_DEPTH);
+    const trailPoints: Array<{ x: number; y: number; alpha: number }> = [];
+
+    const startTime = this.time.now;
+    let cleaned = false;
+    let onUpdate: (() => void) | null = null;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      if (onUpdate) this.events.off("update", onUpdate);
+      this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+      sprite.destroy();
+      trailGfx.destroy();
+    };
+
+    return new Promise<void>((resolve) => {
+      onUpdate = () => {
+        if (!this.sys.isActive()) {
+          cleanup();
+          resolve();
+          return;
+        }
+        const t = Math.min(1, (this.time.now - startTime) / DURATION);
+        // Quadratic Bezier: source -> mid -> target, eased.
+        const eased = 1 - Math.pow(1 - t, 2); // Quad.easeOut
+        const oneMinus = 1 - eased;
+        const x = oneMinus * oneMinus * sourceX + 2 * oneMinus * eased * midX + eased * eased * target.x;
+        const y = oneMinus * oneMinus * sourceY + 2 * oneMinus * eased * midY + eased * eased * target.y;
+        sprite.setPosition(x, y);
+
+        // Trail: append current point, fade existing, clear+redraw.
+        trailPoints.push({ x, y, alpha: 1 });
+        trailGfx.clear();
+        for (const p of trailPoints) {
+          p.alpha -= 0.08;
+          if (p.alpha > 0) {
+            trailGfx.fillStyle(0xffd700, p.alpha * 0.7);
+            trailGfx.fillCircle(p.x, p.y, 6 * p.alpha);
+          }
+        }
+        while (trailPoints.length > 0 && trailPoints[0].alpha <= 0) trailPoints.shift();
+
+        if (t >= 1) {
+          // Sprite reached destination — kick the icon flash + pulse,
+          // and finish trail fade-out in parallel. Resolve when flash done.
+          if (onUpdate) this.events.off("update", onUpdate);
+          sprite.destroy();
+          this.tweens.add({
+            targets: trailGfx,
+            alpha: 0,
+            duration: 150,
+            onComplete: () => trailGfx.destroy(),
+          });
+          targetBtn.flashIconPulse(240).then(() => {
+            cleaned = true;
+            this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+            resolve();
+          });
+        }
+      };
+      this.events.on("update", onUpdate);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+    });
   }
 
   private applyDamageToBoss(damage: number, skipSlash = false, muteHitSfx = false) {
@@ -2015,17 +2139,9 @@ export class GameScene extends Phaser.Scene {
         this.startHintTimer();
       },
     });
-
-    // v2 safety: scene.stop() before user confirms — release lock so callers don't hang
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.closeSkillHighlights(); // ensure tweens/state cleaned up before destroy
-      this.skillApplyOverlay?.destroy();
-      this.skillApplyOverlay = undefined;
-      if (this.skillOverlayBusyToken) {
-        this.busy = false;
-        this.skillOverlayBusyToken = false;
-      }
-    });
+    // Note: SHUTDOWN cleanup is handled by resetState() on retry, and Phaser
+    // destroys the overlay along with the scene on shutdown. Adding a per-open
+    // SHUTDOWN listener here would accumulate one listener per overlay open.
   }
 
   /** Highlight HP/MP bars + skill icon based on what the skill affects. Tweens captured for cleanup. */
