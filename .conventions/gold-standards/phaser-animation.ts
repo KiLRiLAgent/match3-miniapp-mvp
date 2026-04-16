@@ -114,4 +114,114 @@
  *    - Every `busy = true` must have a guaranteed path to `busy = false`
  *    - Exception: game over (showVictory / showDefeat) intentionally keeps
  *      busy = true so input remains locked on the end-game modal
+ *
+ * 9. VFX TRAIL TO A MOVING/REPOSITIONED UI ELEMENT
+ *
+ *    Pattern: a sprite + alpha-fading dot trail flies from a source
+ *    point to a target UI element, ending in a landing flash on that
+ *    element. Authoritative: `flyPerkSelectVfx` in `src/scenes/GameScene.ts`
+ *    (Task #2 perk-select VFX). Reference for the underlying trail loop:
+ *    `src/ui/FlyingTile.ts`.
+ *
+ *    9a. SAMPLE TARGET COORDS *AFTER* ANY REPOSITION
+ *
+ *      The most subtle bug: if the destination UI element gets
+ *      repositioned in the same async chain that fires the VFX, you MUST
+ *      sample the target coords AFTER the reposition completes — sampling
+ *      at VFX-spawn time captures a stale position and the highlight
+ *      misses the slot.
+ *
+ *      Wrong:
+ *        const target = this.skillButtons[id].getIconWorldPosition();
+ *        this.applyPerk(id);                  // may unlock new skill
+ *        this.repositionSkillButtons();       // moves new button
+ *        await flyVfx(source, target, id);    // ← target is STALE
+ *
+ *      Right:
+ *        this.applyPerk(id);
+ *        this.repositionSkillButtons();
+ *        this.updateHud();
+ *        // sample now — button is at its final slot
+ *        await this.flyPerkSelectVfx(sourceX, sourceY, id);
+ *        // flyPerkSelectVfx internally calls
+ *        //   targetBtn.getIconWorldPosition()
+ *        // RIGHT BEFORE starting the animation
+ *
+ *      The source coord can (and should) be sampled BEFORE any destroy
+ *      animation on the source element runs — typically in the click
+ *      callback, stored in a closure-captured `let sourceX/Y` variable.
+ *
+ *    9b. EXPOSE getIconWorldPosition() ON UI COMPONENTS
+ *
+ *      UI components that may serve as VFX targets should expose a
+ *      simple `getIconWorldPosition(): { x, y }` returning world coords
+ *      of their visual centre. Container x/y are world; offset by the
+ *      child's local origin. Keep return type as a plain object, not a
+ *      Phaser Vector — callers should not need a Phaser dep:
+ *
+ *        getIconWorldPosition(): { x: number; y: number } {
+ *          return { x: this.x, y: this.y - 2 };  // icon at local (0,-2)
+ *        }
+ *
+ *    9c. LANDING FLASH AS A METHOD ON THE TARGET COMPONENT
+ *
+ *      The "I just got hit by a VFX" effect (white tintFill + scale
+ *      yoyo) belongs on the target component, NOT in the VFX helper.
+ *      This keeps VFX caller-agnostic and lets the component decide
+ *      WHICH child element flashes (image vs text fallback):
+ *
+ *        flashIconPulse(durationMs = 240): Promise<void> {
+ *          return new Promise<void>((resolve) => {
+ *            if (!this.scene) { resolve(); return; }
+ *            const target = this.iconImage?.visible
+ *              ? this.iconImage : this.iconText;
+ *            if (target instanceof Phaser.GameObjects.Image) {
+ *              target.setTintFill(0xffffff);
+ *              this.scene.time.delayedCall(durationMs * 0.4, () => {
+ *                if (this.scene && target.scene) target.clearTint();
+ *              });
+ *            }
+ *            this.scene.tweens.add({
+ *              targets: this,
+ *              scale: { from: 1, to: 1.25 },
+ *              duration: durationMs * 0.45,
+ *              ease: "Quad.easeOut", yoyo: true,
+ *              onComplete: () => {
+ *                if (this.scene) this.setScale(1);
+ *                resolve();
+ *              },
+ *            });
+ *          });
+ *        }
+ *
+ *    9d. CLEANUP: cleaned flag + SHUTDOWN listener
+ *
+ *      Every VFX helper that uses `events.on("update", ...)` MUST
+ *      register a SHUTDOWN listener AND guard cleanup with an
+ *      idempotent `cleaned` flag — multiple resolution paths (normal
+ *      completion, scene becoming inactive, shutdown event) can race
+ *      to free the same sprites:
+ *
+ *        let cleaned = false;
+ *        let onUpdate: (() => void) | null = null;
+ *        const cleanup = () => {
+ *          if (cleaned) return;
+ *          cleaned = true;
+ *          if (onUpdate) this.events.off("update", onUpdate);
+ *          this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+ *          sprite.destroy();
+ *          trailGfx.destroy();
+ *        };
+ *        // ... onUpdate uses cleanup() on isActive()===false
+ *        this.events.on("update", onUpdate);
+ *        this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+ *
+ *    9e. INLINE vs FACTOR OUT
+ *
+ *      Single-call-site VFX helpers stay inline as private scene
+ *      methods (e.g., `private async flyPerkSelectVfx(...)`). Extract
+ *      to `src/ui/<name>.ts` only when a second caller appears OR the
+ *      helper grows past ~80 lines and obscures its caller. The
+ *      reference VFX at `src/ui/FlyingTile.ts` IS extracted because
+ *      both `animateClear` (player wave) and boss-ability paths use it.
  */

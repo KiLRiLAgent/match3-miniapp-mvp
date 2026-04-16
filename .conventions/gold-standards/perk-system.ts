@@ -49,4 +49,48 @@
  * 7. CLEANUP
  *    - PerkCard.destroy() stops glowTween before super.destroy()
  *    - PerkManager.reset() called on game restart
+ *
+ * 8. BACKWARD-COMPAT VISUAL OPT-IN (PerkCardOptions.enhancedVisuals)
+ *
+ *    When a UI component used by multiple call sites needs to evolve
+ *    its visual style for ONE caller without changing the others,
+ *    add an OPTIONAL boolean prop with a default that preserves the
+ *    existing render byte-for-byte. Pattern (PerkCard rework, Task #1):
+ *
+ *      export interface PerkCardOptions {
+ *        width?: number;
+ *        height?: number;
+ *        // Opt-in flag — default false → identical to pre-rework render.
+ *        // Set true at the new call site that wants the upgraded look.
+ *        enhancedVisuals?: boolean;
+ *      }
+ *
+ *    Inside the constructor, branch via NAMED multiplier consts (not
+ *    inline ternaries) so each visual axis is named and grep-able:
+ *
+ *      const enhanced = options?.enhancedVisuals ?? false;
+ *      const fontMul  = enhanced ? 1.25 : 1.0;
+ *      const starMul  = enhanced ? 1.5  : 1.0;
+ *      const titleMul = enhanced ? 1.2  : 1.0;
+ *      const iconMul  = enhanced ? 1.18 : 1.0;
+ *      const manaMul  = enhanced ? 1.7  : 1.0;
+ *      // ... use multipliers in fontSize / radius / spacing calcs
+ *
+ *    Verify backward-compat by reading every existing call site —
+ *    they must NOT pass `enhancedVisuals` (or pass `false`). The
+ *    code path with all multipliers = 1.0 must be byte-identical to
+ *    the pre-opt-in version.
+ *
+ *    Don't extract the multiplier block to a module-level const —
+ *    it's tied to constructor-local `enhanced`, and the named-block
+ *    form reads naturally as "this is what enhanced does to each
+ *    visual axis". A second mode (e.g., "huge") would extend this
+ *    block, not replace it.
+ *
+ *    Anti-pattern to avoid: per-substring color tricks via BBCode or
+ *    Text-stroke. If the new look needs accent text in a different
+ *    color (e.g., bright-green ↑ arrows), parse the source string and
+ *    render the accent piece as a SEPARATE Phaser.Text at a fixed
+ *    position. PerkCard's `splitDescriptionArrows()` is the reference:
+ *    pure module-level helper, regex on hard-coded perk descriptions.
  */
