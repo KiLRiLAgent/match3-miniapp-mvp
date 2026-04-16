@@ -99,6 +99,48 @@ export class SkillButton extends Phaser.GameObjects.Container {
     this.manaIcon.setX(this.costText.x + this.costText.width / 2 + MANA_ICON_SIZE / 2 + 2);
   }
 
+  /**
+   * Возвращает мировую позицию центра иконки скилла.
+   * Иконка размещена в локальной точке (0, -2) внутри Container'а, чей
+   * `.x` / `.y` уже мировые. Используется как target для VFX (Task #2 RISK-3:
+   * вызывать **после** repositionSkillButtons, иначе target будет промахиваться).
+   */
+  getIconWorldPosition(): { x: number; y: number } {
+    return { x: this.x, y: this.y - 2 };
+  }
+
+  /**
+   * Короткий «pop»-flash на иконке: белая вспышка + scale-pulse 1 → 1.3 → 1.
+   * Используется как landing-эффект при прилёте VFX (gold trail) на skill button.
+   * Fire-and-forget — возвращает Promise, который резолвится по завершении.
+   */
+  flashIconPulse(durationMs = 240): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (!this.scene) { resolve(); return; }
+      const target: Phaser.GameObjects.GameObject =
+        this.iconImage?.visible ? this.iconImage : this.iconText;
+      // Сохраняем исходный tint (для image) — flash вернётся в исходник через clearTint.
+      if (target instanceof Phaser.GameObjects.Image) {
+        target.setTintFill(0xffffff);
+        this.scene.time.delayedCall(durationMs * 0.4, () => {
+          if (this.scene && target.scene) target.clearTint();
+        });
+      }
+      // Scale-pulse — анимируем сам Container, чтобы и подложка кружка пульсировала.
+      this.scene.tweens.add({
+        targets: this,
+        scale: { from: 1, to: 1.25 },
+        duration: durationMs * 0.45,
+        ease: "Quad.easeOut",
+        yoyo: true,
+        onComplete: () => {
+          if (this.scene) this.setScale(1);
+          resolve();
+        },
+      });
+    });
+  }
+
   applyState(state: SkillState) {
     const { enabled, ready, cooldown, info } = state;
 
