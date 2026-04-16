@@ -1474,6 +1474,7 @@ export class GameScene extends Phaser.Scene {
     const startTime = this.time.now;
     let cleaned = false;
     let onUpdate: (() => void) | null = null;
+    let resolveFn: (() => void) | null = null;
     const cleanup = () => {
       if (cleaned) return;
       cleaned = true;
@@ -1481,13 +1482,22 @@ export class GameScene extends Phaser.Scene {
       this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
       sprite.destroy();
       trailGfx.destroy();
+      // Always resolve from cleanup — guarantees the awaiter never hangs even
+      // when SHUTDOWN fires mid-flight (logic-reviewer Task #2 blocker).
+      // Promise resolve is idempotent in JS — second call from the t>=1 path
+      // is a no-op. This covers BOTH scenarios:
+      //   A) SHUTDOWN during transit (t < 1): cleanup → resolve, awaiter unblocks.
+      //   B) SHUTDOWN after t>=1 but before flashIconPulse settles: same path,
+      //      flashIconPulse's .then(...) below would also resolve but cleaned=true
+      //      makes any further cleanup a no-op.
+      if (resolveFn) resolveFn();
     };
 
     return new Promise<void>((resolve) => {
+      resolveFn = resolve;
       onUpdate = () => {
         if (!this.sys.isActive()) {
           cleanup();
-          resolve();
           return;
         }
         const t = Math.min(1, (this.time.now - startTime) / DURATION);
