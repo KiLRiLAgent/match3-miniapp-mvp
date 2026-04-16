@@ -49,27 +49,29 @@ export class IntroScene extends Phaser.Scene {
   private skipRequested = false;
   private skipResolvers: Array<() => void> = [];
   private skipZone?: Phaser.GameObjects.Rectangle;
-  private blockers: Phaser.GameObjects.Rectangle[] = [];
+  private blockers: Array<{ rect: Phaser.GameObjects.Rectangle; timer: Phaser.Time.TimerEvent }> = [];
 
   /**
-   * Tap-or-timer wait that tracks its blocker rect so requestSkip() can clean it up.
-   * Replaces the unmanaged `waitOrTap` helper (RISK-9: orphan blocker leak).
+   * Tap-or-timer wait that tracks its blocker rect AND timer so requestSkip()
+   * can clean both up (RISK-9: orphan blocker + timer leak). Replaces the
+   * unmanaged `waitOrTap` helper.
    */
   private async awaitOrTap(ms: number, depth: number): Promise<void> {
     return new Promise<void>((resolve) => {
       let done = false;
-      const blocker = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
+      const rect = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
         .setDepth(depth).setInteractive();
-      this.blockers.push(blocker);
       const finish = () => {
         if (done) return;
         done = true;
-        blocker.destroy();
-        this.blockers = this.blockers.filter((b) => b !== blocker);
+        timer.remove();
+        rect.destroy();
+        this.blockers = this.blockers.filter((b) => b.rect !== rect);
         resolve();
       };
-      blocker.once("pointerdown", finish);
-      this.time.delayedCall(ms, finish);
+      rect.once("pointerdown", finish);
+      const timer = this.time.delayedCall(ms, finish);
+      this.blockers.push({ rect, timer });
     });
   }
 
@@ -91,8 +93,8 @@ export class IntroScene extends Phaser.Scene {
     this.skipRequested = true;
     // Stop ALL tweens on the scene so awaited tweenPromise resolves immediately
     this.tweens.killAll();
-    // Destroy any pending awaitOrTap blockers (RISK-9 cleanup)
-    this.blockers.forEach((b) => b.destroy());
+    // Destroy any pending awaitOrTap blockers AND cancel their timers (RISK-9 cleanup)
+    this.blockers.forEach((b) => { b.timer.remove(); b.rect.destroy(); });
     this.blockers = [];
     // Wake up any pending raceSkip awaits
     const resolvers = this.skipResolvers;
