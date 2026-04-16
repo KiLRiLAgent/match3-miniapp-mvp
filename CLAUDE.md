@@ -1034,6 +1034,7 @@ All Phaser `setDepth()` values used in the game, from back to front:
 | **998–999** | Game end overlay + flash | Victory/defeat screen |
 | **1000** | Game end UI / settings panel (v1) + CharacterGalleryScene modal (v2 legacy, to be aligned to 2100 in Phase 2B per R2B-2 #4) | Buttons, stats, modal |
 | **1001** | Confetti/particles | Victory/defeat particles |
+| **1500** | v1 SkillApplyOverlay (skill confirmation modal) | `src/ui/SkillApplyOverlay.ts` — between game-end UI and v2 Toast |
 | **2000** | v2 Toast (non-blocking notifications) | `src/v2/ui/Toast.ts` — non-blocking notification layer, below blocking modals per R2B-3 |
 | **2100** | v2 ItemCardModal (blocking modal overlays) | `src/v2/ui/ItemCardModal.ts` — blocking modal overlay, above Toast per R2B-3 |
 
