@@ -1215,16 +1215,20 @@ export class GameScene extends Phaser.Scene {
 
     this.busy = true;
 
-    // "Уровень повышен" — black text on yellow banner
-    const bannerY = GAME_HEIGHT * 0.26;
+    // "Уровень повышен" — баннер ставим над HP-баром босса (был ровно посередине экрана,
+    // что было визуально оторвано от контекста). Дополнительно делаем fly-up анимацию:
+    // стартует чуть ниже целевой позиции и уезжает вверх к HP-зоне босса.
+    const bannerTargetY = Math.max(40, UI_LAYOUT.bossHpBarY - 36);
+    const bannerStartY = bannerTargetY + 40;
     const bannerW = GAME_WIDTH * 0.7;
     const bannerH = 40;
     const bannerGfx = this.add.graphics().setDepth(201).setAlpha(0);
     bannerGfx.fillStyle(0xffd700, 1);
-    bannerGfx.fillRoundedRect(GAME_WIDTH / 2 - bannerW / 2, bannerY - bannerH / 2, bannerW, bannerH, 6);
+    bannerGfx.fillRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 6);
+    bannerGfx.setPosition(GAME_WIDTH / 2, bannerStartY);
 
     const levelText = this.add
-      .text(GAME_WIDTH / 2, bannerY, "Уровень повышен", {
+      .text(GAME_WIDTH / 2, bannerStartY, "Уровень повышен", {
         fontSize: "26px",
         color: "#000000",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -1235,16 +1239,19 @@ export class GameScene extends Phaser.Scene {
       .setDepth(201)
       .setAlpha(0);
 
-    // "Выбери новую способность!" — gold text on semi-transparent black
-    const subY = bannerY + bannerH / 2 + 24;
+    // "Выбери новую способность!" — оставляем относительный отступ ниже баннера (24px),
+    // чтобы блок выглядел сгруппированным.
+    const subTargetY = bannerTargetY + bannerH / 2 + 24;
+    const subStartY = subTargetY + 40;
     const subW = GAME_WIDTH * 0.8;
     const subH = 32;
     const subBgGfx = this.add.graphics().setDepth(201).setAlpha(0);
     subBgGfx.fillStyle(0x000000, 0.6);
-    subBgGfx.fillRoundedRect(GAME_WIDTH / 2 - subW / 2, subY - subH / 2, subW, subH, 4);
+    subBgGfx.fillRoundedRect(-subW / 2, -subH / 2, subW, subH, 4);
+    subBgGfx.setPosition(GAME_WIDTH / 2, subStartY);
 
     const subtitleText = this.add
-      .text(GAME_WIDTH / 2, subY, "Выбери новую способность!", {
+      .text(GAME_WIDTH / 2, subStartY, "Выбери новую способность!", {
         fontSize: "18px",
         color: "#ffd700",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -1263,19 +1270,20 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     try {
-      // Show "Уровень повышен" banner first (without overlay)
+      // Show "Уровень повышен" banner first (without overlay) — fly-up entrance.
       this.sfx(ASSET_KEYS.sfx.uiLevelup);
       await tweenPromise(this, {
         targets: [bannerGfx, levelText],
         alpha: 1,
-        duration: 300,
-        ease: "Quad.easeOut",
+        y: bannerTargetY,
+        duration: 360,
+        ease: "Back.easeOut",
       });
 
       // Brief pause to let player read
       await wait(this, 600);
 
-      // Then darken screen + show subtitle
+      // Then darken screen + show subtitle (тоже с fly-up)
       await tweenPromise(this, {
         targets: overlay,
         alpha: 1,
@@ -1285,18 +1293,32 @@ export class GameScene extends Phaser.Scene {
       await tweenPromise(this, {
         targets: [subBgGfx, subtitleText],
         alpha: 1,
-        duration: 200,
-        ease: "Quad.easeOut",
+        y: subTargetY,
+        duration: 220,
+        ease: "Back.easeOut",
       });
 
-      // Create perk cards — adaptive size to fit screen
+      // Create perk cards — крупнее (+35%) с двусторонним bound (RISK-7 mitigation):
+      //  • верхний потолок = baseCardHeight * 1.35 (не разрастаться без причины);
+      //  • нижний bound по доступной высоте между сабтайтлом и скилл-панелью —
+      //    на маленьких экранах 360x640 +30% мог бы перекрыть скиллы;
+      //  • абсолютный минимум 120px, чтобы карта оставалась читаемой даже
+      //    при сильно сжатой высоте.
       const cardSpacing = 8;
       const sidePadding = 16;
       const cardWidth = Math.floor((GAME_WIDTH - sidePadding * 2 - cardSpacing * (perks.length - 1)) / perks.length);
-      const cardHeight = Math.min(220, Math.floor(GAME_HEIGHT * 0.32));
+      const baseCardHeight = Math.min(220, Math.floor(GAME_HEIGHT * 0.32));
+      const verticalRoom = Math.max(0, UI_LAYOUT.playerHpBarY - subTargetY - subH / 2 - 24);
+      const cardHeight = Math.max(
+        120,
+        Math.min(Math.floor(baseCardHeight * 1.35), Math.floor(verticalRoom)),
+      );
       const totalWidth = perks.length * cardWidth + (perks.length - 1) * cardSpacing;
       const startX = GAME_WIDTH / 2 - totalWidth / 2 + cardWidth / 2;
-      const cardY = GAME_HEIGHT * 0.32 + cardHeight / 2 + 20;
+      // Центрируем карты в области между сабтайтлом и скилл-панелью.
+      const cardsAreaTop = subTargetY + subH / 2 + 16;
+      const cardsAreaBottom = UI_LAYOUT.playerHpBarY - 12;
+      const cardY = (cardsAreaTop + cardsAreaBottom) / 2;
 
       const selectedPerk = await new Promise<PerkDef>((resolve) => {
         const cards: PerkCard[] = [];
@@ -1327,7 +1349,7 @@ export class GameScene extends Phaser.Scene {
               cards.forEach((c) => c.destroy());
               resolve(perk);
             },
-            { width: cardWidth, height: cardHeight },
+            { width: cardWidth, height: cardHeight, enhancedVisuals: true },
           );
           card.setDepth(202);
           cards.push(card);
