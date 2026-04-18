@@ -2,6 +2,7 @@ import Phaser from "phaser";
 
 const FLASH_DURATION = 200;
 const DELTA_DRAIN_DURATION = 500;
+const PREVIEW_PULSE_DURATION = 600;
 
 export class LayeredMeter extends Phaser.GameObjects.Container {
   private widthPx: number;
@@ -16,10 +17,11 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
   private totalHp: number;
   private colors: number[];
 
-  // Graphics layers (back to front): nextFill, delta, currentFill, highlight, flash
+  // Graphics layers (back to front): nextFill, delta, currentFill, preview, highlight, flash
   private nextFillGfx: Phaser.GameObjects.Graphics;
   private deltaGfx: Phaser.GameObjects.Graphics;
   private fillGfx: Phaser.GameObjects.Graphics;
+  private previewGfx: Phaser.GameObjects.Graphics;
   private highlightGfx: Phaser.GameObjects.Graphics;
   private flashGfx: Phaser.GameObjects.Graphics;
 
@@ -33,6 +35,9 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
   private deltaDraining = false;
   private deltaDrainTween?: Phaser.Tweens.Tween;
   private prevLayerIdx: number;
+
+  // Preview support
+  private previewPulseTween?: Phaser.Tweens.Tween;
 
   // Layer counter text
   private counterText: Phaser.GameObjects.Text;
@@ -88,6 +93,10 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     // Current layer fill
     this.fillGfx = scene.add.graphics();
     children.push(this.fillGfx);
+
+    // Preview overlay (between fill and highlight)
+    this.previewGfx = scene.add.graphics();
+    children.push(this.previewGfx);
 
     // Highlight strip
     this.highlightGfx = scene.add.graphics();
@@ -321,5 +330,103 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
         this.deltaDrainTween = undefined;
       },
     });
+  }
+
+  /**
+   * Show a delta preview on the bar.
+   *
+   * For LayeredMeter, the preview is rendered relative to the current layer's
+   * fill ratio. Negative delta (damage) shows a white section, positive delta
+   * (heal) shows a green section.
+   */
+  showPreview(current: number, max: number, delta: number) {
+    this.clearPreview();
+    if (delta === 0 || max === 0) return;
+
+    const clamped = Phaser.Math.Clamp(current, 0, this.totalHp);
+    const after = Phaser.Math.Clamp(clamped + delta, 0, this.totalHp);
+
+    // Convert to fill ratios within the current layer
+    const layerIdx = this.getLayerIndex();
+    if (layerIdx <= 0) return;
+    const layerHp = this.layerHpArray[layerIdx - 1];
+    const prevCumulative = layerIdx >= 2 ? this.cumulativeHp[layerIdx - 2] : 0;
+
+    const currentInLayer = clamped - prevCumulative;
+    const afterInLayer = Phaser.Math.Clamp(after - prevCumulative, 0, layerHp);
+
+    const fromRatio = Math.min(currentInLayer, afterInLayer) / layerHp;
+    const toRatio = Math.max(currentInLayer, afterInLayer) / layerHp;
+
+    const startPx = this.widthPx * fromRatio;
+    const endPx = this.widthPx * toRatio;
+    const segmentWidth = endPx - startPx;
+    if (segmentWidth <= 0) return;
+
+    const isDamage = delta < 0;
+    const color = isDamage ? 0xffffff : 0x4caf50;
+    const alpha = isDamage ? 0.8 : 0.7;
+
+    this.previewGfx.clear();
+    this.previewGfx.fillStyle(color, alpha);
+
+    const totalEnd = startPx + segmentWidth;
+    const fr = this.fillRadius(totalEnd);
+
+    if (typeof fr === "number") {
+      // In right curve zone — snap to full remaining width (same tradeoff as
+      // drawAll: values near max visually show as full, exact value in label)
+      this.previewGfx.fillRoundedRect(
+        startPx, 0,
+        this.widthPx - startPx, this.heightPx, {
+          tl: startPx === 0 ? this.radius : 0,
+          tr: this.radius,
+          bl: startPx === 0 ? this.radius : 0,
+          br: this.radius,
+        },
+      );
+    } else {
+      const leftR = startPx === 0 ? this.radius : 0;
+      const rightR = totalEnd >= this.widthPx - this.radius ? this.radius : 0;
+      this.previewGfx.fillRoundedRect(
+        startPx, 0,
+        segmentWidth, this.heightPx, {
+          tl: leftR, tr: rightR,
+          bl: leftR, br: rightR,
+        },
+      );
+    }
+
+    // Pulse the preview layer
+    this.previewPulseTween = this.scene.tweens.add({
+      targets: this.previewGfx,
+      alpha: { from: 0.5, to: 0.9 },
+      duration: PREVIEW_PULSE_DURATION,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  /** Remove the preview overlay and stop its pulse tween */
+  clearPreview() {
+    if (this.previewPulseTween) {
+      this.previewPulseTween.stop();
+      this.previewPulseTween = undefined;
+    }
+    this.previewGfx.clear();
+    this.previewGfx.setAlpha(1);
+  }
+
+  /** Phaser lifecycle — stop tweens before children are destroyed */
+  preDestroy() {
+    if (this.previewPulseTween) {
+      this.previewPulseTween.stop();
+      this.previewPulseTween = undefined;
+    }
+    if (this.deltaDrainTween) {
+      this.deltaDrainTween.stop();
+      this.deltaDrainTween = undefined;
+    }
   }
 }

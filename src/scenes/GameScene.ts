@@ -2154,7 +2154,7 @@ export class GameScene extends Phaser.Scene {
     // SHUTDOWN listener here would accumulate one listener per overlay open.
   }
 
-  /** Highlight HP/MP bars + skill icon based on what the skill affects. Tweens captured for cleanup. */
+  /** Highlight HP/MP bars + skill icon based on what the skill affects. Uses showPreview for delta preview. */
   private openSkillHighlights(id: SkillId, cfg: ReturnType<GameScene["getEffectiveSkillCfg"]>) {
     const tweens: Phaser.Tweens.Tween[] = [];
     // Skill icon glow — pulse the corresponding skill button
@@ -2169,45 +2169,38 @@ export class GameScene extends Phaser.Scene {
         repeat: -1,
       }));
     }
-    // Player HP pulse if heal
+    // Player HP bar — heal preview (green section showing HP to be gained)
     if (cfg.heal > 0 && this.playerHpBar) {
-      tweens.push(this.tweens.add({
-        targets: this.playerHpBar,
-        alpha: { from: 1, to: 0.55 },
-        duration: 500,
-        ease: "Sine.easeInOut",
-        yoyo: true,
-        repeat: -1,
-      }));
+      this.playerHpBar.showPreview(this.playerHp, this.getEffectivePlayerHpMax(), cfg.heal);
     }
-    // Boss HP pulse if damage (preview "what will be hit")
+    // Boss HP bar — damage preview (white section showing HP to be lost)
     if (cfg.damage > 0 && this.bossHpBar) {
-      tweens.push(this.tweens.add({
-        targets: this.bossHpBar,
-        alpha: { from: 1, to: 0.55 },
-        duration: 500,
-        ease: "Sine.easeInOut",
-        yoyo: true,
-        repeat: -1,
-      }));
+      this.bossHpBar.showPreview(this.bossHp, this.getEffectiveBossHpMax(), -cfg.damage);
+    }
+    // Mana bar — cost preview (white section showing mana to be spent)
+    if (cfg.cost > 0 && this.manaBar) {
+      this.manaBar.showPreview(this.mana, this.getEffectivePlayerManaMax(), -cfg.cost);
     }
     this.skillHighlightTweens = tweens;
   }
 
-  /** Stop all highlight tweens and restore alpha/scale to defaults. Idempotent. */
+  /** Stop all highlight tweens and clear bar previews. Idempotent. */
   private closeSkillHighlights() {
-    if (!this.skillHighlightTweens || this.skillHighlightTweens.length === 0) return;
-    for (const t of this.skillHighlightTweens) {
-      if (t && t.isPlaying()) t.stop();
+    if (this.skillHighlightTweens) {
+      for (const t of this.skillHighlightTweens) {
+        if (t && t.isPlaying()) t.stop();
+      }
+      this.skillHighlightTweens = [];
     }
-    this.skillHighlightTweens = [];
     // Restore visual defaults
     SKILL_IDS.forEach((sid) => {
       const b = this.skillButtons[sid];
       if (b) b.setScale(1);
     });
-    if (this.playerHpBar) this.playerHpBar.setAlpha(1);
-    if (this.bossHpBar) this.bossHpBar.setAlpha(1);
+    // Clear bar previews
+    this.playerHpBar?.clearPreview();
+    this.bossHpBar?.clearPreview();
+    this.manaBar?.clearPreview();
   }
 
   private executeSkill(id: SkillId) {
