@@ -40,6 +40,7 @@ export class PerkCard extends Phaser.GameObjects.Container {
   private cardBg: Phaser.GameObjects.Graphics;
   private borderGlow: Phaser.GameObjects.Graphics;
   private glowTween?: Phaser.Tweens.Tween;
+  private scrollTween?: Phaser.Tweens.Tween;
 
   constructor(
     scene: Phaser.Scene,
@@ -82,24 +83,35 @@ export class PerkCard extends Phaser.GameObjects.Container {
     this.cardBg.lineStyle(2, CARD_COLORS.border, 0.9);
     this.cardBg.strokeRoundedRect(-halfW, -halfH, w, h, r);
 
-    // Title background strip
-    const titleH = Math.round(26 * scale * titleMul);
-    const titleGfx = scene.add.graphics();
-    titleGfx.fillStyle(CARD_COLORS.titleBg, 0.9);
-    titleGfx.fillRoundedRect(-halfW, -halfH, w, titleH, { tl: r, tr: r, bl: 0, br: 0 });
-
-    // Title text
+    // Title text — create first to measure, then draw strip behind it
+    const titleMaxW = w - 12;
+    let titleFontSize = Math.round(16 * titleMul);
     const titleText = scene.add
-      .text(0, -halfH + titleH / 2, perk.name, {
-        fontSize: `${Math.round(16 * titleMul)}px`,
+      .text(0, 0, perk.name, {
+        fontSize: `${titleFontSize}px`,
         color: CARD_COLORS.title,
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 2,
+        wordWrap: { width: titleMaxW },
+        align: "center",
         resolution: 2,
       })
       .setOrigin(0.5);
+    // Shrink font if title exceeds ~2 lines
+    const maxTitleTextH = titleFontSize * 2.6;
+    while (titleText.height > maxTitleTextH && titleFontSize > 10) {
+      titleFontSize -= 1;
+      titleText.setFontSize(titleFontSize);
+    }
+    const titleH = Math.max(Math.round(26 * scale * titleMul), Math.round(titleText.height + 6));
+    titleText.setY(-halfH + titleH / 2);
+
+    // Title background strip
+    const titleGfx = scene.add.graphics();
+    titleGfx.fillStyle(CARD_COLORS.titleBg, 0.9);
+    titleGfx.fillRoundedRect(-halfW, -halfH, w, titleH, { tl: r, tr: r, bl: 0, br: 0 });
 
     // Skill icon in circle (like game skill buttons)
     const iconY = -halfH + titleH + Math.round(38 * scale * titleMul);
@@ -123,9 +135,9 @@ export class PerkCard extends Phaser.GameObjects.Container {
     // Enhanced режим использует ASSET_KEYS.tiles[TileKind.Mana] (синий каплеподобный
     // тайл) c числом стоимости, отрисованным поверх иконки. Fallback на старый круг
     // оставлен для не-enhanced вызовов и на случай отсутствия текстуры.
-    const dropX = -circleR + Math.round(4 * scale);
-    const dropY = iconY - circleR + Math.round(4 * scale);
-    const dropR = Math.round(13 * scale * manaMul);
+    const dropX = -circleR + Math.round(10 * scale);
+    const dropY = iconY - circleR + Math.round(10 * scale);
+    const dropR = Math.round(15 * scale * manaMul);
     const manaTexKey = ASSET_KEYS.tiles[TileKind.Mana];
     const useManaSprite = enhanced && scene.textures.exists(manaTexKey);
     let manaIcon: Phaser.GameObjects.GameObject;
@@ -190,35 +202,57 @@ export class PerkCard extends Phaser.GameObjects.Container {
       starsTexts.push(star);
     }
 
-    // Description text (bottom).
-    // В enhanced-режиме отделяем стрелки `↑↑↑` (или `↓↓↓`) от текста и рендерим их
-    // отдельным крупным ярко-зелёным элементом снизу. Это даёт ту самую визуальную
-    // акцентную «прокачку» из мокапа, не ломая старое API.
+    // Description text (bottom) — bold, auto-scroll if overflows.
     const arrowParse = enhanced ? splitDescriptionArrows(nextDescription) : null;
     const baseDescription = arrowParse?.text ?? nextDescription;
     const arrowsString = arrowParse?.arrows ?? "";
-    const descFontSize = Math.round(11 * scale * fontMul);
+    const descFontSize = Math.round(10 * scale * fontMul);
     const arrowsFontSize = Math.round(22 * scale * (enhanced ? 1.4 : 1));
-    const descLineHeight = descFontSize + 4;
     const arrowsLineHeight = arrowsString.length > 0 ? arrowsFontSize + 4 : 0;
-    const descY = halfH - Math.round(22 * scale) - (arrowsLineHeight > 0 ? arrowsLineHeight / 2 : 0);
+
+    // Description area: from below stars to card bottom (minus arrows + padding)
+    const descAreaTop = starsY + Math.round(12 * scale);
+    const descAreaBottom = halfH - 6 - arrowsLineHeight;
+    const descVisibleH = Math.max(0, descAreaBottom - descAreaTop);
+
     const descText = scene.add
-      .text(0, descY, baseDescription, {
+      .text(0, descAreaTop, baseDescription, {
         fontSize: `${descFontSize}px`,
         color: CARD_COLORS.description,
         fontFamily: "'Exo 2', Arial, sans-serif",
+        fontStyle: "bold",
         align: "center",
         wordWrap: { width: w - 16 },
         resolution: 2,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5, 0);
+
+    // Auto-scroll marquee if description overflows visible area
+    if (descVisibleH > 0 && descText.height > descVisibleH) {
+      descText.setCrop(0, 0, Math.ceil(descText.width), Math.ceil(descVisibleH));
+      const scrollDist = descText.height - descVisibleH;
+      const scrollData = { crop: 0 };
+      this.scrollTween = scene.tweens.add({
+        targets: scrollData,
+        crop: scrollDist,
+        duration: Math.max(1000, scrollDist * 50),
+        delay: 1500,
+        yoyo: true,
+        repeat: -1,
+        repeatDelay: 1500,
+        ease: "Linear",
+        onUpdate: () => {
+          descText.setCrop(0, Math.round(scrollData.crop), Math.ceil(descText.width), Math.ceil(descVisibleH));
+        },
+      });
+    }
 
     let arrowsText: Phaser.GameObjects.Text | null = null;
     if (arrowsString.length > 0) {
       const isUp = arrowsString.includes(ARROW_UP_CHAR);
       const arrowColor = isUp ? CARD_COLORS.upgradeArrow : "#e35454";
       arrowsText = scene.add
-        .text(0, descY + descLineHeight / 2 + arrowsLineHeight / 2, arrowsString, {
+        .text(0, halfH - 6 - arrowsLineHeight / 2, arrowsString, {
           fontSize: `${arrowsFontSize}px`,
           color: arrowColor,
           fontFamily: "'Exo 2', Arial, sans-serif",
@@ -340,10 +374,8 @@ export class PerkCard extends Phaser.GameObjects.Container {
   }
 
   destroy(fromScene?: boolean) {
-    if (this.glowTween) {
-      this.glowTween.stop();
-      this.glowTween = undefined;
-    }
+    if (this.glowTween) { this.glowTween.stop(); this.glowTween = undefined; }
+    if (this.scrollTween) { this.scrollTween.stop(); this.scrollTween = undefined; }
     super.destroy(fromScene);
   }
 }
