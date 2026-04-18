@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { TileKind } from "../match3/types";
 import { ASSET_KEYS } from "../game/assets";
-import { GAME_WIDTH, GAME_HEIGHT, PERK_MAX_LEVEL } from "../game/config";
+import { GAME_WIDTH, GAME_HEIGHT, PERK_MAX_LEVEL, UI_LAYOUT } from "../game/config";
 import type { SkillDef } from "../game/config";
 
 const OVERLAY_DEPTH = 1500;
@@ -13,18 +13,23 @@ const COLORS = {
   applyBg: 0x2da548,
   applyBgHover: 0x35c357,
   applyStroke: 0x7af09a,
-  closeBg: 0x4a3a6e,
-  closeStroke: 0xff8866,
   manaText: "#7ab8ff",
   cooldownText: "#ffd166",
   damageText: "#ff8866",
   healText: "#9ef7a5",
+  nameText: "#ffd700",
   starOn: 0xffd700,
   starOff: 0x4a3a6e,
 } as const;
 
-const MANA_ICON_SIZE = 18;
-const HOURGLASS_SIZE = 18;
+const CARD_W = 300;
+const CARD_H = 150;
+const CARD_RADIUS = 12;
+const ICON_SIZE = 64;
+const BACKDROP_ALPHA = 0.35;
+const BTN_W = 200;
+const BTN_H = 48;
+const BTN_RADIUS = 10;
 
 export interface SkillApplyOverlayOptions {
   /** Skill definition to display */
@@ -42,14 +47,14 @@ export interface SkillApplyOverlayOptions {
 }
 
 /**
- * Confirmation overlay shown after tapping a skill button.
- * Displays skill details, cost, cooldown, level stars, and a green "Применить!"
- * button. Player must confirm before the skill activates.
+ * Compact confirmation card shown after tapping a skill button.
+ * Displays skill icon, stars, name, cost, cooldown, effect description, and a
+ * green "Применить!" button. Game field is visible through a lighter backdrop.
  *
  * Modal pattern per `.conventions/gold-standards/ui-component.ts` §12:
  * - backdrop pointerdown closes (with stopPropagation)
- * - panel absorbs pointerdown
- * - close button + apply button stopPropagation in their own handlers
+ * - card panel absorbs pointerdown (stopPropagation)
+ * - apply button stopPropagation in its own handler
  */
 export class SkillApplyOverlay extends Phaser.GameObjects.Container {
   private opts: SkillApplyOverlayOptions;
@@ -62,7 +67,6 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     this.setDepth(OVERLAY_DEPTH);
     this.build();
     scene.add.existing(this);
-    // Fire onOpen after add.existing so scene can safely tween/dim UI elements
     try {
       opts.onOpen?.();
     } catch (err) {
@@ -72,12 +76,12 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
 
   private build() {
     const scene = this.scene;
+    const cfg = this.opts.skill;
     const cx = GAME_WIDTH / 2;
-    const cy = GAME_HEIGHT / 2;
 
-    // === Backdrop — fullscreen, closes on tap ===
+    // === Backdrop — fullscreen, lighter alpha, closes on tap ===
     const backdrop = new Phaser.GameObjects.Rectangle(
-      scene, 0, 0, GAME_WIDTH, GAME_HEIGHT, COLORS.backdrop, 0.7,
+      scene, 0, 0, GAME_WIDTH, GAME_HEIGHT, COLORS.backdrop, BACKDROP_ALPHA,
     ).setOrigin(0).setInteractive({ useHandCursor: false });
     backdrop.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => {
       e.stopPropagation();
@@ -85,62 +89,51 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     });
     this.add(backdrop);
 
-    // === Panel — centered, absorbs taps ===
-    const panelW = Math.min(GAME_WIDTH - 32, 380);
-    const panelH = Math.min(GAME_HEIGHT - 80, 460);
+    // === Card position — above game board ===
+    const cardY = UI_LAYOUT.bossHpBarY + UI_LAYOUT.hpBarHeight + 20 + CARD_H / 2;
+    const cardX = cx;
 
-    const panel = new Phaser.GameObjects.Rectangle(
-      scene, cx, cy, panelW, panelH, COLORS.panelBg, 0.96,
-    ).setStrokeStyle(2, COLORS.panelStroke, 0.9).setInteractive({ useHandCursor: false });
-    panel.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => {
+    // === Card background (Graphics for rounded rect) ===
+    const cardGfx = new Phaser.GameObjects.Graphics(scene);
+    cardGfx.fillStyle(0x1a1f3a, 0.95);
+    cardGfx.fillRoundedRect(
+      cardX - CARD_W / 2, cardY - CARD_H / 2,
+      CARD_W, CARD_H, CARD_RADIUS,
+    );
+    cardGfx.lineStyle(2, COLORS.panelStroke, 0.9);
+    cardGfx.strokeRoundedRect(
+      cardX - CARD_W / 2, cardY - CARD_H / 2,
+      CARD_W, CARD_H, CARD_RADIUS,
+    );
+    this.add(cardGfx);
+
+    // Card interactive zone — absorbs taps (stopPropagation)
+    const cardHitZone = new Phaser.GameObjects.Rectangle(
+      scene, cardX, cardY, CARD_W, CARD_H, 0x000000, 0,
+    ).setInteractive({ useHandCursor: false });
+    cardHitZone.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => {
       e.stopPropagation();
     });
-    this.add(panel);
+    this.add(cardHitZone);
 
-    // === Layout inside the panel (top-down) ===
-    const padX = 20;
-    const innerLeft = cx - panelW / 2 + padX;
-    const innerRight = cx + panelW / 2 - padX;
-    const top = cy - panelH / 2;
+    // === LEFT side: icon + stars ===
+    const leftPad = 20;
+    const iconX = cardX - CARD_W / 2 + leftPad + ICON_SIZE / 2;
+    const iconY = cardY - 12; // slightly above center to make room for stars
 
-    // Close button — top-right corner inside panel
-    const closeR = 18;
-    const closeX = innerRight - closeR;
-    const closeY = top + closeR + 8;
-    const closeBg = new Phaser.GameObjects.Arc(
-      scene, closeX, closeY, closeR, 0, 360, false, COLORS.closeBg, 0.95,
-    ).setStrokeStyle(2, COLORS.closeStroke, 0.9).setInteractive({ useHandCursor: true });
-    const closeText = new Phaser.GameObjects.Text(scene, closeX, closeY - 1, "✕", {
-      fontSize: "20px",
-      color: "#ffffff",
-      fontFamily: "'Exo 2', Arial, sans-serif",
-      fontStyle: "bold",
-      resolution: 2,
-    }).setOrigin(0.5);
-    const closeHandler = (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => {
-      e.stopPropagation();
-      this.close(false);
-    };
-    closeBg.on("pointerdown", closeHandler);
-    this.add([closeBg, closeText]);
-
-    // === Header row: large icon + name ===
-    const headerY = top + 56;
-    const iconSize = 64;
-    const iconX = innerLeft + iconSize / 2;
-
+    // Icon circle bg
     const iconBg = new Phaser.GameObjects.Arc(
-      scene, iconX, headerY, iconSize / 2, 0, 360, false, 0x4a3a6e, 0.95,
+      scene, iconX, iconY, ICON_SIZE / 2, 0, 360, false, 0x4a3a6e, 0.95,
     ).setStrokeStyle(2, 0xffffff, 0.4);
     this.add(iconBg);
 
-    const cfg = this.opts.skill;
+    // Icon content (texture or emoji)
     if (cfg.iconTexture && scene.textures.exists(cfg.iconTexture)) {
-      const iconImg = new Phaser.GameObjects.Image(scene, iconX, headerY, cfg.iconTexture)
-        .setDisplaySize(iconSize * 0.7, iconSize * 0.7);
+      const iconImg = new Phaser.GameObjects.Image(scene, iconX, iconY, cfg.iconTexture)
+        .setDisplaySize(ICON_SIZE * 0.7, ICON_SIZE * 0.7);
       this.add(iconImg);
     } else {
-      const iconText = new Phaser.GameObjects.Text(scene, iconX, headerY - 2, cfg.icon, {
+      const iconText = new Phaser.GameObjects.Text(scene, iconX, iconY - 2, cfg.icon, {
         fontSize: "36px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -149,7 +142,7 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       this.add(iconText);
     }
 
-    // Pulse the skill icon (this is what player is using)
+    // Pulse the icon
     this.pulseTweens.push(scene.tweens.add({
       targets: iconBg,
       scale: { from: 1, to: 1.08 },
@@ -159,32 +152,60 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       repeat: -1,
     }));
 
-    // Skill name — to the right of icon
-    const nameX = iconX + iconSize / 2 + 12;
-    const nameText = new Phaser.GameObjects.Text(scene, nameX, headerY, cfg.name, {
-      fontSize: "22px",
-      color: "#ffffff",
+    // Stars below icon
+    const starSize = 12;
+    const starGap = 3;
+    const totalStarsW = PERK_MAX_LEVEL * starSize + (PERK_MAX_LEVEL - 1) * starGap;
+    const starsStartX = iconX - totalStarsW / 2 + starSize / 2;
+    const starsY = iconY + ICON_SIZE / 2 + 10;
+    const lvl = Phaser.Math.Clamp(this.opts.level, 0, PERK_MAX_LEVEL);
+    for (let i = 0; i < PERK_MAX_LEVEL; i++) {
+      const filled = i < lvl;
+      const star = new Phaser.GameObjects.Text(
+        scene, starsStartX + i * (starSize + starGap), starsY,
+        "\u2605",
+        {
+          fontSize: `${starSize + 2}px`,
+          color: filled ? "#ffd700" : "#4a3a6e",
+          fontFamily: "'Exo 2', Arial, sans-serif",
+          fontStyle: "bold",
+          stroke: filled ? "#6b4c00" : "#000000",
+          strokeThickness: filled ? 2 : 1,
+          resolution: 2,
+        },
+      ).setOrigin(0.5);
+      this.add(star);
+    }
+
+    // === RIGHT side: name, cost, cooldown, description ===
+    const rightX = iconX + ICON_SIZE / 2 + 16;
+    const rightMaxW = CARD_W - leftPad - ICON_SIZE - 16 - 16; // available width for text
+    let rowY = cardY - CARD_H / 2 + 22;
+    const rowGap = 22;
+
+    // Skill name (gold, bold)
+    const nameText = new Phaser.GameObjects.Text(scene, rightX, rowY, cfg.name, {
+      fontSize: "20px",
+      color: COLORS.nameText,
       fontFamily: "'Exo 2', Arial, sans-serif",
       fontStyle: "bold",
       stroke: "#000000",
-      strokeThickness: 3,
+      strokeThickness: 2,
       resolution: 2,
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0, 0);
     this.add(nameText);
 
-    // === Stat rows ===
-    let rowY = headerY + iconSize / 2 + 22;
-    const rowGap = 26;
-    const rowLeft = innerLeft;
+    rowY += rowGap;
 
-    // Mana cost row: drop icon + cost number + " маны"
-    const manaIcon = new Phaser.GameObjects.Image(scene, rowLeft + MANA_ICON_SIZE / 2, rowY, ASSET_KEYS.tiles[TileKind.Mana])
-      .setDisplaySize(MANA_ICON_SIZE, MANA_ICON_SIZE);
+    // Mana cost row
+    const manaIconSize = 16;
+    const manaIcon = new Phaser.GameObjects.Image(scene, rightX + manaIconSize / 2, rowY + 8, ASSET_KEYS.tiles[TileKind.Mana])
+      .setDisplaySize(manaIconSize, manaIconSize);
     const manaText = new Phaser.GameObjects.Text(
-      scene, rowLeft + MANA_ICON_SIZE + 8, rowY,
-      `${cfg.cost} маны`,
+      scene, rightX + manaIconSize + 6, rowY + 8,
+      `${cfg.cost} \u043C\u0430\u043D\u044B`,
       {
-        fontSize: "16px",
+        fontSize: "14px",
         color: COLORS.manaText,
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
@@ -195,86 +216,59 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
 
     rowY += rowGap;
 
-    // Cooldown row: hourglass + cd
-    const hourglassText = new Phaser.GameObjects.Text(
-      scene, rowLeft + HOURGLASS_SIZE / 2, rowY, "⏳",
-      {
-        fontSize: "16px",
-        color: "#ffffff",
-        fontFamily: "'Exo 2', Arial, sans-serif",
-        resolution: 2,
-      },
-    ).setOrigin(0.5);
-    // Skill cooldown range realistically 1-6 turns; binary "ход"/"ходов" suffices.
-    const cdLabel = cfg.cooldown === 1 ? "ход" : "ходов";
+    // Cooldown row
+    const cdLabel = cfg.cooldown === 1 ? "\u0445\u043E\u0434" : "\u0445\u043E\u0434\u043E\u0432";
     const cdText = new Phaser.GameObjects.Text(
-      scene, rowLeft + HOURGLASS_SIZE + 8, rowY,
-      `${cfg.cooldown} ${cdLabel} перезарядки`,
+      scene, rightX, rowY + 8,
+      `\u23F3 ${cfg.cooldown} ${cdLabel}`,
       {
-        fontSize: "16px",
+        fontSize: "14px",
         color: COLORS.cooldownText,
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         resolution: 2,
       },
     ).setOrigin(0, 0.5);
-    this.add([hourglassText, cdText]);
+    this.add(cdText);
 
-    rowY += rowGap + 4;
+    rowY += rowGap;
 
-    // Description
+    // Effect description
     const descColor = cfg.heal > 0 ? COLORS.healText : cfg.damage > 0 ? COLORS.damageText : "#cfd8ff";
     const descText = new Phaser.GameObjects.Text(
-      scene, cx, rowY, cfg.description,
+      scene, rightX, rowY + 4, cfg.description,
       {
-        fontSize: "17px",
+        fontSize: "14px",
         color: descColor,
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
-        align: "center",
-        wordWrap: { width: panelW - padX * 2 },
+        wordWrap: { width: rightMaxW },
         resolution: 2,
       },
-    ).setOrigin(0.5, 0);
+    ).setOrigin(0, 0.5);
     this.add(descText);
 
-    rowY += descText.height + 18;
+    // === Apply button — separate from card, at bottom-center ===
+    const btnY = UI_LAYOUT.playerHpBarY - 20;
 
-    // === Star rating ===
-    const starSize = 18;
-    const starGap = 6;
-    const totalStarsW = PERK_MAX_LEVEL * starSize + (PERK_MAX_LEVEL - 1) * starGap;
-    const starsStartX = cx - totalStarsW / 2 + starSize / 2;
-    const lvl = Phaser.Math.Clamp(this.opts.level, 0, PERK_MAX_LEVEL);
-    for (let i = 0; i < PERK_MAX_LEVEL; i++) {
-      const filled = i < lvl;
-      const star = new Phaser.GameObjects.Text(
-        scene, starsStartX + i * (starSize + starGap), rowY,
-        "★",
-        {
-          fontSize: `${starSize + 4}px`,
-          color: filled ? "#ffd700" : "#4a3a6e",
-          fontFamily: "'Exo 2', Arial, sans-serif",
-          fontStyle: "bold",
-          stroke: filled ? "#6b4c00" : "#000000",
-          strokeThickness: filled ? 2 : 1,
-          resolution: 2,
-        },
-      ).setOrigin(0.5, 0);
-      this.add(star);
-    }
+    const btnGfx = new Phaser.GameObjects.Graphics(scene);
+    btnGfx.fillStyle(COLORS.applyBg, 1);
+    btnGfx.fillRoundedRect(cx - BTN_W / 2, btnY - BTN_H / 2, BTN_W, BTN_H, BTN_RADIUS);
+    btnGfx.lineStyle(3, COLORS.applyStroke, 1);
+    btnGfx.strokeRoundedRect(cx - BTN_W / 2, btnY - BTN_H / 2, BTN_W, BTN_H, BTN_RADIUS);
+    this.add(btnGfx);
 
-    rowY += starSize + 24;
+    // Button hit zone (interactive)
+    const btnHit = new Phaser.GameObjects.Rectangle(
+      scene, cx, btnY, BTN_W, BTN_H, 0x000000, 0,
+    ).setInteractive({ useHandCursor: true });
+    btnHit.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => {
+      e.stopPropagation();
+      this.close(true);
+    });
+    this.add(btnHit);
 
-    // === Apply button (big green, centered) ===
-    const btnW = panelW - padX * 2;
-    const btnH = 56;
-    const btnY = cy + panelH / 2 - btnH / 2 - 18;
-
-    const applyBg = new Phaser.GameObjects.Rectangle(
-      scene, cx, btnY, btnW, btnH, COLORS.applyBg, 1,
-    ).setStrokeStyle(3, COLORS.applyStroke, 1).setInteractive({ useHandCursor: true });
-    const applyText = new Phaser.GameObjects.Text(scene, cx, btnY, "Применить!", {
+    const applyLabel = new Phaser.GameObjects.Text(scene, cx, btnY, "\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C!", {
       fontSize: "22px",
       color: "#ffffff",
       fontFamily: "'Exo 2', Arial, sans-serif",
@@ -283,18 +277,11 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       strokeThickness: 3,
       resolution: 2,
     }).setOrigin(0.5);
+    this.add(applyLabel);
 
-    applyBg.on("pointerover", () => applyBg.setFillStyle(COLORS.applyBgHover, 1));
-    applyBg.on("pointerout", () => applyBg.setFillStyle(COLORS.applyBg, 1));
-    applyBg.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => {
-      e.stopPropagation();
-      this.close(true);
-    });
-    this.add([applyBg, applyText]);
-
-    // Subtle pulse on apply button to draw attention
+    // Pulse the apply button
     this.pulseTweens.push(scene.tweens.add({
-      targets: applyBg,
+      targets: [btnGfx, btnHit, applyLabel],
       scaleX: { from: 1, to: 1.03 },
       scaleY: { from: 1, to: 1.03 },
       duration: 800,
@@ -312,15 +299,13 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     this.pulseTweens.length = 0;
   }
 
-  /** Close the overlay. confirmed=true → onConfirm, false → onCancel. */
+  /** Close the overlay. confirmed=true -> onConfirm, false -> onCancel. */
   private close(confirmed: boolean) {
     if (this.closed) return;
     this.closed = true;
     const cb = confirmed ? this.opts.onConfirm : this.opts.onCancel;
     const onClose = this.opts.onClose;
-    // Destroy first so callbacks run in clean state
     this.destroy();
-    // onClose runs FIRST so scene can clean up highlights before its main callback
     if (onClose) {
       try { onClose(); } catch (err) { console.error("SkillApplyOverlay onClose error:", err); }
     }
