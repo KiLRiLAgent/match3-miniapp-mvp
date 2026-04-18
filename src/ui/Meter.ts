@@ -395,8 +395,8 @@ export class Meter extends Phaser.GameObjects.Container {
     const fr = this.fillRadius(totalEnd);
 
     if (typeof fr === "number") {
-      // In right curve zone — draw full width bar clipped by start offset
-      // We need to draw the entire rounded rect and use fillStyle area
+      // In right curve zone — snap to full remaining width (same tradeoff as
+      // drawFill: values near max visually show as full, exact value in label)
       this.previewGfx.fillRoundedRect(
         this.barOffsetX + startPx, 0,
         this.widthPx - startPx, this.heightPx, {
