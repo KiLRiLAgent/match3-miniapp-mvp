@@ -3493,10 +3493,17 @@ export class GameScene extends Phaser.Scene {
         stroke: "#000000",
         strokeThickness: 4,
         resolution: 2,
+        align: "center",
       })
       .setOrigin(0.5)
       .setAlpha(0)
       .setDepth(502);
+    // Shrink-to-fit so long ability names like "Мощный удар" don't get clipped
+    // on narrow Telegram WebApp viewports (320–360 dp).
+    const maxTextWidth = GAME_WIDTH - 40;
+    if (abilityText.width > maxTextWidth) {
+      abilityText.setScale(maxTextWidth / abilityText.width);
+    }
 
     return { overlay, fullscreenBack, fullscreenBoss, abilityText };
   }

@@ -460,6 +460,8 @@ function playSelect(
   container: Phaser.GameObjects.Container,
   tweens: Phaser.Tweens.Tween[],
 ): Promise<void> {
+  // Bring selected card above its siblings so the zoom isn't clipped by neighbors.
+  container.setDepth(MODAL_DEPTH + 5);
   return new Promise<void>((resolve) => {
     if (!scene || !scene.tweens) { resolve(); return; }
     const t1 = scene.tweens.add({

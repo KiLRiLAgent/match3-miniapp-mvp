@@ -22,10 +22,14 @@ const COLORS = {
   starOff: 0x4a3a6e,
 } as const;
 
-const CARD_W = 300;
-const CARD_H = 150;
+const CARD_W = 270;
+const CARD_H = 120;
 const CARD_RADIUS = 12;
-const ICON_SIZE = 64;
+const ICON_SIZE = 56;
+// Cost badge (mana drop) sits on top-left edge of the icon circle.
+// BADGE_OFFSET ≈ ICON_SIZE/2 * cos(45°) so the badge centre lies right on the circle border.
+const BADGE_SIZE = 32;
+const BADGE_OFFSET = Math.round((ICON_SIZE / 2) * 0.72);
 const BACKDROP_ALPHA = 0.35;
 const BTN_W = 200;
 const BTN_H = 48;
@@ -152,6 +156,25 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       repeat: -1,
     }));
 
+    // === Mana cost badge (drop) on top-left of the icon circle ===
+    // Centre of badge sits on the circle border for visual "intersection".
+    const badgeX = iconX - BADGE_OFFSET;
+    const badgeY = iconY - BADGE_OFFSET;
+    const manaBadge = new Phaser.GameObjects.Image(scene, badgeX, badgeY, ASSET_KEYS.tiles[TileKind.Mana])
+      .setDisplaySize(BADGE_SIZE, BADGE_SIZE)
+      .setOrigin(0.5);
+    this.add(manaBadge);
+    const costBadgeText = new Phaser.GameObjects.Text(scene, badgeX, badgeY, `${cfg.cost}`, {
+      fontSize: "14px",
+      color: "#ffffff",
+      fontFamily: "'Exo 2', Arial, sans-serif",
+      fontStyle: "bold",
+      stroke: "#0b3a7a",
+      strokeThickness: 2,
+      resolution: 2,
+    }).setOrigin(0.5);
+    this.add(costBadgeText);
+
     // Stars below icon
     const starSize = 12;
     const starGap = 3;
@@ -183,9 +206,9 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     let rowY = cardY - CARD_H / 2 + 22;
     const rowGap = 22;
 
-    // Skill name (gold, bold)
+    // Skill name (gold, bold) — auto-shrink if long names like "Мощный удар" don't fit
     const nameText = new Phaser.GameObjects.Text(scene, rightX, rowY, cfg.name, {
-      fontSize: "20px",
+      fontSize: "18px",
       color: COLORS.nameText,
       fontFamily: "'Exo 2', Arial, sans-serif",
       fontStyle: "bold",
@@ -193,26 +216,10 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       strokeThickness: 2,
       resolution: 2,
     }).setOrigin(0, 0);
+    if (nameText.width > rightMaxW) {
+      nameText.setScale(rightMaxW / nameText.width);
+    }
     this.add(nameText);
-
-    rowY += rowGap;
-
-    // Mana cost row
-    const manaIconSize = 16;
-    const manaIcon = new Phaser.GameObjects.Image(scene, rightX + manaIconSize / 2, rowY + 8, ASSET_KEYS.tiles[TileKind.Mana])
-      .setDisplaySize(manaIconSize, manaIconSize);
-    const manaText = new Phaser.GameObjects.Text(
-      scene, rightX + manaIconSize + 6, rowY + 8,
-      `${cfg.cost} \u043C\u0430\u043D\u044B`,
-      {
-        fontSize: "14px",
-        color: COLORS.manaText,
-        fontFamily: "'Exo 2', Arial, sans-serif",
-        fontStyle: "bold",
-        resolution: 2,
-      },
-    ).setOrigin(0, 0.5);
-    this.add([manaIcon, manaText]);
 
     rowY += rowGap;
 
