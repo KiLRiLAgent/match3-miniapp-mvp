@@ -291,28 +291,30 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     }));
   }
 
-  /** Phaser lifecycle hook — kill our infinite tweens before children are destroyed */
+  /** Phaser lifecycle hook — kill tweens + fire onClose (lifecycle-safe) */
   preDestroy() {
     for (const t of this.pulseTweens) {
       if (t && t.isPlaying()) t.stop();
     }
     this.pulseTweens.length = 0;
+    try { this.opts.onClose?.(); } catch (err) { console.error("SkillApplyOverlay onClose error:", err); }
   }
 
-  /** Close the overlay. confirmed=true -> onConfirm, false -> onCancel. */
+  /**
+   * Close the overlay.
+   * Apply path:  onConfirm() → destroy() → preDestroy → onClose
+   * Cancel path: destroy() → preDestroy → onClose → onCancel()
+   */
   private close(confirmed: boolean) {
     if (this.closed) return;
     this.closed = true;
-    const cb = confirmed ? this.opts.onConfirm : this.opts.onCancel;
-    const onClose = this.opts.onClose;
-    this.destroy();
-    if (onClose) {
-      try { onClose(); } catch (err) { console.error("SkillApplyOverlay onClose error:", err); }
-    }
-    try {
-      cb();
-    } catch (err) {
-      console.error("SkillApplyOverlay callback error:", err);
+    if (confirmed) {
+      try { this.opts.onConfirm(); } catch (err) { console.error("SkillApplyOverlay onConfirm error:", err); }
+      this.destroy(); // → preDestroy → onClose
+    } else {
+      const onCancel = this.opts.onCancel;
+      this.destroy(); // → preDestroy → onClose
+      try { onCancel(); } catch (err) { console.error("SkillApplyOverlay onCancel error:", err); }
     }
   }
 }
