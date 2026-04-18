@@ -47,7 +47,7 @@ export class IntroScene extends Phaser.Scene {
   }
 
   private skipRequested = false;
-  private skipResolvers: Array<() => void> = [];
+
   private skipZone?: Phaser.GameObjects.Rectangle;
   private blockers: Array<{ rect: Phaser.GameObjects.Rectangle; timer: Phaser.Time.TimerEvent }> = [];
 
@@ -75,61 +75,56 @@ export class IntroScene extends Phaser.Scene {
     });
   }
 
-  /** Promise that resolves immediately when skipRequested becomes true. */
-  private waitForSkip(): Promise<void> {
-    if (this.skipRequested) return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      this.skipResolvers.push(resolve);
-    });
-  }
-
-  /** Race a step against skip — returns whichever finishes first. */
-  private async raceSkip<T>(p: Promise<T>): Promise<void> {
-    await Promise.race([p, this.waitForSkip()]);
-  }
-
   private requestSkip() {
     if (this.skipRequested) return;
     this.skipRequested = true;
     // Resolve all active tweens so any pending tweenPromise resolves cleanly.
-    // killAll would skip onComplete and leave Promises dangling. One-shot tweens
-    // get .complete() so finalValues apply (better visuals); infinite tweens
-    // (repeat: -1 used by VS pulses) get .stop() since .complete on infinite is a no-op.
     this.tweens.getTweens().forEach((t) => {
       const isInfinite = (t as unknown as { repeat?: number }).repeat === -1;
       if (isInfinite) t.stop();
       else t.complete();
     });
-    // Destroy any pending awaitOrTap blockers AND cancel their timers (RISK-9 cleanup)
+    // Destroy any pending awaitOrTap blockers AND cancel their timers
     this.blockers.forEach((b) => { b.timer.remove(); b.rect.destroy(); });
     this.blockers = [];
-    // Wake up any pending raceSkip awaits (covers tweenless awaits like wait())
-    const resolvers = this.skipResolvers;
-    this.skipResolvers = [];
-    resolvers.forEach((r) => r());
+  }
+
+  private resetSkip() {
+    this.skipRequested = false;
+  }
+
+  private clearBubble() {
+    this.speechBubble?.destroy();
+    this.speechBubble = undefined;
   }
 
   private async runIntroSequence() {
     await document.fonts.ready;
 
-    // Tap anywhere to skip entire intro — single shot
+    // Tap to advance to next picture (3 taps = skip to game)
     this.skipZone = this.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0)
       .setDepth(999)
       .setInteractive();
-    this.skipZone.once("pointerdown", () => this.requestSkip());
+    this.skipZone.on("pointerdown", () => this.requestSkip());
 
-    await this.raceSkip(this.step1_backgroundAppear());
-    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
-    await this.raceSkip(this.step2_safiraAppear());
-    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
-    await this.raceSkip(this.step3_firstDialogue());
-    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
-    await this.raceSkip(this.step4_poseChangeDialogue());
-    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
-    await this.raceSkip(this.step5_zoomAndVS());
-    if (this.skipRequested) { await this.step6_transitionToGame(); return; }
+    // --- Picture 1: background + Safira + first dialogue ---
+    await this.step1_backgroundAppear();
+    if (!this.skipRequested) await this.step2_safiraAppear();
+    else this.createSafiraInstant();
+    if (!this.skipRequested) await this.step3_firstDialogue();
+    this.clearBubble();
+    this.resetSkip();
+
+    // --- Picture 2: pose change + second dialogue ---
+    await this.step4_poseChangeDialogue();
+    this.clearBubble();
+    this.resetSkip();
+
+    // --- Picture 3: zoom + VS screen ---
+    await this.step5_zoomAndVS();
+
     await this.step6_transitionToGame();
   }
 
@@ -184,6 +179,20 @@ export class IntroScene extends Phaser.Scene {
     return this.safira.y + this.safira.displayHeight * 0.1;
   }
 
+  /** Create Safira instantly (for skip when step2 hasn't run). */
+  private createSafiraInstant() {
+    const farPos = this.getFarPosition();
+    this.safiraGlow = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.introBack);
+    this.safiraGlow.setOrigin(0.5, farPos.originY);
+    this.safiraGlow.setScale(farPos.scale);
+    this.safiraGlow.setDepth(0.9);
+
+    this.safira = this.add.image(farPos.x, farPos.y, ASSET_KEYS.boss.intro);
+    this.safira.setOrigin(0.5, farPos.originY);
+    this.safira.setScale(farPos.scale);
+    this.safira.setDepth(1);
+  }
+
   private async step2_safiraAppear(): Promise<void> {
     // Сафира появляется ДАЛЕКО (маленькая)
     const farPos = this.getFarPosition();
@@ -226,6 +235,7 @@ export class IntroScene extends Phaser.Scene {
     this.speechBubble.setDepth(10);
 
     await this.speechBubble.fadeIn();
+    if (this.skipRequested) return;
     await this.awaitOrTap(INTRO_ANIMATION.speechBubbleHold, 11);
   }
 
@@ -286,7 +296,9 @@ export class IntroScene extends Phaser.Scene {
     this.safira = newSafira;
     this.safiraGlow = newSafiraGlow;
 
+    if (this.skipRequested) return;
     await this.awaitOrTap(INTRO_ANIMATION.speechBubbleHold, 11);
+    if (this.skipRequested) return;
 
     if (this.speechBubble) {
       await this.speechBubble.fadeOut();
@@ -324,7 +336,8 @@ export class IntroScene extends Phaser.Scene {
       },
     });
 
-    await wait(this, 400);
+    await this.awaitOrTap(400, 20);
+    if (this.skipRequested) return;
 
     // VS контейнер появляется во время зума
     this.vsContainer = this.createVSScreen();
@@ -336,6 +349,7 @@ export class IntroScene extends Phaser.Scene {
     });
 
     await Promise.all([bgZoomPromise, vsPromise]);
+    if (this.skipRequested) return;
     await this.awaitOrTap(INTRO_ANIMATION.vsHold, 21);
   }
 

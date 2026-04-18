@@ -10,8 +10,6 @@ type SkillState = {
   locked?: boolean;
 };
 
-const MANA_ICON_SIZE = 14;
-
 const COLORS = {
   bgIdle: 0x4a3a6e,    // Фиолетовый как в референсе
   bgReady: 0x6b4a9e,   // Ярче когда готово
@@ -69,34 +67,38 @@ export class SkillButton extends Phaser.GameObjects.Container {
       this.iconText.setVisible(false);
     }
 
-    // Стоимость под кнопкой: число + иконка маны
-    const costY = size / 2 + 12;
+    // Стоимость — бейдж-капля поверх кнопки (top-left, как на карточках перков)
+    const badgeOffset = Math.round(size * 0.28);
+    const badgeSize = Math.max(18, Math.round(size * 0.38));
+    const badgeFontSize = Math.max(10, Math.round(size * 0.19));
+
+    this.manaIcon = scene.add
+      .image(-badgeOffset, -badgeOffset, ASSET_KEYS.tiles[TileKind.Mana])
+      .setDisplaySize(badgeSize, badgeSize)
+      .setOrigin(0.5);
+
     this.costText = scene.add
-      .text(-MANA_ICON_SIZE / 2, costY, `${cost}`, {
-        fontSize: "12px",
-        color: "#aabbff",
+      .text(-badgeOffset, -badgeOffset, `${cost}`, {
+        fontSize: `${badgeFontSize}px`,
+        color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
+        stroke: "#0b3a7a",
+        strokeThickness: 2,
         resolution: 2,
       })
       .setOrigin(0.5);
 
-    this.manaIcon = scene.add
-      .image(0, costY, ASSET_KEYS.tiles[TileKind.Mana])
-      .setDisplaySize(MANA_ICON_SIZE, MANA_ICON_SIZE)
-      .setOrigin(0.5);
-    this.repositionManaIcon();
-
     const children: Phaser.GameObjects.GameObject[] = [this.bg, this.iconText];
     if (this.iconImage) children.push(this.iconImage);
-    children.push(this.costText, this.manaIcon);
+    children.push(this.manaIcon, this.costText);
     this.add(children);
     this.setSize(size, size);
     scene.add.existing(this);
   }
 
   private repositionManaIcon() {
-    this.manaIcon.setX(this.costText.x + this.costText.width / 2 + MANA_ICON_SIZE / 2 + 2);
+    // Badge is at fixed position, no repositioning needed
   }
 
   /**
@@ -173,12 +175,8 @@ export class SkillButton extends Phaser.GameObjects.Container {
       this.bg.setStrokeStyle(2, 0xff4444, 0.5);
       this.bg.setAlpha(0.7);
       this.iconText.setAlpha(1);
-      this.costText.setAlpha(0.5);
-      this.manaIcon.setAlpha(0.5);
-      if (info) {
-        this.costText.setText(info);
-        this.repositionManaIcon();
-      }
+      this.costText.setAlpha(0);
+      this.manaIcon.setAlpha(0);
       return;
     }
 

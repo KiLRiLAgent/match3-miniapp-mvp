@@ -268,9 +268,9 @@ export const getUILayout = () => {
   // 1. Кнопки скиллов (круглые, самый низ) — размер адаптивный к ширине
   const avatarRightForSkills = screenPadding + 4 + 65 / 2 + 65 / 2 + 8; // avatar right edge
   const skillsAvailW = GAME_WIDTH - avatarRightForSkills - screenPadding;
-  const skillButtonSize = Math.min(69, Math.floor((skillsAvailW - 3 * 6) / 4));
+  const skillButtonSize = Math.min(78, Math.floor((skillsAvailW - 3 * 6) / 4));
   const skillButtonSpacing = 12;
-  const skillCostOffset = 18; // место для текста стоимости под кнопкой
+  const skillCostOffset = 4; // бейдж маны теперь на кнопке, не под ней
   const skillButtonsY = GAME_HEIGHT - bottomPadding - skillButtonSize / 2 - skillCostOffset;
 
   // 2. MP бар игрока (над скиллами с отступом)
