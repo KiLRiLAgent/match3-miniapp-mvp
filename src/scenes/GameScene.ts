@@ -132,6 +132,7 @@ export class GameScene extends Phaser.Scene {
   private skillApplyOverlay?: SkillApplyOverlay;
   private skillOverlayBusyToken = false;
   private skillHighlightTweens: Phaser.Tweens.Tween[] = [];
+  private avatarHighlightGfx?: Phaser.GameObjects.Graphics;
 
   private bossAbilityManager!: BossAbilityManager;
   private cooldownIcon?: CooldownIcon;
@@ -2181,6 +2182,26 @@ export class GameScene extends Phaser.Scene {
     if (cfg.cost > 0 && this.manaBar) {
       this.manaBar.showPreview(this.mana, this.getEffectivePlayerManaMax(), -cfg.cost);
     }
+    // Player avatar highlight — pulsing green stroke around the avatar frame
+    if (this.playerAvatar) {
+      const a = this.playerAvatar;
+      const pad = 6;
+      const w = a.width + pad * 2;
+      const h = a.height + pad * 2;
+      const gfx = this.add.graphics();
+      gfx.lineStyle(3, 0x66ff88, 1);
+      gfx.strokeRoundedRect(a.x - w / 2, a.y - h / 2, w, h, 8);
+      gfx.setDepth(4.5);
+      this.avatarHighlightGfx = gfx;
+      tweens.push(this.tweens.add({
+        targets: gfx,
+        alpha: { from: 0.45, to: 1 },
+        duration: 600,
+        ease: "Sine.easeInOut",
+        yoyo: true,
+        repeat: -1,
+      }));
+    }
     this.skillHighlightTweens = tweens;
   }
 
@@ -2201,6 +2222,11 @@ export class GameScene extends Phaser.Scene {
     this.playerHpBar?.clearPreview();
     this.bossHpBar?.clearPreview();
     this.manaBar?.clearPreview();
+    // Destroy avatar highlight stroke
+    if (this.avatarHighlightGfx) {
+      this.avatarHighlightGfx.destroy();
+      this.avatarHighlightGfx = undefined;
+    }
   }
 
   private executeSkill(id: SkillId) {
