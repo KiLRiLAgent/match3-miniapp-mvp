@@ -69,8 +69,8 @@ export class SkillButton extends Phaser.GameObjects.Container {
 
     // Стоимость — бейдж-капля поверх кнопки (top-left, как на карточках перков)
     const badgeOffset = Math.round(size * 0.28);
-    const badgeSize = Math.max(18, Math.round(size * 0.38));
-    const badgeFontSize = Math.max(10, Math.round(size * 0.19));
+    const badgeSize = Math.max(16, Math.round(size * 0.32));
+    const badgeFontSize = Math.max(9, Math.round(size * 0.16));
 
     this.manaIcon = scene.add
       .image(-badgeOffset, -badgeOffset, ASSET_KEYS.tiles[TileKind.Mana])

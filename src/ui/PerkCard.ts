@@ -63,8 +63,8 @@ export class PerkCard extends Phaser.GameObjects.Container {
     const enhanced = options?.enhancedVisuals ?? false;
     // Множители шрифтов / звёзд / иконки для «крупного» варианта.
     // Сохраняем 1.0 в дефолте, чтобы поведение для не-enhanced вызовов не менялось.
-    const fontMul = enhanced ? 1.25 : 1.0;
-    const starMul = 1.0;
+    const fontMul = enhanced ? 1.1 : 1.0;
+    const starMul = 0.97;
     const titleMul = enhanced ? 1.2 : 1.0;
     const iconMul = enhanced ? 1.18 : 1.0;
     const manaMul = 1.0;

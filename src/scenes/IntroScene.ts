@@ -49,12 +49,11 @@ export class IntroScene extends Phaser.Scene {
   private skipRequested = false;
 
   private skipZone?: Phaser.GameObjects.Rectangle;
-  private blockers: Array<{ rect: Phaser.GameObjects.Rectangle; timer: Phaser.Time.TimerEvent }> = [];
+  private blockers: Array<{ rect: Phaser.GameObjects.Rectangle; timer: Phaser.Time.TimerEvent; resolve: () => void }> = [];
 
   /**
    * Tap-or-timer wait that tracks its blocker rect AND timer so requestSkip()
-   * can clean both up (RISK-9: orphan blocker + timer leak). Replaces the
-   * unmanaged `waitOrTap` helper.
+   * can clean both up AND resolve the Promise.
    */
   private async awaitOrTap(ms: number, depth: number): Promise<void> {
     return new Promise<void>((resolve) => {
@@ -71,7 +70,7 @@ export class IntroScene extends Phaser.Scene {
       };
       rect.once("pointerdown", finish);
       const timer = this.time.delayedCall(ms, finish);
-      this.blockers.push({ rect, timer });
+      this.blockers.push({ rect, timer, resolve });
     });
   }
 
@@ -84,9 +83,10 @@ export class IntroScene extends Phaser.Scene {
       if (isInfinite) t.stop();
       else t.complete();
     });
-    // Destroy any pending awaitOrTap blockers AND cancel their timers
-    this.blockers.forEach((b) => { b.timer.remove(); b.rect.destroy(); });
+    // Destroy pending awaitOrTap blockers AND resolve their Promises
+    const pending = this.blockers;
     this.blockers = [];
+    pending.forEach((b) => { b.timer.remove(); b.rect.destroy(); b.resolve(); });
   }
 
   private resetSkip() {
