@@ -352,7 +352,7 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     const layerHp = this.layerHpArray[layerIdx - 1];
     const prevCumulative = layerIdx >= 2 ? this.cumulativeHp[layerIdx - 2] : 0;
 
-    const currentInLayer = clamped - prevCumulative;
+    const currentInLayer = Phaser.Math.Clamp(clamped - prevCumulative, 0, layerHp);
     const afterInLayer = Phaser.Math.Clamp(after - prevCumulative, 0, layerHp);
 
     const fromRatio = Math.min(currentInLayer, afterInLayer) / layerHp;
