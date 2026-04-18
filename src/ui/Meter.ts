@@ -2,6 +2,7 @@ import Phaser from "phaser";
 
 const FLASH_DURATION = 200;
 const DELTA_DRAIN_DURATION = 500;
+const PREVIEW_PULSE_DURATION = 600;
 
 export interface MeterOptions {
   /** Enable trailing delta rectangle showing lost HP */
@@ -39,6 +40,10 @@ export class Meter extends Phaser.GameObjects.Container {
 
   // Always-green option
   private alwaysGreen: boolean;
+
+  // Preview support
+  private previewGfx: Phaser.GameObjects.Graphics;
+  private previewPulseTween?: Phaser.Tweens.Tween;
 
   // Danger pulse
   private dangerPulsing = false;
@@ -99,6 +104,10 @@ export class Meter extends Phaser.GameObjects.Container {
     this.drawFill(this.widthPx);
     this.currentFillWidth = this.widthPx;
     children.push(this.fillGfx);
+
+    // Preview overlay (between fill and highlight)
+    this.previewGfx = scene.add.graphics();
+    children.push(this.previewGfx);
 
     // Highlight strip for faux gradient
     this.highlightGfx = scene.add.graphics();
@@ -320,5 +329,110 @@ export class Meter extends Phaser.GameObjects.Container {
     this.fillGfx.setAlpha(0.95);
     this.fillGfx.setScale(1);
     this.drawFill(this.currentFillWidth);
+  }
+
+  /**
+   * Show a delta preview on the bar.
+   *
+   * - Negative delta (damage): draws a white semi-transparent section over the
+   *   fill from `(current + delta)` to `current`, indicating HP that will be lost.
+   * - Positive delta (heal): draws a green semi-transparent section from
+   *   `current` to `(current + delta)`, indicating HP that will be gained.
+   *
+   * Starts a subtle pulse tween on the preview layer.
+   */
+  showPreview(current: number, max: number, delta: number) {
+    this.clearPreview();
+    if (delta === 0 || max === 0) return;
+
+    const clamped = Phaser.Math.Clamp(current, 0, max);
+    const after = Phaser.Math.Clamp(clamped + delta, 0, max);
+
+    const fromRatio = Math.min(clamped, after) / max;
+    const toRatio = Math.max(clamped, after) / max;
+
+    const startPx = this.widthPx * fromRatio;
+    const endPx = this.widthPx * toRatio;
+    const segmentWidth = endPx - startPx;
+    if (segmentWidth <= 0) return;
+
+    const isDamage = delta < 0;
+    this.drawPreview(startPx, segmentWidth, isDamage);
+
+    // Pulse the preview layer
+    this.previewPulseTween = this.scene.tweens.add({
+      targets: this.previewGfx,
+      alpha: { from: 0.5, to: 0.9 },
+      duration: PREVIEW_PULSE_DURATION,
+      ease: "Sine.easeInOut",
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  /** Remove the preview overlay and stop its pulse tween */
+  clearPreview() {
+    if (this.previewPulseTween) {
+      this.previewPulseTween.stop();
+      this.previewPulseTween = undefined;
+    }
+    this.previewGfx.clear();
+    this.previewGfx.setAlpha(1);
+  }
+
+  private drawPreview(startPx: number, segmentWidth: number, isDamage: boolean) {
+    this.previewGfx.clear();
+
+    // Damage: white overlay on the fill area that will be lost
+    // Heal: green overlay extending beyond the current fill
+    const color = isDamage ? 0xffffff : 0x4caf50;
+    const alpha = isDamage ? 0.8 : 0.7;
+
+    this.previewGfx.fillStyle(color, alpha);
+
+    // Calculate the total width from bar start to end of preview segment
+    const totalEnd = startPx + segmentWidth;
+    const fr = this.fillRadius(totalEnd);
+
+    if (typeof fr === "number") {
+      // In right curve zone — draw full width bar clipped by start offset
+      // We need to draw the entire rounded rect and use fillStyle area
+      this.previewGfx.fillRoundedRect(
+        this.barOffsetX + startPx, 0,
+        this.widthPx - startPx, this.heightPx, {
+          tl: startPx === 0 ? this.radius : 0,
+          tr: this.radius,
+          bl: startPx === 0 ? this.radius : 0,
+          br: this.radius,
+        },
+      );
+    } else {
+      // Normal zone — simple rect with appropriate corners
+      const leftR = startPx === 0 ? this.radius : 0;
+      const rightR = totalEnd >= this.widthPx - this.radius ? this.radius : 0;
+      this.previewGfx.fillRoundedRect(
+        this.barOffsetX + startPx, 0,
+        segmentWidth, this.heightPx, {
+          tl: leftR, tr: rightR,
+          bl: leftR, br: rightR,
+        },
+      );
+    }
+  }
+
+  /** Phaser lifecycle — stop tweens before children are destroyed */
+  preDestroy() {
+    if (this.previewPulseTween) {
+      this.previewPulseTween.stop();
+      this.previewPulseTween = undefined;
+    }
+    if (this.dangerPulseTween) {
+      this.dangerPulseTween.stop();
+      this.dangerPulseTween = undefined;
+    }
+    if (this.deltaDrainTween) {
+      this.deltaDrainTween.stop();
+      this.deltaDrainTween = undefined;
+    }
   }
 }
