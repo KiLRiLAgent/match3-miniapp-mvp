@@ -22,7 +22,9 @@
  * 2. GRAPHICS-BASED RENDERING
  *    - Bars and shapes use Phaser.GameObjects.Graphics (not sprites)
  *    - Separate Graphics objects for separate z-layers:
- *      borderGfx -> deltaGfx -> fillGfx -> highlightGfx -> flashGfx
+ *      borderGfx -> deltaGfx -> fillGfx -> previewGfx -> highlightGfx -> flashGfx
+ *    - LayeredMeter adds nextFillGfx before deltaGfx:
+ *      nextFillGfx -> deltaGfx -> fillGfx -> previewGfx -> highlightGfx -> flashGfx
  *
  * 2a. PER-CORNER RADIUS FOR BAR FILLS
  *    - Background border uses fillRoundedRect with uniform radius
@@ -323,4 +325,57 @@
  *     - Scenes with persistent UI state (drag offsets, scroll position)
  *
  *     Example: src/v2/scenes/PlayerStatsScene.ts → refresh()
+ *
+ * 14. METER DELTA PREVIEW API
+ *
+ *     Both `Meter` and `LayeredMeter` expose a `showPreview` /
+ *     `clearPreview` API for rendering a pulsing delta overlay on the
+ *     bar without changing its actual value. Used by confirmation
+ *     overlays to visualize pending skill effects.
+ *
+ *     API:
+ *       showPreview(current: number, max: number, delta: number): void
+ *       clearPreview(): void
+ *
+ *     - Negative delta (damage/cost): white semi-transparent overlay
+ *       drawn over the fill region that will be lost.
+ *     - Positive delta (heal): green semi-transparent overlay extending
+ *       beyond the current fill, showing HP that will be gained.
+ *     - The preview layer (`previewGfx`) sits between `fillGfx` and
+ *       `highlightGfx` in the z-order.
+ *     - A pulse tween (alpha 0.5 -> 0.9, Sine.easeInOut, 600ms, infinite)
+ *       draws attention to the preview. Stored in `previewPulseTween`.
+ *     - `clearPreview()` stops the pulse tween, clears the graphics,
+ *       and resets alpha to 1.
+ *     - `showPreview` calls `clearPreview()` at entry for idempotency.
+ *
+ *     Tween cleanup: the pulse tween is stopped in BOTH `clearPreview()`
+ *     AND `preDestroy()`. This belt-and-suspenders approach prevents
+ *     tween leaks if the scene shuts down while a preview is active.
+ *
+ *     `preDestroy()` also stops all other tracked tweens in the Meter
+ *     (dangerPulseTween, deltaDrainTween) — consolidating cleanup that
+ *     was previously only in individual stop methods.
+ *
+ *     LayeredMeter-specific: `showPreview` converts absolute HP values
+ *     to within-layer ratios using `cumulativeHp` thresholds. If the
+ *     delta crosses a layer boundary, the preview is clamped to the
+ *     current layer — an intentional simplification since the text label
+ *     shows the exact value.
+ *
+ *     Example (GameScene openSkillHighlights):
+ *       // Damage skill -> white preview on boss HP bar
+ *       bossHpBar.showPreview(bossHp, bossHpMax, -cfg.damage);
+ *       // Heal skill -> green preview on player HP bar
+ *       playerHpBar.showPreview(playerHp, playerHpMax, cfg.heal);
+ *       // Mana cost -> white preview on mana bar
+ *       manaBar.showPreview(mana, manaMax, -cfg.cost);
+ *
+ *     Example (GameScene closeSkillHighlights):
+ *       playerHpBar?.clearPreview();
+ *       bossHpBar?.clearPreview();
+ *       manaBar?.clearPreview();
+ *
+ *     Reference: src/ui/Meter.ts, src/ui/LayeredMeter.ts
+ *     Cross-ref: ./confirmation-overlay.ts section 9 (wiring pattern)
  */
