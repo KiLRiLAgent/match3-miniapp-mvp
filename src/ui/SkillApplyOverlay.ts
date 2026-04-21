@@ -29,7 +29,9 @@ const CARD_RADIUS = 12;
 const ICON_SIZE = 56;
 // Cost badge (mana drop) sits on top-left edge of the icon circle.
 // BADGE_OFFSET ≈ ICON_SIZE/2 * cos(45°) so the badge centre lies right on the circle border.
-const BADGE_SIZE = 32;
+// Badge is 20% larger on the confirmation overlay than on the resting SkillButton —
+// the "selected skill" callout should read prominently.
+const BADGE_SIZE = 38;
 const BADGE_OFFSET = Math.round((ICON_SIZE / 2) * 0.72);
 const BACKDROP_ALPHA = 0.35;
 const BTN_W = 200;
@@ -212,7 +214,13 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
 
     // === RIGHT side: name, cooldown, description (all syllable-wrapped) ===
     const rightX = iconX + ICON_SIZE / 2 + RIGHT_PAD;
-    const rightMaxW = CARD_W - LEFT_PAD - ICON_SIZE - RIGHT_PAD - RIGHT_PAD; // available width for text
+    // Web fonts (Exo 2) may not be loaded yet when the overlay builds —
+    // Phaser measures with a fallback font and under-reports width, so a
+    // word that "fits" in the probe ends up overflowing after the font
+    // finishes loading. Shave 12% off the budget so hyphenation kicks in
+    // with headroom for the real render.
+    const TEXT_BUDGET_SAFETY = 0.88;
+    const rightMaxW = (CARD_W - LEFT_PAD - ICON_SIZE - RIGHT_PAD - RIGHT_PAD) * TEXT_BUDGET_SAFETY;
     let rowY = cardY - CARD_H / 2 + NAME_TOP_PAD;
 
     // Builds a style-specific measurer for hyphenateRu. Each call creates
