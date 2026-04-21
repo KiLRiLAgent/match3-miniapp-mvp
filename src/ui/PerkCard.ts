@@ -22,7 +22,6 @@ const CARD_COLORS = {
 
 const STAR_CHAR = "\u2605"; // ★
 const STAR_EMPTY_CHAR = "\u2606"; // ☆
-const ARROW_UP_CHAR = "\u2191"; // ↑
 
 export interface PerkCardOptions {
   width?: number;
@@ -209,20 +208,18 @@ export class PerkCard extends Phaser.GameObjects.Container {
       starsTexts.push(star);
     }
 
-    // Description text (bottom) — bold, auto-scroll if overflows.
-    const arrowParse = enhanced ? splitDescriptionArrows(nextDescription) : null;
-    const baseDescription = arrowParse?.text ?? nextDescription;
-    const arrowsString = arrowParse?.arrows ?? "";
+    // Description text — arrows (↑ / ↓) are rendered inline with the
+    // description as regular characters, not as a separate coloured
+    // callout. Trade-off: loses the accent colour (green / red) the
+    // separate arrows row used to have. If accent colour is needed back,
+    // split the string into head + arrows and render them as two Phaser.Text
+    // objects side-by-side.
+    const baseDescription = nextDescription;
     const descFontSize = Math.round(10 * scale * fontMul);
-    // Arrow glyph was previously scaled up ~2x vs. description (huge).
-    // Match the description size so the arrow reads as inline punctuation,
-    // not a separate callout.
-    const arrowsFontSize = descFontSize;
-    const arrowsLineHeight = arrowsString.length > 0 ? arrowsFontSize + 4 : 0;
 
-    // Description area: from below stars to card bottom (minus arrows + padding)
+    // Description area: from below stars to card bottom
     const descAreaTop = starsY + Math.round(12 * scale);
-    const descAreaBottom = halfH - 6 - arrowsLineHeight;
+    const descAreaBottom = halfH - 6;
     const descVisibleH = Math.max(0, descAreaBottom - descAreaTop);
 
     // Build description with shrink-to-fit — no marquee scroll. If the
@@ -254,25 +251,6 @@ export class PerkCard extends Phaser.GameObjects.Container {
       descText.setFontSize(currentDescFontSize);
     }
 
-    let arrowsText: Phaser.GameObjects.Text | null = null;
-    if (arrowsString.length > 0) {
-      const isUp = arrowsString.includes(ARROW_UP_CHAR);
-      const arrowColor = isUp ? CARD_COLORS.upgradeArrow : "#e35454";
-      arrowsText = scene.add
-        .text(0, halfH - 6 - arrowsLineHeight / 2, arrowsString, {
-          fontSize: `${arrowsFontSize}px`,
-          color: arrowColor,
-          fontFamily: "'Exo 2', Arial, sans-serif",
-          fontStyle: "bold",
-          stroke: CARD_COLORS.upgradeArrowStroke,
-          // Stroke scaled down with the arrow font — a 3 px stroke on a
-          // 10 px arrow was visually dominant.
-          strokeThickness: 1,
-          resolution: 2,
-        })
-        .setOrigin(0.5);
-    }
-
     // Interactive hit area
     const hitArea = scene.add
       .rectangle(0, 0, w, h, 0x000000, 0)
@@ -293,7 +271,6 @@ export class PerkCard extends Phaser.GameObjects.Container {
       costText,
       ...starsTexts,
       descText,
-      ...(arrowsText ? [arrowsText] : []),
       hitArea,
     ];
 
@@ -386,22 +363,4 @@ export class PerkCard extends Phaser.GameObjects.Container {
     if (this.glowTween) { this.glowTween.stop(); this.glowTween = undefined; }
     super.destroy(fromScene);
   }
-}
-
-/**
- * Отделяет завершающую группу стрелок `↑`/`↓` (включая повторы) от описания.
- * Используется только для enhanced-варианта карты, чтобы вынести стрелки
- * в отдельную крупную ярко-зелёную (или красную для `↓`) подпись.
- *
- * Возвращает текст без хвостовых стрелок и саму строку стрелок (как есть,
- * без перемешивания символов — чтобы UI отражал семантику текста).
- */
-function splitDescriptionArrows(input: string): { text: string; arrows: string } {
-  if (!input) return { text: "", arrows: "" };
-  // Берём хвост, состоящий только из стрелок (с возможным пробелом/переводом строки между ними).
-  const m = input.match(/[\s]*([\u2191\u2193]+)\s*$/);
-  if (!m) return { text: input, arrows: "" };
-  const arrows = m[1];
-  const text = input.slice(0, input.length - m[0].length).trim();
-  return { text, arrows };
 }

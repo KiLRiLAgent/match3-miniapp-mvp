@@ -2376,6 +2376,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private enterHammerMode() {
+    // Defensive cleanup: if a previous hammer session somehow left overlay
+    // or hint objects alive, destroy them before creating new ones so the
+    // screen never ends up with two stacked darkening rects.
+    this.hammerOverlay?.destroy();
+    this.hammerHint?.destroy();
+    this.hammerOverlay = undefined;
+    this.hammerHint = undefined;
+
     this.hammerMode = true;
     this.busy = true;
 
