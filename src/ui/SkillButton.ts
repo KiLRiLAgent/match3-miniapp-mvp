@@ -20,10 +20,13 @@ const COLORS = {
 // Badge placement — centre of badge sits on the icon circle border at 45°
 // (matches `BADGE_OFFSET = Math.round((ICON_SIZE / 2) * 0.72)` in SkillApplyOverlay).
 const BADGE_BORDER_COS45 = 0.72;
-const BADGE_SIZE_FACTOR = 0.36;
-const BADGE_FONT_FACTOR = 0.17;
-const BADGE_FONT_MIN_PX = 10;
-const BADGE_SIZE_MIN_PX = 18;
+// Badge size/font bumped +31% vs. the original factors (0.36 → 0.47,
+// 0.17 → 0.22) so the mana cost reads as a first-class UI element at
+// rest, matching the original SkillApplyOverlay treatment.
+const BADGE_SIZE_FACTOR = 0.47;
+const BADGE_FONT_FACTOR = 0.22;
+const BADGE_FONT_MIN_PX = 13;
+const BADGE_SIZE_MIN_PX = 24;
 
 // Landing flash — shared scale/timing; only tint colour differs between variants.
 const FLASH_SCALE = 1.25;
