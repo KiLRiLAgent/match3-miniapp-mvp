@@ -70,6 +70,11 @@ const SKILL_IDS: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 const SKILL_BUTTON_BASE_DEPTH = 2;
 const OVERLAY_SELECTED_SKILL_DEPTH = 1501;
 
+// Landing flash duration (ms) for perk-select VFX on the skill button.
+// Shared between the unlock path (`flashIconPulse`) and the upgrade path
+// (`flashIconUpgrade`) so both variants share the same feel.
+const PERK_LANDING_FLASH_MS = 240;
+
 // Tutorial: fixed 8x7 board for the first move
 // Player must swipe tile at (5,2) DOWN to (5,3) to complete 3 swords in a row at (3..5,3)
 const S = TileKind.Sword as BaseTileKind;
@@ -1411,11 +1416,25 @@ export class GameScene extends Phaser.Scene {
       // Source coords were snapshotted in the click callback; target coords are
       // sampled NOW (post-reposition) so a NEW unlock lands on the correct slot.
       // Awaited to guarantee the landing flash is shown before fadeout starts.
+      //
+      // Split landing path (DECISIONS R-VFX-1):
+      //   - unlock (result.isNewUnlock = true): use built-in white flashIconPulse
+      //     inside flyPerkSelectVfx (signals "new skill appeared!").
+      //   - upgrade (result.isNewUnlock = false): skip the white flash and
+      //     follow up with gold flashIconUpgrade so the already-existing icon
+      //     reads as "level up" instead of "just unlocked".
       await this.flyPerkSelectVfx(
         selectedSourceX,
         selectedSourceY,
         selectedPerk.skillId,
+        result.isNewUnlock ? undefined : { skipLandingFlash: true },
       );
+      if (!result.isNewUnlock) {
+        const targetBtn = this.skillButtons[selectedPerk.skillId];
+        if (targetBtn) {
+          await targetBtn.flashIconUpgrade(PERK_LANDING_FLASH_MS);
+        }
+      }
 
       // Fade out overlay and level text
       await Promise.all([
@@ -1451,10 +1470,21 @@ export class GameScene extends Phaser.Scene {
    * target coords reflect the *final* slot for newly-unlocked skills
    * (Task #2 RISK-3 — sampling earlier would miss freshly-unlocked buttons).
    *
+   * `options.skipLandingFlash` — when true, the internal `flashIconPulse`
+   * (white unlock VFX) is skipped so the caller can follow up with a
+   * different flash (e.g., `flashIconUpgrade` gold flash for upgrade path).
+   * Avoids white+gold double-flash when landing on an already-unlocked
+   * button. See DECISIONS R-VFX-1.
+   *
    * Pattern reference: `src/ui/FlyingTile.ts`. Inlined here as a single
    * fire-and-forget helper instead of factored out — only one call site.
    */
-  private async flyPerkSelectVfx(sourceX: number, sourceY: number, skillId: SkillId): Promise<void> {
+  private async flyPerkSelectVfx(
+    sourceX: number,
+    sourceY: number,
+    skillId: SkillId,
+    options?: { skipLandingFlash?: boolean },
+  ): Promise<void> {
     const targetBtn = this.skillButtons[skillId];
     // No skill button available (defensive — shouldn't happen since perk applied
     // either unlocks or upgrades). Skip VFX and return immediately.
@@ -1530,8 +1560,9 @@ export class GameScene extends Phaser.Scene {
         while (trailPoints.length > 0 && trailPoints[0].alpha <= 0) trailPoints.shift();
 
         if (t >= 1) {
-          // Sprite reached destination — kick the icon flash + pulse,
-          // and finish trail fade-out in parallel. Resolve when flash done.
+          // Sprite reached destination — finish trail fade-out and either
+          // fire the unlock-path white flash or skip it so the caller can
+          // run its own follow-up flash (upgrade path → flashIconUpgrade).
           if (onUpdate) this.events.off("update", onUpdate);
           sprite.destroy();
           this.tweens.add({
@@ -1540,11 +1571,17 @@ export class GameScene extends Phaser.Scene {
             duration: 150,
             onComplete: () => trailGfx.destroy(),
           });
-          targetBtn.flashIconPulse(240).then(() => {
+          const finish = () => {
             cleaned = true;
             this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
             resolve();
-          });
+          };
+          if (options?.skipLandingFlash) {
+            // Caller (upgrade path) will follow up with flashIconUpgrade.
+            finish();
+          } else {
+            targetBtn.flashIconPulse(PERK_LANDING_FLASH_MS).then(finish);
+          }
         }
       };
       this.events.on("update", onUpdate);
