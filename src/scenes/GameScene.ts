@@ -2170,15 +2170,15 @@ export class GameScene extends Phaser.Scene {
     // closeSkillHighlights will stop them uniformly.
     const tweens: Phaser.Tweens.Tween[] = [];
     // Lift selected skill button above the SkillApplyOverlay backdrop so it
-    // stays visually bright while the overlay is open. Clicks on the selected
-    // button during the overlay are blocked by skillOverlayBusyToken (see
-    // activateSkill) — the disableInteractive() call here is cosmetic: the
-    // real click handler lives on SkillButton's inner Arc child, not the
-    // Container, so the Container-level input disable is a no-op in practice.
+    // stays visually bright while the overlay is open, and disable the
+    // inner-Arc click handler so pointerdown on the lifted button is a true
+    // no-op (SkillButton's click handler lives on an Arc child, not the
+    // Container — setClickDisabled proxies to that Arc). skillOverlayBusyToken
+    // in activateSkill is the deeper guard, this is the Phaser-level one.
     const selectedBtn = this.skillButtons[id];
     if (selectedBtn) {
       selectedBtn.setDepth(OVERLAY_SELECTED_SKILL_DEPTH);
-      selectedBtn.disableInteractive();
+      selectedBtn.setClickDisabled();
       this.overlaySelectedSkillId = id;
     }
     // Player HP bar — heal preview (green section showing HP to be gained)
@@ -2209,17 +2209,14 @@ export class GameScene extends Phaser.Scene {
       const b = this.skillButtons[sid];
       if (b) b.setScale(1);
     });
-    // Restore depth on the previously selected skill button. The Container's
-    // input object is always null (SkillButton attaches its click handler to
-    // an inner Arc child), so the `if (btn.input)` guard keeps the paired
-    // setInteractive call symmetric with disableInteractive — both are no-ops
-    // in practice, and we avoid creating Container input state on close that
-    // the button never had before open.
+    // Restore depth + re-enable the inner-Arc click handler on the previously
+    // selected skill button. setClickEnabled proxies to the Arc child (paired
+    // with setClickDisabled in openSkillHighlights).
     if (this.overlaySelectedSkillId !== undefined) {
       const btn = this.skillButtons[this.overlaySelectedSkillId];
       if (btn) {
         btn.setDepth(SKILL_BUTTON_BASE_DEPTH);
-        if (btn.input) btn.setInteractive();
+        btn.setClickEnabled();
       }
       this.overlaySelectedSkillId = undefined;
     }

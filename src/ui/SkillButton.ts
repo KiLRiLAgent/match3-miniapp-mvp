@@ -191,6 +191,27 @@ export class SkillButton extends Phaser.GameObjects.Container {
     });
   }
 
+  /**
+   * Disable the underlying pointerdown handler on the inner Arc. The public
+   * click path (`bg.on("pointerdown", ...)` → `clickCallback`) is the only
+   * interactive layer on this Container; the Container itself has no input
+   * object (see gold standards §confirmation-overlay + logic-reviewer notes
+   * on Task #2). Use this to block clicks on the button while an overlay
+   * renders it in a "preview" state.
+   */
+  setClickDisabled() {
+    this.bg.disableInteractive();
+  }
+
+  /**
+   * Re-enable the underlying pointerdown handler on the inner Arc, paired
+   * with `setClickDisabled`. Restores the same `{ useHandCursor: true }`
+   * shape used in the constructor so the cursor stays consistent.
+   */
+  setClickEnabled() {
+    this.bg.setInteractive({ useHandCursor: true });
+  }
+
   applyState(state: SkillState) {
     const { enabled, ready, cooldown, info } = state;
 
