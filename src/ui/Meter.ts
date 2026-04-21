@@ -3,6 +3,13 @@ import Phaser from "phaser";
 const FLASH_DURATION = 200;
 const DELTA_DRAIN_DURATION = 500;
 const PREVIEW_PULSE_DURATION = 600;
+// Danger pulse duration — MUST match GameScene.showVignette tween duration
+// so the bar flash and the vignette breathe at the same cadence.
+const DANGER_PULSE_DURATION = 1200;
+const DANGER_FLASH_PEAK_ALPHA = 0.55;
+const DANGER_FLASH_COLOR = 0xde3e3e;
+const DANGER_LABEL_COLOR = 0xde3e3e;
+const DANGER_LABEL_BASE_COLOR = 0xffffff;
 
 export interface MeterOptions {
   /** Enable trailing delta rectangle showing lost HP */
@@ -45,10 +52,13 @@ export class Meter extends Phaser.GameObjects.Container {
   private previewGfx: Phaser.GameObjects.Graphics;
   private previewPulseTween?: Phaser.Tweens.Tween;
 
-  // Danger pulse
+  // Danger pulse — red flash overlay + label colour interpolation.
+  // Keeps the bar's base colour (green/orange per ratio) — only overlays a
+  // pulsating red wash. Drawn on its own Graphics so the white `flash()`
+  // layer can run on top without conflict.
+  private dangerFlashGfx!: Phaser.GameObjects.Graphics;
   private dangerPulsing = false;
   private dangerPulseTween?: Phaser.Tweens.Tween;
-  private savedColor?: number;
 
   // Bar offset (for icon)
   private barOffsetX = 0;
@@ -114,7 +124,11 @@ export class Meter extends Phaser.GameObjects.Container {
     this.drawHighlight(this.widthPx);
     children.push(this.highlightGfx);
 
-    // Flash overlay (on top of fill and highlight)
+    // Danger flash overlay (red low-HP pulse — sits above highlight, below white flash)
+    this.dangerFlashGfx = scene.add.graphics();
+    children.push(this.dangerFlashGfx);
+
+    // Flash overlay (white damage/heal flash — topmost)
     this.flashGfx = scene.add.graphics();
     this.flashGfx.setAlpha(0);
     children.push(this.flashGfx);
@@ -288,30 +302,47 @@ export class Meter extends Phaser.GameObjects.Container {
     });
   }
 
-  /** Start danger pulse — fill turns red + brightness pulses on fillGfx only */
+  /**
+   * Start a red-wash pulse over the fill + label colour interpolation.
+   * Bar keeps its base colour (green / orange per ratio). Pulse cadence
+   * matches GameScene's vignette tween so they breathe together.
+   */
   startDangerPulse() {
     if (this.dangerPulsing) return;
     this.dangerPulsing = true;
-
-    // Save original color and force red
-    this.savedColor = this.currentColor;
-    this.currentColor = 0xde3e3e;
-    this.drawFill(this.currentFillWidth);
-
-    // Pulse fillGfx alpha for brightness effect + tiny scale on fillGfx
-    this.dangerPulseTween = this.scene.tweens.add({
-      targets: this.fillGfx,
-      alpha: { from: 0.7, to: 1.0 },
-      scaleX: { from: 1.0, to: 1.03 },
-      scaleY: { from: 1.0, to: 1.03 },
-      duration: 500,
+    const whiteCol = Phaser.Display.Color.ValueToColor(DANGER_LABEL_BASE_COLOR);
+    const redCol = Phaser.Display.Color.ValueToColor(DANGER_LABEL_COLOR);
+    this.dangerPulseTween = this.scene.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: DANGER_PULSE_DURATION,
       ease: "Sine.easeInOut",
       yoyo: true,
       repeat: -1,
+      onUpdate: (tween) => {
+        const t = tween.getValue() ?? 0;
+        this.drawDangerFlash(t);
+        const mixed = Phaser.Display.Color.Interpolate.ColorWithColor(
+          whiteCol, redCol, 100, Math.round(t * 100),
+        );
+        this.label.setColor(
+          Phaser.Display.Color.RGBToString(mixed.r, mixed.g, mixed.b, 0, "#"),
+        );
+      },
     });
   }
 
-  /** Stop danger pulse — restore original color */
+  /** Paint the red pulse overlay at the given 0..1 intensity. */
+  private drawDangerFlash(t: number) {
+    this.dangerFlashGfx.clear();
+    if (this.currentFillWidth <= 0) return;
+    this.dangerFlashGfx.fillStyle(DANGER_FLASH_COLOR, t * DANGER_FLASH_PEAK_ALPHA);
+    const fr = this.fillRadius(this.currentFillWidth);
+    const drawW = typeof fr === "number" ? this.widthPx : this.currentFillWidth;
+    this.dangerFlashGfx.fillRoundedRect(this.barOffsetX, 0, drawW, this.heightPx, fr);
+  }
+
+  /** Stop danger pulse — clear overlay + restore label colour to white. */
   stopDangerPulse() {
     if (!this.dangerPulsing) return;
     this.dangerPulsing = false;
@@ -321,14 +352,8 @@ export class Meter extends Phaser.GameObjects.Container {
       this.dangerPulseTween = undefined;
     }
 
-    // Restore color and alpha
-    if (this.savedColor !== undefined) {
-      this.currentColor = this.savedColor;
-      this.savedColor = undefined;
-    }
-    this.fillGfx.setAlpha(0.95);
-    this.fillGfx.setScale(1);
-    this.drawFill(this.currentFillWidth);
+    this.dangerFlashGfx.clear();
+    this.label.setColor("#ffffff");
   }
 
   /**
