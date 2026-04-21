@@ -1,8 +1,8 @@
 import Phaser from "phaser";
-import { TileKind } from "../match3/types";
 import { ASSET_KEYS } from "../game/assets";
 import { GAME_WIDTH, GAME_HEIGHT, PERK_MAX_LEVEL, SAFE_AREA, UI_LAYOUT } from "../game/config";
 import type { SkillDef } from "../game/config";
+import { TileKind } from "../match3/types";
 import { hyphenateRu } from "../utils/ruHyphenate";
 
 const OVERLAY_DEPTH = 1500;
@@ -39,6 +39,15 @@ const BTN_RADIUS = 10;
 // Card placement: floats above the boss name; safe-area clamp keeps it clear of the notch.
 const CARD_NAME_GAP = 12;
 const CARD_TOP_SAFE_GAP = 8;
+
+// Card inner layout offsets.
+const LEFT_PAD = 20;
+const RIGHT_PAD = 16;
+const ICON_CARD_Y_OFFSET = 12; // nudges icon above centre to make room for stars below
+const STAR_SIZE = 12;
+const STAR_GAP = 3;
+const STAR_Y_PAD = 10;
+const BTN_Y_GAP = 20;
 
 // Text row layout inside the card (right-hand side).
 const NAME_LINE_HEIGHT = 20;
@@ -113,7 +122,7 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
 
     // === Card background (Graphics for rounded rect) ===
     const cardGfx = new Phaser.GameObjects.Graphics(scene);
-    cardGfx.fillStyle(0x1a1f3a, 0.95);
+    cardGfx.fillStyle(COLORS.panelBg, 0.95);
     cardGfx.fillRoundedRect(
       cardX - CARD_W / 2, cardY - CARD_H / 2,
       CARD_W, CARD_H, CARD_RADIUS,
@@ -135,9 +144,8 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     this.add(cardHitZone);
 
     // === LEFT side: icon + stars ===
-    const leftPad = 20;
-    const iconX = cardX - CARD_W / 2 + leftPad + ICON_SIZE / 2;
-    const iconY = cardY - 12; // slightly above center to make room for stars
+    const iconX = cardX - CARD_W / 2 + LEFT_PAD + ICON_SIZE / 2;
+    const iconY = cardY - ICON_CARD_Y_OFFSET;
 
     // Icon circle bg
     const iconBg = new Phaser.GameObjects.Arc(
@@ -180,19 +188,17 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     this.add(costBadgeText);
 
     // Stars below icon
-    const starSize = 12;
-    const starGap = 3;
-    const totalStarsW = PERK_MAX_LEVEL * starSize + (PERK_MAX_LEVEL - 1) * starGap;
-    const starsStartX = iconX - totalStarsW / 2 + starSize / 2;
-    const starsY = iconY + ICON_SIZE / 2 + 10;
+    const totalStarsW = PERK_MAX_LEVEL * STAR_SIZE + (PERK_MAX_LEVEL - 1) * STAR_GAP;
+    const starsStartX = iconX - totalStarsW / 2 + STAR_SIZE / 2;
+    const starsY = iconY + ICON_SIZE / 2 + STAR_Y_PAD;
     const lvl = Phaser.Math.Clamp(this.opts.level, 0, PERK_MAX_LEVEL);
     for (let i = 0; i < PERK_MAX_LEVEL; i++) {
       const filled = i < lvl;
       const star = new Phaser.GameObjects.Text(
-        scene, starsStartX + i * (starSize + starGap), starsY,
+        scene, starsStartX + i * (STAR_SIZE + STAR_GAP), starsY,
         "★",
         {
-          fontSize: `${starSize + 2}px`,
+          fontSize: `${STAR_SIZE + 2}px`,
           color: filled ? "#ffd700" : "#4a3a6e",
           fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
@@ -205,9 +211,19 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     }
 
     // === RIGHT side: name, cooldown, description (all syllable-wrapped) ===
-    const rightX = iconX + ICON_SIZE / 2 + 16;
-    const rightMaxW = CARD_W - leftPad - ICON_SIZE - 16 - 16; // available width for text
+    const rightX = iconX + ICON_SIZE / 2 + RIGHT_PAD;
+    const rightMaxW = CARD_W - LEFT_PAD - ICON_SIZE - RIGHT_PAD - RIGHT_PAD; // available width for text
     let rowY = cardY - CARD_H / 2 + NAME_TOP_PAD;
+
+    // Builds a style-specific measurer for hyphenateRu. Each call creates
+    // and destroys a throwaway Phaser.Text — acceptable because this runs
+    // only at overlay construction time (not in a render loop).
+    const makeMeasurer = (style: Phaser.Types.GameObjects.Text.TextStyle) => (s: string): number => {
+      const probe = scene.make.text({ x: 0, y: 0, text: s, style, add: false });
+      const w = probe.width;
+      probe.destroy();
+      return w;
+    };
 
     // Skill name (gold, bold) — Russian syllable-wrap via hyphenateRu
     const nameStyle: Phaser.Types.GameObjects.Text.TextStyle = {
@@ -219,13 +235,7 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       strokeThickness: 2,
       resolution: 2,
     };
-    const measureName = (s: string): number => {
-      const probe = scene.make.text({ x: 0, y: 0, text: s, style: nameStyle, add: false });
-      const w = probe.width;
-      probe.destroy();
-      return w;
-    };
-    const nameLines = hyphenateRu(cfg.name, rightMaxW, measureName);
+    const nameLines = hyphenateRu(cfg.name, rightMaxW, makeMeasurer(nameStyle));
     const nameText = new Phaser.GameObjects.Text(
       scene, rightX, rowY, nameLines.join("\n"), nameStyle,
     ).setOrigin(0, 0);
@@ -259,20 +269,14 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       fontStyle: "bold",
       resolution: 2,
     };
-    const measureDesc = (s: string): number => {
-      const probe = scene.make.text({ x: 0, y: 0, text: s, style: descStyle, add: false });
-      const w = probe.width;
-      probe.destroy();
-      return w;
-    };
-    const descLines = hyphenateRu(cfg.description, rightMaxW, measureDesc);
+    const descLines = hyphenateRu(cfg.description, rightMaxW, makeMeasurer(descStyle));
     const descText = new Phaser.GameObjects.Text(
       scene, rightX, rowY, descLines.join("\n"), descStyle,
     ).setOrigin(0, 0);
     this.add(descText);
 
     // === Apply button — separate from card, at bottom-center ===
-    const btnY = UI_LAYOUT.playerHpBarY - 20;
+    const btnY = UI_LAYOUT.playerHpBarY - BTN_Y_GAP;
 
     const btnGfx = new Phaser.GameObjects.Graphics(scene);
     btnGfx.fillStyle(COLORS.applyBg, 1);
