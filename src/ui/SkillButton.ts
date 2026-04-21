@@ -17,6 +17,26 @@ const COLORS = {
   bgCooldown: 0x1a1a2e, // Тёмный для кулдауна
 } as const;
 
+// Badge placement — centre of badge sits on the icon circle border at 45°
+// (matches `BADGE_OFFSET = Math.round((ICON_SIZE / 2) * 0.72)` in SkillApplyOverlay).
+const BADGE_BORDER_COS45 = 0.72;
+const BADGE_SIZE_FACTOR = 0.36;
+const BADGE_FONT_FACTOR = 0.17;
+const BADGE_FONT_MIN_PX = 10;
+const BADGE_SIZE_MIN_PX = 18;
+
+// Upgrade landing flash — golden tint + short scale yoyo one-shot.
+const UPGRADE_FLASH_COLOR = 0xffd700;
+const UPGRADE_FLASH_SCALE = 1.25;
+const UPGRADE_FLASH_TINT_RATIO = 0.4;
+const UPGRADE_FLASH_TWEEN_RATIO = 0.45;
+
+// Existing flashIconPulse constants — extracted from inline literals.
+const PULSE_FLASH_COLOR = 0xffffff;
+const PULSE_FLASH_SCALE = 1.25;
+const PULSE_FLASH_TINT_RATIO = 0.4;
+const PULSE_FLASH_TWEEN_RATIO = 0.45;
+
 export class SkillButton extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Arc;
   private iconText: Phaser.GameObjects.Text;
@@ -67,10 +87,14 @@ export class SkillButton extends Phaser.GameObjects.Container {
       this.iconText.setVisible(false);
     }
 
-    // Стоимость — бейдж-капля поверх кнопки (top-left, как на карточках перков)
-    const badgeOffset = Math.round(size * 0.22);
-    const badgeSize = Math.max(18, Math.round(size * 0.36));
-    const badgeFontSize = Math.max(10, Math.round(size * 0.17));
+    // Mana cost badge — centre sits on the icon circle border at 45° (top-left
+    // diagonal), same geometry as SkillApplyOverlay's badge. Fixed position is
+    // independent of cost text width — costText origin(0.5, 0.5) centres the
+    // number on the badge regardless of digits (30, 50, 100…).
+    const iconRadius = size / 2;
+    const badgeOffset = Math.round(iconRadius * BADGE_BORDER_COS45);
+    const badgeSize = Math.max(BADGE_SIZE_MIN_PX, Math.round(size * BADGE_SIZE_FACTOR));
+    const badgeFontSize = Math.max(BADGE_FONT_MIN_PX, Math.round(size * BADGE_FONT_FACTOR));
 
     this.manaIcon = scene.add
       .image(-badgeOffset, -badgeOffset, ASSET_KEYS.tiles[TileKind.Mana])
@@ -97,10 +121,6 @@ export class SkillButton extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  private repositionManaIcon() {
-    // Badge is at fixed position, no repositioning needed
-  }
-
   /**
    * Возвращает мировую позицию центра иконки скилла.
    * Иконка размещена в локальной точке (0, -2) внутри Container'а, чей
@@ -112,8 +132,9 @@ export class SkillButton extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Короткий «pop»-flash на иконке: белая вспышка + scale-pulse 1 → 1.3 → 1.
-   * Используется как landing-эффект при прилёте VFX (gold trail) на skill button.
+   * Короткий «pop»-flash на иконке: белая вспышка + scale-pulse 1 → 1.25 → 1.
+   * Используется как landing-эффект при прилёте VFX (gold trail) на skill button
+   * в сценарии unlock (новый скилл).
    * Fire-and-forget — возвращает Promise, который резолвится по завершении.
    */
   flashIconPulse(durationMs = 240): Promise<void> {
@@ -123,16 +144,48 @@ export class SkillButton extends Phaser.GameObjects.Container {
         this.iconImage?.visible ? this.iconImage : this.iconText;
       // Сохраняем исходный tint (для image) — flash вернётся в исходник через clearTint.
       if (target instanceof Phaser.GameObjects.Image) {
-        target.setTintFill(0xffffff);
-        this.scene.time.delayedCall(durationMs * 0.4, () => {
+        target.setTintFill(PULSE_FLASH_COLOR);
+        this.scene.time.delayedCall(durationMs * PULSE_FLASH_TINT_RATIO, () => {
           if (this.scene && target.scene) target.clearTint();
         });
       }
       // Scale-pulse — анимируем сам Container, чтобы и подложка кружка пульсировала.
       this.scene.tweens.add({
         targets: this,
-        scale: { from: 1, to: 1.25 },
-        duration: durationMs * 0.45,
+        scale: { from: 1, to: PULSE_FLASH_SCALE },
+        duration: durationMs * PULSE_FLASH_TWEEN_RATIO,
+        ease: "Quad.easeOut",
+        yoyo: true,
+        onComplete: () => {
+          if (this.scene) this.setScale(1);
+          resolve();
+        },
+      });
+    });
+  }
+
+  /**
+   * Golden landing flash used when an upgrade-VFX lands on an ALREADY-unlocked
+   * skill button (skill level +1). Mirrors `flashIconPulse` structure but with
+   * gold tint (0xffd700) instead of white. One-shot yoyo, returns Promise.
+   *
+   * Paired with `flashIconPulse` (unlock path). See phaser-animation.ts §9c.
+   */
+  flashIconUpgrade(durationMs = 240): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (!this.scene) { resolve(); return; }
+      const target: Phaser.GameObjects.GameObject =
+        this.iconImage?.visible ? this.iconImage : this.iconText;
+      if (target instanceof Phaser.GameObjects.Image) {
+        target.setTintFill(UPGRADE_FLASH_COLOR);
+        this.scene.time.delayedCall(durationMs * UPGRADE_FLASH_TINT_RATIO, () => {
+          if (this.scene && target.scene) target.clearTint();
+        });
+      }
+      this.scene.tweens.add({
+        targets: this,
+        scale: { from: 1, to: UPGRADE_FLASH_SCALE },
+        duration: durationMs * UPGRADE_FLASH_TWEEN_RATIO,
         ease: "Quad.easeOut",
         yoyo: true,
         onComplete: () => {
@@ -210,7 +263,6 @@ export class SkillButton extends Phaser.GameObjects.Container {
 
     if (info) {
       this.costText.setText(info);
-      this.repositionManaIcon();
     }
   }
 }
