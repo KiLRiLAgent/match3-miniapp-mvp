@@ -1,6 +1,6 @@
 import Phaser from "phaser";
-import { TileKind } from "../match3/types";
 import { ASSET_KEYS } from "../game/assets";
+import { TileKind } from "../match3/types";
 
 type SkillState = {
   enabled: boolean;
@@ -25,17 +25,12 @@ const BADGE_FONT_FACTOR = 0.17;
 const BADGE_FONT_MIN_PX = 10;
 const BADGE_SIZE_MIN_PX = 18;
 
-// Upgrade landing flash — golden tint + short scale yoyo one-shot.
-const UPGRADE_FLASH_COLOR = 0xffd700;
-const UPGRADE_FLASH_SCALE = 1.25;
-const UPGRADE_FLASH_TINT_RATIO = 0.4;
-const UPGRADE_FLASH_TWEEN_RATIO = 0.45;
-
-// Existing flashIconPulse constants — extracted from inline literals.
-const PULSE_FLASH_COLOR = 0xffffff;
-const PULSE_FLASH_SCALE = 1.25;
-const PULSE_FLASH_TINT_RATIO = 0.4;
-const PULSE_FLASH_TWEEN_RATIO = 0.45;
+// Landing flash — shared scale/timing; only tint colour differs between variants.
+const FLASH_SCALE = 1.25;
+const FLASH_TINT_RATIO = 0.4;
+const FLASH_TWEEN_RATIO = 0.45;
+const PULSE_FLASH_COLOR = 0xffffff; // flashIconPulse — unlock VFX (new skill)
+const UPGRADE_FLASH_COLOR = 0xffd700; // flashIconUpgrade — upgrade VFX (level +1)
 
 export class SkillButton extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Arc;
@@ -145,15 +140,15 @@ export class SkillButton extends Phaser.GameObjects.Container {
       // Сохраняем исходный tint (для image) — flash вернётся в исходник через clearTint.
       if (target instanceof Phaser.GameObjects.Image) {
         target.setTintFill(PULSE_FLASH_COLOR);
-        this.scene.time.delayedCall(durationMs * PULSE_FLASH_TINT_RATIO, () => {
+        this.scene.time.delayedCall(durationMs * FLASH_TINT_RATIO, () => {
           if (this.scene && target.scene) target.clearTint();
         });
       }
       // Scale-pulse — анимируем сам Container, чтобы и подложка кружка пульсировала.
       this.scene.tweens.add({
         targets: this,
-        scale: { from: 1, to: PULSE_FLASH_SCALE },
-        duration: durationMs * PULSE_FLASH_TWEEN_RATIO,
+        scale: { from: 1, to: FLASH_SCALE },
+        duration: durationMs * FLASH_TWEEN_RATIO,
         ease: "Quad.easeOut",
         yoyo: true,
         onComplete: () => {
@@ -178,14 +173,14 @@ export class SkillButton extends Phaser.GameObjects.Container {
         this.iconImage?.visible ? this.iconImage : this.iconText;
       if (target instanceof Phaser.GameObjects.Image) {
         target.setTintFill(UPGRADE_FLASH_COLOR);
-        this.scene.time.delayedCall(durationMs * UPGRADE_FLASH_TINT_RATIO, () => {
+        this.scene.time.delayedCall(durationMs * FLASH_TINT_RATIO, () => {
           if (this.scene && target.scene) target.clearTint();
         });
       }
       this.scene.tweens.add({
         targets: this,
-        scale: { from: 1, to: UPGRADE_FLASH_SCALE },
-        duration: durationMs * UPGRADE_FLASH_TWEEN_RATIO,
+        scale: { from: 1, to: FLASH_SCALE },
+        duration: durationMs * FLASH_TWEEN_RATIO,
         ease: "Quad.easeOut",
         yoyo: true,
         onComplete: () => {
