@@ -188,14 +188,14 @@
  *        if (cfg.heal > 0) playerHpBar.showPreview(playerHp, playerHpMax, cfg.heal);
  *        // Mana cost -> white preview on mana bar
  *        if (cfg.cost > 0) manaBar.showPreview(mana, manaMax, -cfg.cost);
- *        // Skill button pulse tween (tracked in skillHighlightTweens)
+ *        // Lift selected skill button above backdrop (see §11)
  *      }
  *
  *      onClose: () => {
  *        playerHpBar.clearPreview();
  *        bossHpBar.clearPreview();
  *        manaBar.clearPreview();
- *        // Stop skill button pulse tweens, restore scale
+ *        // Restore selected skill button depth (see §11)
  *      }
  *
  *    See `Meter.showPreview` / `LayeredMeter.showPreview` for the

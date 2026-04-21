@@ -45,7 +45,11 @@
  *      it will eventually render, so the measurement is exact.
  *    - Unit-testable with a trivial stub (`(s) => s.length * 10`).
  *
- *    Consumer pattern (Phaser):
+ *    Consumer pattern (Phaser) — PREFERRED form: reuse a single probe
+ *    Text object across all measure() calls rather than creating a new
+ *    one per measurement. Each call to `hyphenateRu` may invoke
+ *    `measureTextWidth` many times (per candidate split), so per-call
+ *    object creation is wasteful vs a single reused probe:
  *
  *      const probe = new Phaser.GameObjects.Text(scene, 0, 0, "", {
  *        fontSize: "16px", fontFamily: "'Exo 2', Arial, sans-serif",
@@ -58,6 +62,14 @@
  *      const lines = hyphenateRu(description, maxWidth, measure);
  *      probe.destroy();
  *      const textBlock = scene.add.text(x, y, lines.join("\n"), style);
+ *
+ *    Acceptable-but-wasteful alternative (current
+ *    `src/ui/SkillApplyOverlay.ts`): create a new `scene.make.text({...
+ *    add: false })` inside the closure per call, read `.width`, destroy.
+ *    Functionally correct but slower — when the helper calls
+ *    `measureTextWidth` many times per hyphenation, the reused-probe
+ *    form avoids repeated Text construction/teardown. Migrate to the
+ *    reused-probe form when touching the relevant file.
  *
  * 3. DoS / STACK-OVERFLOW GUARD (MAX_INPUT_LENGTH)
  *
