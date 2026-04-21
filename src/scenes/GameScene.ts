@@ -2170,11 +2170,11 @@ export class GameScene extends Phaser.Scene {
     // closeSkillHighlights will stop them uniformly.
     const tweens: Phaser.Tweens.Tween[] = [];
     // Lift selected skill button above the SkillApplyOverlay backdrop so it
-    // stays visually bright while the overlay is open, and disable the
-    // inner-Arc click handler so pointerdown on the lifted button is a true
-    // no-op (SkillButton's click handler lives on an Arc child, not the
+    // stays visually bright while the overlay is open, and disable its inner
+    // Arc click handler so pointerdown on the lifted button is a true no-op
+    // (SkillButton attaches its click handler to an Arc child, not the
     // Container — setClickDisabled proxies to that Arc). skillOverlayBusyToken
-    // in activateSkill is the deeper guard, this is the Phaser-level one.
+    // in activateSkill is the deeper guard; this is the Phaser-level one.
     const selectedBtn = this.skillButtons[id];
     if (selectedBtn) {
       selectedBtn.setDepth(OVERLAY_SELECTED_SKILL_DEPTH);
@@ -2198,13 +2198,13 @@ export class GameScene extends Phaser.Scene {
 
   /** Stop all highlight tweens, restore selected skill depth, and clear bar previews. Idempotent. */
   private closeSkillHighlights() {
-    if (this.skillHighlightTweens) {
-      for (const t of this.skillHighlightTweens) {
-        if (t && t.isPlaying()) t.stop();
-      }
-      this.skillHighlightTweens = [];
+    for (const t of this.skillHighlightTweens) {
+      if (t && t.isPlaying()) t.stop();
     }
-    // Restore visual defaults (defensive — covers any stray pulse/scale state)
+    this.skillHighlightTweens = [];
+    // Reset scale on all skill buttons — guards against any scale tween that
+    // may have been registered in skillHighlightTweens above and left the
+    // button mid-yoyo when stopped.
     SKILL_IDS.forEach((sid) => {
       const b = this.skillButtons[sid];
       if (b) b.setScale(1);
