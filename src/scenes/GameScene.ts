@@ -68,7 +68,12 @@ const SKILL_IDS: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 // the SkillApplyOverlay backdrop (1500) so the selected skill button pops
 // visually through the darkened backdrop. See CLAUDE.md depth map.
 const SKILL_BUTTON_BASE_DEPTH = 2;
-const OVERLAY_SELECTED_SKILL_DEPTH = 1501;
+// 2050 — deliberately above v2 Toast (2000) and well above the overlay
+// backdrop (1500) so the selected skill reads as the top-most element
+// on every screen, even if a sibling SkillButton was added to the
+// display list later. bringToTop() in openSkillHighlights is a second
+// guarantee against in-order rendering races.
+const OVERLAY_SELECTED_SKILL_DEPTH = 2050;
 // CooldownIcon sits at depth 4 in normal HUD stack; lifted to the same
 // OVERLAY_SELECTED_SKILL_DEPTH while a stun skill preview is open.
 const COOLDOWN_ICON_BASE_DEPTH = 4;
@@ -2236,6 +2241,10 @@ export class GameScene extends Phaser.Scene {
     const selectedBtn = this.skillButtons[id];
     if (selectedBtn) {
       selectedBtn.setDepth(OVERLAY_SELECTED_SKILL_DEPTH);
+      // Belt-and-braces: also bump it to the END of the scene display list
+      // so sibling skill buttons never paint on top even if they share a
+      // depth bucket for any other reason.
+      this.children.bringToTop(selectedBtn);
       selectedBtn.setClickDisabled();
       this.overlaySelectedSkillId = id;
     }
