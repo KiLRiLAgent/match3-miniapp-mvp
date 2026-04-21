@@ -1184,6 +1184,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // Master counter tween drives all low-HP animations so they share phase.
+  // Range: 0 (rest) → 1 (peak) → 0, yoyo, repeat -1, 1200 ms Sine.easeInOut.
+  private readonly LOW_HP_PULSE_DURATION = 1200;
+
   private showVignette() {
     if (this.vignetteGfx) return; // already visible
     this.sfx(ASSET_KEYS.sfx.lowHealth);
@@ -1212,17 +1216,27 @@ export class GameScene extends Phaser.Scene {
     gfx.setAlpha(this.VIGNETTE_ALPHA_MIN);
     this.vignetteGfx = gfx;
 
-    this.vignetteTween = this.tweens.add({
-      targets: gfx,
-      alpha: { from: this.VIGNETTE_ALPHA_MIN, to: this.VIGNETTE_ALPHA_MAX },
-      duration: 1200,
+    // Arm the HP bar for external drive (no tween inside Meter — we feed t here).
+    this.playerHpBar?.startDangerPulse();
+
+    // Master counter — single source of phase for BOTH vignette alpha and
+    // HP bar red wash + label colour. Prevents drift between the two.
+    const alphaRange = this.VIGNETTE_ALPHA_MAX - this.VIGNETTE_ALPHA_MIN;
+    this.vignetteTween = this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: this.LOW_HP_PULSE_DURATION,
       ease: "Sine.easeInOut",
       yoyo: true,
       repeat: -1,
+      onUpdate: (tween) => {
+        const t = tween.getValue() ?? 0;
+        if (this.vignetteGfx) {
+          this.vignetteGfx.setAlpha(this.VIGNETTE_ALPHA_MIN + alphaRange * t);
+        }
+        this.playerHpBar?.setDangerPulseT(t);
+      },
     });
-
-    // HP bar danger pulse — fill turns red + brightness pulse
-    this.playerHpBar?.startDangerPulse();
   }
 
   private hideVignette() {
@@ -1234,7 +1248,6 @@ export class GameScene extends Phaser.Scene {
     this.vignetteGfx.destroy();
     this.vignetteGfx = undefined;
 
-    // Stop HP bar danger pulse
     this.playerHpBar?.stopDangerPulse();
   }
 
