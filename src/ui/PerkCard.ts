@@ -40,7 +40,6 @@ export class PerkCard extends Phaser.GameObjects.Container {
   private cardBg: Phaser.GameObjects.Graphics;
   private borderGlow: Phaser.GameObjects.Graphics;
   private glowTween?: Phaser.Tweens.Tween;
-  private scrollTween?: Phaser.Tweens.Tween;
 
   constructor(
     scene: Phaser.Scene,
@@ -223,40 +222,33 @@ export class PerkCard extends Phaser.GameObjects.Container {
     const descAreaBottom = halfH - 6 - arrowsLineHeight;
     const descVisibleH = Math.max(0, descAreaBottom - descAreaTop);
 
+    // Build description with shrink-to-fit — no marquee scroll. If the
+    // rendered height exceeds the visible area, we step the font size
+    // down until it fits (floor 8 px). Quieter than the old auto-scroll
+    // and keeps the card static.
+    let currentDescFontSize = descFontSize;
     const descText = scene.add
       .text(0, descAreaTop, baseDescription, {
-        fontSize: `${descFontSize}px`,
+        fontSize: `${currentDescFontSize}px`,
         color: CARD_COLORS.description,
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         align: "center",
-        // useAdvancedWrap allows breaking long Russian words ("Восстанавливает")
-        // at the card edge instead of letting them overflow sideways.
+        // useAdvancedWrap lets Phaser break long Russian words at the card
+        // edge instead of letting them overflow sideways.
         wordWrap: { width: w - 16, useAdvancedWrap: true },
-        // Padding accommodates bold stroke that otherwise clips at crop edges.
         padding: { left: 2, right: 2, top: 0, bottom: 0 },
         resolution: 2,
       })
       .setOrigin(0.5, 0);
-
-    // Auto-scroll marquee if description overflows visible area
-    if (descVisibleH > 0 && descText.height > descVisibleH) {
-      descText.setCrop(0, 0, Math.ceil(descText.width), Math.ceil(descVisibleH));
-      const scrollDist = descText.height - descVisibleH;
-      const scrollData = { crop: 0 };
-      this.scrollTween = scene.tweens.add({
-        targets: scrollData,
-        crop: scrollDist,
-        duration: Math.max(1000, scrollDist * 50),
-        delay: 1500,
-        yoyo: true,
-        repeat: -1,
-        repeatDelay: 1500,
-        ease: "Linear",
-        onUpdate: () => {
-          descText.setCrop(0, Math.round(scrollData.crop), Math.ceil(descText.width), Math.ceil(descVisibleH));
-        },
-      });
+    const DESC_MIN_FONT_PX = 8;
+    while (
+      descVisibleH > 0 &&
+      descText.height > descVisibleH &&
+      currentDescFontSize > DESC_MIN_FONT_PX
+    ) {
+      currentDescFontSize -= 1;
+      descText.setFontSize(currentDescFontSize);
     }
 
     let arrowsText: Phaser.GameObjects.Text | null = null;
@@ -387,7 +379,6 @@ export class PerkCard extends Phaser.GameObjects.Container {
 
   destroy(fromScene?: boolean) {
     if (this.glowTween) { this.glowTween.stop(); this.glowTween = undefined; }
-    if (this.scrollTween) { this.scrollTween.stop(); this.scrollTween = undefined; }
     super.destroy(fromScene);
   }
 }
