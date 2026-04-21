@@ -94,14 +94,22 @@ export class PerkCard extends Phaser.GameObjects.Container {
         fontStyle: "bold",
         stroke: "#000000",
         strokeThickness: 2,
-        wordWrap: { width: titleMaxW },
+        // useAdvancedWrap lets Phaser break long single words at the card
+        // edge — without it, "Оглушение" stays on one line wider than the
+        // card and overflows sideways.
+        wordWrap: { width: titleMaxW, useAdvancedWrap: true },
         align: "center",
         resolution: 2,
       })
       .setOrigin(0.5);
-    // Shrink font if title exceeds ~2 lines
+    // Shrink font if title exceeds ~2 lines OR overflows sideways. The
+    // width check matters when advanced wrap is disabled or when a single
+    // very long word still beats the wrap heuristic.
     const maxTitleTextH = titleFontSize * 2.6;
-    while (titleText.height > maxTitleTextH && titleFontSize > 10) {
+    while (
+      (titleText.height > maxTitleTextH || titleText.width > titleMaxW) &&
+      titleFontSize > 10
+    ) {
       titleFontSize -= 1;
       titleText.setFontSize(titleFontSize);
     }
@@ -222,7 +230,11 @@ export class PerkCard extends Phaser.GameObjects.Container {
         fontFamily: "'Exo 2', Arial, sans-serif",
         fontStyle: "bold",
         align: "center",
-        wordWrap: { width: w - 16 },
+        // useAdvancedWrap allows breaking long Russian words ("Восстанавливает")
+        // at the card edge instead of letting them overflow sideways.
+        wordWrap: { width: w - 16, useAdvancedWrap: true },
+        // Padding accommodates bold stroke that otherwise clips at crop edges.
+        padding: { left: 2, right: 2, top: 0, bottom: 0 },
         resolution: 2,
       })
       .setOrigin(0.5, 0);

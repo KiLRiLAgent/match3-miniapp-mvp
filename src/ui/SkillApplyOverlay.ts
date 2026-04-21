@@ -29,9 +29,9 @@ const CARD_RADIUS = 12;
 const ICON_SIZE = 56;
 // Cost badge (mana drop) sits on top-left edge of the icon circle.
 // BADGE_OFFSET ≈ ICON_SIZE/2 * cos(45°) so the badge centre lies right on the circle border.
-// Badge is 20% larger on the confirmation overlay than on the resting SkillButton —
-// the "selected skill" callout should read prominently.
-const BADGE_SIZE = 38;
+// Badge is deliberately larger on the confirmation overlay than on the resting
+// SkillButton — the "selected skill" callout should read prominently.
+const BADGE_SIZE = 42;
 const BADGE_OFFSET = Math.round((ICON_SIZE / 2) * 0.72);
 const BACKDROP_ALPHA = 0.35;
 const BTN_W = 200;
