@@ -23,38 +23,35 @@ const COLORS = {
   starOff: 0x4a3a6e,
 } as const;
 
-const CARD_W = 270;
-const CARD_H = 150;
-const CARD_RADIUS = 12;
-const ICON_SIZE = 56;
-// Cost badge (mana drop) sits on top-left edge of the icon circle.
-// BADGE_OFFSET ≈ ICON_SIZE/2 * cos(45°) so the badge centre lies right on the circle border.
-const BADGE_SIZE = 32;
-const BADGE_OFFSET = Math.round((ICON_SIZE / 2) * 0.72);
+const CARD_W = 360;
+const CARD_H = 220;
+const CARD_RADIUS = 14;
+const ICON_SIZE = 96;
 const BACKDROP_ALPHA = 0.35;
-const BTN_W = 200;
-const BTN_H = 48;
-const BTN_RADIUS = 10;
+const BTN_W = 220;
+const BTN_H = 52;
+const BTN_RADIUS = 12;
 
 // Card placement: floats above the boss name; safe-area clamp keeps it clear of the notch.
 const CARD_NAME_GAP = 12;
 const CARD_TOP_SAFE_GAP = 8;
 
 // Card inner layout offsets.
-const LEFT_PAD = 20;
+const LEFT_PAD = 18;
 const RIGHT_PAD = 16;
-const ICON_CARD_Y_OFFSET = 12; // nudges icon above centre to make room for stars below
-const STAR_SIZE = 12;
-const STAR_GAP = 3;
-const STAR_Y_PAD = 10;
-const BTN_Y_GAP = 20;
+const STARS_TOP_GAP = 14;
+const STAR_SIZE = 20;
+const STAR_GAP = 4;
 
-// Text row layout inside the card (right-hand side).
-const NAME_LINE_HEIGHT = 20;
-const ROW_GAP = 4;
-const NAME_TOP_PAD = 18;
-const CD_ROW_HEIGHT = 20;
-const CD_TOP_PAD = 4;
+// Right-column (text) layout. Rows stack from NAME_TOP_PAD downwards.
+const NAME_FONT_SIZE = 30;
+const NAME_LINE_HEIGHT = 34;
+const NAME_TOP_PAD = 16;
+const META_FONT_SIZE = 17;
+const META_LINE_HEIGHT = 22;
+const META_GAP_AFTER_NAME = 6;
+const DESC_FONT_SIZE = 20;
+const DESC_GAP_AFTER_META = 10;
 
 export interface SkillApplyOverlayOptions {
   /** Skill definition to display */
@@ -143,14 +140,16 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     });
     this.add(cardHitZone);
 
-    // === LEFT side: icon + stars ===
+    // === LEFT side: icon plate + stars ===
     const iconX = cardX - CARD_W / 2 + LEFT_PAD + ICON_SIZE / 2;
-    const iconY = cardY - ICON_CARD_Y_OFFSET;
+    const starsRowH = STAR_SIZE + 6; // small gap above/below star cluster
+    const leftBlockH = ICON_SIZE + STARS_TOP_GAP + starsRowH;
+    const iconY = cardY - (leftBlockH / 2) + ICON_SIZE / 2;
 
     // Icon circle bg
     const iconBg = new Phaser.GameObjects.Arc(
       scene, iconX, iconY, ICON_SIZE / 2, 0, 360, false, 0x4a3a6e, 0.95,
-    ).setStrokeStyle(2, 0xffffff, 0.4);
+    ).setStrokeStyle(3, 0x7ab8ff, 0.8);
     this.add(iconBg);
 
     // Icon content (texture or emoji)
@@ -160,7 +159,7 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       this.add(iconImg);
     } else {
       const iconText = new Phaser.GameObjects.Text(scene, iconX, iconY - 2, cfg.icon, {
-        fontSize: "36px",
+        fontSize: `${Math.round(ICON_SIZE * 0.6)}px`,
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
         resolution: 2,
@@ -168,29 +167,10 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       this.add(iconText);
     }
 
-    // === Mana cost badge (drop) on top-left of the icon circle ===
-    // Centre of badge sits on the circle border for visual "intersection".
-    const badgeX = iconX - BADGE_OFFSET;
-    const badgeY = iconY - BADGE_OFFSET;
-    const manaBadge = new Phaser.GameObjects.Image(scene, badgeX, badgeY, ASSET_KEYS.tiles[TileKind.Mana])
-      .setDisplaySize(BADGE_SIZE, BADGE_SIZE)
-      .setOrigin(0.5);
-    this.add(manaBadge);
-    const costBadgeText = new Phaser.GameObjects.Text(scene, badgeX, badgeY, `${cfg.cost}`, {
-      fontSize: "14px",
-      color: "#ffffff",
-      fontFamily: "'Exo 2', Arial, sans-serif",
-      fontStyle: "bold",
-      stroke: "#0b3a7a",
-      strokeThickness: 2,
-      resolution: 2,
-    }).setOrigin(0.5);
-    this.add(costBadgeText);
-
-    // Stars below icon
+    // Stars row below icon (no badge — mana cost is inline in the text column)
+    const starsY = iconY + ICON_SIZE / 2 + STARS_TOP_GAP;
     const totalStarsW = PERK_MAX_LEVEL * STAR_SIZE + (PERK_MAX_LEVEL - 1) * STAR_GAP;
     const starsStartX = iconX - totalStarsW / 2 + STAR_SIZE / 2;
-    const starsY = iconY + ICON_SIZE / 2 + STAR_Y_PAD;
     const lvl = Phaser.Math.Clamp(this.opts.level, 0, PERK_MAX_LEVEL);
     for (let i = 0; i < PERK_MAX_LEVEL; i++) {
       const filled = i < lvl;
@@ -210,20 +190,14 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       this.add(star);
     }
 
-    // === RIGHT side: name, cooldown, description (all syllable-wrapped) ===
+    // === RIGHT side: name, cost row, cooldown row, description ===
     const rightX = iconX + ICON_SIZE / 2 + RIGHT_PAD;
-    // Web fonts (Exo 2) may not be loaded yet when the overlay builds —
-    // Phaser measures with a fallback font and under-reports width, so a
-    // word that "fits" in the probe ends up overflowing after the font
-    // finishes loading. Shave 12% off the budget so hyphenation kicks in
-    // with headroom for the real render.
+    // 12 % safety margin — see `fc75d5a` commit for rationale (web font
+    // load race with Phaser text measurement).
     const TEXT_BUDGET_SAFETY = 0.88;
     const rightMaxW = (CARD_W - LEFT_PAD - ICON_SIZE - RIGHT_PAD - RIGHT_PAD) * TEXT_BUDGET_SAFETY;
     let rowY = cardY - CARD_H / 2 + NAME_TOP_PAD;
 
-    // Builds a style-specific measurer for hyphenateRu. Each call creates
-    // and destroys a throwaway Phaser.Text — acceptable because this runs
-    // only at overlay construction time (not in a render loop).
     const makeMeasurer = (style: Phaser.Types.GameObjects.Text.TextStyle) => (s: string): number => {
       const probe = scene.make.text({ x: 0, y: 0, text: s, style, add: false });
       const w = probe.width;
@@ -231,14 +205,14 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       return w;
     };
 
-    // Skill name (gold, bold) — Russian syllable-wrap via hyphenateRu
+    // --- Skill name (gold, bold, large) ---
     const nameStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: "18px",
+      fontSize: `${NAME_FONT_SIZE}px`,
       color: COLORS.nameText,
       fontFamily: "'Exo 2', Arial, sans-serif",
       fontStyle: "bold",
       stroke: "#000000",
-      strokeThickness: 2,
+      strokeThickness: 3,
       resolution: 2,
     };
     const nameLines = hyphenateRu(cfg.name, rightMaxW, makeMeasurer(nameStyle));
@@ -246,33 +220,62 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       scene, rightX, rowY, nameLines.join("\n"), nameStyle,
     ).setOrigin(0, 0);
     this.add(nameText);
+    rowY += nameLines.length * NAME_LINE_HEIGHT + META_GAP_AFTER_NAME;
 
-    rowY += nameLines.length * NAME_LINE_HEIGHT + ROW_GAP;
-
-    // Cooldown row
-    const cdLabel = cfg.cooldown === 1 ? "ход" : "ходов";
-    const cdText = new Phaser.GameObjects.Text(
-      scene, rightX, rowY + CD_TOP_PAD,
-      `⏳ ${cfg.cooldown} ${cdLabel}`,
-      {
-        fontSize: "14px",
-        color: COLORS.cooldownText,
-        fontFamily: "'Exo 2', Arial, sans-serif",
-        fontStyle: "bold",
-        resolution: 2,
-      },
+    // --- Cost row: «Стоимость 💧N маны» (label + mana-drop sprite + number) ---
+    const metaStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: `${META_FONT_SIZE}px`,
+      color: "#ffffff",
+      fontFamily: "'Exo 2', Arial, sans-serif",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 2,
+      resolution: 2,
+    };
+    const costLabel = new Phaser.GameObjects.Text(scene, rightX, rowY, "Стоимость", metaStyle)
+      .setOrigin(0, 0);
+    this.add(costLabel);
+    const metaIconSize = META_FONT_SIZE + 6;
+    const metaInlineGap = 4;
+    const manaIconX = rightX + costLabel.width + metaInlineGap + metaIconSize / 2;
+    const manaIcon = new Phaser.GameObjects.Image(
+      scene, manaIconX, rowY + META_FONT_SIZE / 2, ASSET_KEYS.tiles[TileKind.Mana],
+    ).setDisplaySize(metaIconSize, metaIconSize).setOrigin(0.5);
+    this.add(manaIcon);
+    const costValueText = new Phaser.GameObjects.Text(
+      scene, manaIconX + metaIconSize / 2 + metaInlineGap, rowY,
+      `${cfg.cost} маны`, metaStyle,
     ).setOrigin(0, 0);
-    this.add(cdText);
+    this.add(costValueText);
+    rowY += META_LINE_HEIGHT;
 
-    rowY += CD_ROW_HEIGHT + ROW_GAP;
+    // --- Cooldown row: «Перезарядка ⏳N ход(а|ов)» ---
+    const cdLabel = new Phaser.GameObjects.Text(scene, rightX, rowY, "Перезарядка", metaStyle)
+      .setOrigin(0, 0);
+    this.add(cdLabel);
+    const hourglassX = rightX + cdLabel.width + metaInlineGap + metaIconSize / 2;
+    const hourglass = new Phaser.GameObjects.Text(
+      scene, hourglassX, rowY + META_FONT_SIZE / 2, "⏳",
+      { ...metaStyle, color: COLORS.cooldownText, strokeThickness: 1 },
+    ).setOrigin(0.5);
+    this.add(hourglass);
+    const cdSuffix = cfg.cooldown === 1 ? "ход" : cfg.cooldown >= 2 && cfg.cooldown <= 4 ? "хода" : "ходов";
+    const cdValue = new Phaser.GameObjects.Text(
+      scene, hourglassX + metaIconSize / 2 + metaInlineGap, rowY,
+      `${cfg.cooldown} ${cdSuffix}`, metaStyle,
+    ).setOrigin(0, 0);
+    this.add(cdValue);
+    rowY += META_LINE_HEIGHT + DESC_GAP_AFTER_META;
 
-    // Effect description — Russian syllable-wrap via hyphenateRu
+    // --- Description row: «Наносит ⚔️N физического урона» ---
     const descColor = cfg.heal > 0 ? COLORS.healText : cfg.damage > 0 ? COLORS.damageText : "#cfd8ff";
     const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: "14px",
+      fontSize: `${DESC_FONT_SIZE}px`,
       color: descColor,
       fontFamily: "'Exo 2', Arial, sans-serif",
       fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 2,
       resolution: 2,
     };
     const descLines = hyphenateRu(cfg.description, rightMaxW, makeMeasurer(descStyle));
@@ -281,8 +284,10 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     ).setOrigin(0, 0);
     this.add(descText);
 
-    // === Apply button — separate from card, at bottom-center ===
-    const btnY = UI_LAYOUT.playerHpBarY - BTN_Y_GAP;
+    // === Apply button — centred horizontally AND vertically on the board ===
+    // Board centre is the most natural spot for an acknowledge-action button
+    // (players look at the board while thinking about the skill).
+    const btnY = UI_LAYOUT.boardOriginY + UI_LAYOUT.boardHeight / 2;
 
     const btnGfx = new Phaser.GameObjects.Graphics(scene);
     btnGfx.fillStyle(COLORS.applyBg, 1);

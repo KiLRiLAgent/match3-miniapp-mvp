@@ -214,7 +214,10 @@ export class PerkCard extends Phaser.GameObjects.Container {
     const baseDescription = arrowParse?.text ?? nextDescription;
     const arrowsString = arrowParse?.arrows ?? "";
     const descFontSize = Math.round(10 * scale * fontMul);
-    const arrowsFontSize = Math.round(22 * scale * (enhanced ? 1.4 : 1));
+    // Arrow glyph was previously scaled up ~2x vs. description (huge).
+    // Match the description size so the arrow reads as inline punctuation,
+    // not a separate callout.
+    const arrowsFontSize = descFontSize;
     const arrowsLineHeight = arrowsString.length > 0 ? arrowsFontSize + 4 : 0;
 
     // Description area: from below stars to card bottom (minus arrows + padding)
@@ -262,7 +265,9 @@ export class PerkCard extends Phaser.GameObjects.Container {
           fontFamily: "'Exo 2', Arial, sans-serif",
           fontStyle: "bold",
           stroke: CARD_COLORS.upgradeArrowStroke,
-          strokeThickness: 3,
+          // Stroke scaled down with the arrow font — a 3 px stroke on a
+          // 10 px arrow was visually dominant.
+          strokeThickness: 1,
           resolution: 2,
         })
         .setOrigin(0.5);
