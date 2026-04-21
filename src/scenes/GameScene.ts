@@ -2170,8 +2170,11 @@ export class GameScene extends Phaser.Scene {
     // closeSkillHighlights will stop them uniformly.
     const tweens: Phaser.Tweens.Tween[] = [];
     // Lift selected skill button above the SkillApplyOverlay backdrop so it
-    // stays visually bright. Block clicks on it while overlay is open —
-    // busy lock already short-circuits activateSkill, this is belt-and-braces.
+    // stays visually bright while the overlay is open. Clicks on the selected
+    // button during the overlay are blocked by skillOverlayBusyToken (see
+    // activateSkill) — the disableInteractive() call here is cosmetic: the
+    // real click handler lives on SkillButton's inner Arc child, not the
+    // Container, so the Container-level input disable is a no-op in practice.
     const selectedBtn = this.skillButtons[id];
     if (selectedBtn) {
       selectedBtn.setDepth(OVERLAY_SELECTED_SKILL_DEPTH);
@@ -2206,11 +2209,11 @@ export class GameScene extends Phaser.Scene {
       const b = this.skillButtons[sid];
       if (b) b.setScale(1);
     });
-    // Restore depth + interactivity on the previously selected skill button.
-    // Only call setInteractive if the button already had an input object —
-    // Container.disableInteractive is a no-op when no input exists (SkillButton
-    // attaches its click handler to an inner Arc, not the Container), so
-    // unconditionally calling setInteractive here would create input state
+    // Restore depth on the previously selected skill button. The Container's
+    // input object is always null (SkillButton attaches its click handler to
+    // an inner Arc child), so the `if (btn.input)` guard keeps the paired
+    // setInteractive call symmetric with disableInteractive — both are no-ops
+    // in practice, and we avoid creating Container input state on close that
     // the button never had before open.
     if (this.overlaySelectedSkillId !== undefined) {
       const btn = this.skillButtons[this.overlaySelectedSkillId];
