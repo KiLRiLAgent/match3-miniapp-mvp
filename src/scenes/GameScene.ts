@@ -2173,8 +2173,10 @@ export class GameScene extends Phaser.Scene {
     // stays visually bright while the overlay is open, and disable its inner
     // Arc click handler so pointerdown on the lifted button is a true no-op
     // (SkillButton attaches its click handler to an Arc child, not the
-    // Container — setClickDisabled proxies to that Arc). skillOverlayBusyToken
-    // in activateSkill is the deeper guard; this is the Phaser-level one.
+    // Container — setClickDisabled proxies to that Arc). The deeper safety
+    // nets are `activateSkill`'s re-entrancy guard (`if (this.skillApplyOverlay)
+    // return;`) and skillOverlayBusyToken; this is the Phaser-level one that
+    // avoids hand-cursor flicker and stops pointerdown from firing at all.
     const selectedBtn = this.skillButtons[id];
     if (selectedBtn) {
       selectedBtn.setDepth(OVERLAY_SELECTED_SKILL_DEPTH);

@@ -1,8 +1,9 @@
 import Phaser from "phaser";
 import { TileKind } from "../match3/types";
 import { ASSET_KEYS } from "../game/assets";
-import { GAME_WIDTH, GAME_HEIGHT, PERK_MAX_LEVEL, UI_LAYOUT } from "../game/config";
+import { GAME_WIDTH, GAME_HEIGHT, PERK_MAX_LEVEL, SAFE_AREA, UI_LAYOUT } from "../game/config";
 import type { SkillDef } from "../game/config";
+import { hyphenateRu } from "../utils/ruHyphenate";
 
 const OVERLAY_DEPTH = 1500;
 
@@ -23,7 +24,7 @@ const COLORS = {
 } as const;
 
 const CARD_W = 270;
-const CARD_H = 120;
+const CARD_H = 150;
 const CARD_RADIUS = 12;
 const ICON_SIZE = 56;
 // Cost badge (mana drop) sits on top-left edge of the icon circle.
@@ -34,6 +35,17 @@ const BACKDROP_ALPHA = 0.35;
 const BTN_W = 200;
 const BTN_H = 48;
 const BTN_RADIUS = 10;
+
+// Card placement: floats above the boss name; safe-area clamp keeps it clear of the notch.
+const CARD_NAME_GAP = 12;
+const CARD_TOP_SAFE_GAP = 8;
+
+// Text row layout inside the card (right-hand side).
+const NAME_LINE_HEIGHT = 20;
+const ROW_GAP = 4;
+const NAME_TOP_PAD = 18;
+const CD_ROW_HEIGHT = 20;
+const CD_TOP_PAD = 4;
 
 export interface SkillApplyOverlayOptions {
   /** Skill definition to display */
@@ -93,8 +105,10 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     });
     this.add(backdrop);
 
-    // === Card position — above game board ===
-    const cardY = UI_LAYOUT.bossHpBarY + UI_LAYOUT.hpBarHeight + 20 + CARD_H / 2;
+    // === Card position — above boss name, clamped to safe area ===
+    const minTopY = SAFE_AREA.top + CARD_H / 2 + CARD_TOP_SAFE_GAP;
+    const idealCardY = UI_LAYOUT.bossNameY - CARD_NAME_GAP - CARD_H / 2;
+    const cardY = Math.max(minTopY, idealCardY);
     const cardX = cx;
 
     // === Card background (Graphics for rounded rect) ===
@@ -146,16 +160,6 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       this.add(iconText);
     }
 
-    // Pulse the icon
-    this.pulseTweens.push(scene.tweens.add({
-      targets: iconBg,
-      scale: { from: 1, to: 1.08 },
-      duration: 700,
-      ease: "Sine.easeInOut",
-      yoyo: true,
-      repeat: -1,
-    }));
-
     // === Mana cost badge (drop) on top-left of the icon circle ===
     // Centre of badge sits on the circle border for visual "intersection".
     const badgeX = iconX - BADGE_OFFSET;
@@ -186,7 +190,7 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       const filled = i < lvl;
       const star = new Phaser.GameObjects.Text(
         scene, starsStartX + i * (starSize + starGap), starsY,
-        "\u2605",
+        "★",
         {
           fontSize: `${starSize + 2}px`,
           color: filled ? "#ffd700" : "#4a3a6e",
@@ -200,14 +204,13 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       this.add(star);
     }
 
-    // === RIGHT side: name, cost, cooldown, description ===
+    // === RIGHT side: name, cooldown, description (all syllable-wrapped) ===
     const rightX = iconX + ICON_SIZE / 2 + 16;
     const rightMaxW = CARD_W - leftPad - ICON_SIZE - 16 - 16; // available width for text
-    let rowY = cardY - CARD_H / 2 + 22;
-    const rowGap = 22;
+    let rowY = cardY - CARD_H / 2 + NAME_TOP_PAD;
 
-    // Skill name (gold, bold) — auto-shrink if long names like "Мощный удар" don't fit
-    const nameText = new Phaser.GameObjects.Text(scene, rightX, rowY, cfg.name, {
+    // Skill name (gold, bold) — Russian syllable-wrap via hyphenateRu
+    const nameStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: "18px",
       color: COLORS.nameText,
       fontFamily: "'Exo 2', Arial, sans-serif",
@@ -215,19 +218,26 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       stroke: "#000000",
       strokeThickness: 2,
       resolution: 2,
-    }).setOrigin(0, 0);
-    if (nameText.width > rightMaxW) {
-      nameText.setScale(rightMaxW / nameText.width);
-    }
+    };
+    const measureName = (s: string): number => {
+      const probe = scene.make.text({ x: 0, y: 0, text: s, style: nameStyle, add: false });
+      const w = probe.width;
+      probe.destroy();
+      return w;
+    };
+    const nameLines = hyphenateRu(cfg.name, rightMaxW, measureName);
+    const nameText = new Phaser.GameObjects.Text(
+      scene, rightX, rowY, nameLines.join("\n"), nameStyle,
+    ).setOrigin(0, 0);
     this.add(nameText);
 
-    rowY += rowGap;
+    rowY += nameLines.length * NAME_LINE_HEIGHT + ROW_GAP;
 
     // Cooldown row
-    const cdLabel = cfg.cooldown === 1 ? "\u0445\u043E\u0434" : "\u0445\u043E\u0434\u043E\u0432";
+    const cdLabel = cfg.cooldown === 1 ? "ход" : "ходов";
     const cdText = new Phaser.GameObjects.Text(
-      scene, rightX, rowY + 8,
-      `\u23F3 ${cfg.cooldown} ${cdLabel}`,
+      scene, rightX, rowY + CD_TOP_PAD,
+      `⏳ ${cfg.cooldown} ${cdLabel}`,
       {
         fontSize: "14px",
         color: COLORS.cooldownText,
@@ -235,24 +245,30 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
         fontStyle: "bold",
         resolution: 2,
       },
-    ).setOrigin(0, 0.5);
+    ).setOrigin(0, 0);
     this.add(cdText);
 
-    rowY += rowGap;
+    rowY += CD_ROW_HEIGHT + ROW_GAP;
 
-    // Effect description
+    // Effect description — Russian syllable-wrap via hyphenateRu
     const descColor = cfg.heal > 0 ? COLORS.healText : cfg.damage > 0 ? COLORS.damageText : "#cfd8ff";
+    const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: "14px",
+      color: descColor,
+      fontFamily: "'Exo 2', Arial, sans-serif",
+      fontStyle: "bold",
+      resolution: 2,
+    };
+    const measureDesc = (s: string): number => {
+      const probe = scene.make.text({ x: 0, y: 0, text: s, style: descStyle, add: false });
+      const w = probe.width;
+      probe.destroy();
+      return w;
+    };
+    const descLines = hyphenateRu(cfg.description, rightMaxW, measureDesc);
     const descText = new Phaser.GameObjects.Text(
-      scene, rightX, rowY + 4, cfg.description,
-      {
-        fontSize: "14px",
-        color: descColor,
-        fontFamily: "'Exo 2', Arial, sans-serif",
-        fontStyle: "bold",
-        wordWrap: { width: rightMaxW },
-        resolution: 2,
-      },
-    ).setOrigin(0, 0.5);
+      scene, rightX, rowY, descLines.join("\n"), descStyle,
+    ).setOrigin(0, 0);
     this.add(descText);
 
     // === Apply button — separate from card, at bottom-center ===
@@ -275,7 +291,7 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
     });
     this.add(btnHit);
 
-    const applyLabel = new Phaser.GameObjects.Text(scene, cx, btnY, "\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C!", {
+    const applyLabel = new Phaser.GameObjects.Text(scene, cx, btnY, "Применить!", {
       fontSize: "22px",
       color: "#ffffff",
       fontFamily: "'Exo 2', Arial, sans-serif",
@@ -285,17 +301,6 @@ export class SkillApplyOverlay extends Phaser.GameObjects.Container {
       resolution: 2,
     }).setOrigin(0.5);
     this.add(applyLabel);
-
-    // Pulse the apply button
-    this.pulseTweens.push(scene.tweens.add({
-      targets: [btnGfx, btnHit, applyLabel],
-      scaleX: { from: 1, to: 1.03 },
-      scaleY: { from: 1, to: 1.03 },
-      duration: 800,
-      ease: "Sine.easeInOut",
-      yoyo: true,
-      repeat: -1,
-    }));
   }
 
   /** Phaser lifecycle hook — kill tweens + fire onClose (lifecycle-safe) */
