@@ -63,6 +63,12 @@ import { ChainOverlay } from "../ui/ChainOverlay";
 
 const SKILL_IDS: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 
+// Depth map constants for SkillButton during confirmation overlay.
+// Base 2 matches the depth set in buildSkills; overlay depth 1501 sits above
+// the SkillApplyOverlay backdrop (1500) so the selected skill button pops
+// visually through the darkened backdrop. See CLAUDE.md depth map.
+const SKILL_BUTTON_BASE_DEPTH = 2;
+const OVERLAY_SELECTED_SKILL_DEPTH = 1501;
 
 // Tutorial: fixed 8x7 board for the first move
 // Player must swipe tile at (5,2) DOWN to (5,3) to complete 3 swords in a row at (3..5,3)
@@ -133,6 +139,7 @@ export class GameScene extends Phaser.Scene {
   private skillOverlayBusyToken = false;
   private skillHighlightTweens: Phaser.Tweens.Tween[] = [];
   private avatarHighlightGfx?: Phaser.GameObjects.Graphics;
+  private overlaySelectedSkillId?: SkillId;
 
   private bossAbilityManager!: BossAbilityManager;
   private cooldownIcon?: CooldownIcon;
@@ -269,6 +276,7 @@ export class GameScene extends Phaser.Scene {
     this.skillApplyOverlay = undefined;
     this.skillOverlayBusyToken = false;
     this.skillHighlightTweens = [];
+    this.overlaySelectedSkillId = undefined;
     this.bossShieldOverlay = undefined;
     this.bossShieldGlowTween = undefined;
     this.bossShieldText = undefined;
@@ -788,7 +796,7 @@ export class GameScene extends Phaser.Scene {
         () => this.activateSkill(id),
         cfg.iconTexture
       );
-      btn.setDepth(2).setAlpha(initialAlpha);
+      btn.setDepth(SKILL_BUTTON_BASE_DEPTH).setAlpha(initialAlpha);
       this.skillButtons[id] = btn;
     });
 
@@ -2155,20 +2163,20 @@ export class GameScene extends Phaser.Scene {
     // SHUTDOWN listener here would accumulate one listener per overlay open.
   }
 
-  /** Highlight HP/MP bars + skill icon based on what the skill affects. Uses showPreview for delta preview. */
+  /** Highlight HP/MP bars + lift selected skill icon above overlay backdrop. Uses showPreview for delta preview. */
   private openSkillHighlights(id: SkillId, cfg: ReturnType<GameScene["getEffectiveSkillCfg"]>) {
+    // Pattern is preserved even when empty: future one-shot tweens (e.g.,
+    // landing flashes from flashIconUpgrade) may be registered here and
+    // closeSkillHighlights will stop them uniformly.
     const tweens: Phaser.Tweens.Tween[] = [];
-    // Skill icon glow — pulse the corresponding skill button
-    const btn = this.skillButtons[id];
-    if (btn) {
-      tweens.push(this.tweens.add({
-        targets: btn,
-        scale: { from: 1, to: 1.12 },
-        duration: 600,
-        ease: "Sine.easeInOut",
-        yoyo: true,
-        repeat: -1,
-      }));
+    // Lift selected skill button above the SkillApplyOverlay backdrop so it
+    // stays visually bright. Block clicks on it while overlay is open —
+    // busy lock already short-circuits activateSkill, this is belt-and-braces.
+    const selectedBtn = this.skillButtons[id];
+    if (selectedBtn) {
+      selectedBtn.setDepth(OVERLAY_SELECTED_SKILL_DEPTH);
+      selectedBtn.disableInteractive();
+      this.overlaySelectedSkillId = id;
     }
     // Player HP bar — heal preview (green section showing HP to be gained)
     if (cfg.heal > 0 && this.playerHpBar) {
@@ -2182,30 +2190,10 @@ export class GameScene extends Phaser.Scene {
     if (cfg.cost > 0 && this.manaBar) {
       this.manaBar.showPreview(this.mana, this.getEffectivePlayerManaMax(), -cfg.cost);
     }
-    // Player avatar highlight — pulsing green stroke around the avatar frame
-    if (this.playerAvatar) {
-      const a = this.playerAvatar;
-      const pad = 6;
-      const w = a.width + pad * 2;
-      const h = a.height + pad * 2;
-      const gfx = this.add.graphics();
-      gfx.lineStyle(3, 0x66ff88, 1);
-      gfx.strokeRoundedRect(a.x - w / 2, a.y - h / 2, w, h, 8);
-      gfx.setDepth(4.5);
-      this.avatarHighlightGfx = gfx;
-      tweens.push(this.tweens.add({
-        targets: gfx,
-        alpha: { from: 0.45, to: 1 },
-        duration: 600,
-        ease: "Sine.easeInOut",
-        yoyo: true,
-        repeat: -1,
-      }));
-    }
     this.skillHighlightTweens = tweens;
   }
 
-  /** Stop all highlight tweens and clear bar previews. Idempotent. */
+  /** Stop all highlight tweens, restore selected skill depth, and clear bar previews. Idempotent. */
   private closeSkillHighlights() {
     if (this.skillHighlightTweens) {
       for (const t of this.skillHighlightTweens) {
@@ -2213,16 +2201,30 @@ export class GameScene extends Phaser.Scene {
       }
       this.skillHighlightTweens = [];
     }
-    // Restore visual defaults
+    // Restore visual defaults (defensive — covers any stray pulse/scale state)
     SKILL_IDS.forEach((sid) => {
       const b = this.skillButtons[sid];
       if (b) b.setScale(1);
     });
+    // Restore depth + interactivity on the previously selected skill button.
+    // Only call setInteractive if the button already had an input object —
+    // Container.disableInteractive is a no-op when no input exists (SkillButton
+    // attaches its click handler to an inner Arc, not the Container), so
+    // unconditionally calling setInteractive here would create input state
+    // the button never had before open.
+    if (this.overlaySelectedSkillId !== undefined) {
+      const btn = this.skillButtons[this.overlaySelectedSkillId];
+      if (btn) {
+        btn.setDepth(SKILL_BUTTON_BASE_DEPTH);
+        if (btn.input) btn.setInteractive();
+      }
+      this.overlaySelectedSkillId = undefined;
+    }
     // Clear bar previews
     this.playerHpBar?.clearPreview();
     this.bossHpBar?.clearPreview();
     this.manaBar?.clearPreview();
-    // Destroy avatar highlight stroke
+    // Defensive: destroy avatar highlight stroke if an older code path left one behind
     if (this.avatarHighlightGfx) {
       this.avatarHighlightGfx.destroy();
       this.avatarHighlightGfx = undefined;
