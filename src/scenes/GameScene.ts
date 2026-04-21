@@ -69,6 +69,9 @@ const SKILL_IDS: SkillId[] = ["powerStrike", "stun", "heal", "hammer"];
 // visually through the darkened backdrop. See CLAUDE.md depth map.
 const SKILL_BUTTON_BASE_DEPTH = 2;
 const OVERLAY_SELECTED_SKILL_DEPTH = 1501;
+// CooldownIcon sits at depth 4 in normal HUD stack; lifted to the same
+// OVERLAY_SELECTED_SKILL_DEPTH while a stun skill preview is open.
+const COOLDOWN_ICON_BASE_DEPTH = 4;
 
 // Landing flash duration (ms) for perk-select VFX on the skill button.
 // Shared between the unlock path (`flashIconPulse`) and the upgrade path
@@ -145,6 +148,9 @@ export class GameScene extends Phaser.Scene {
   private skillHighlightTweens: Phaser.Tweens.Tween[] = [];
   private avatarHighlightGfx?: Phaser.GameObjects.Graphics;
   private overlaySelectedSkillId?: SkillId;
+  // Tracks whether openSkillHighlights lifted the CooldownIcon — reset flag
+  // drives the symmetrical cleanup in closeSkillHighlights.
+  private overlayHighlightedCooldownIcon = false;
 
   private bossAbilityManager!: BossAbilityManager;
   private cooldownIcon?: CooldownIcon;
@@ -2220,6 +2226,14 @@ export class GameScene extends Phaser.Scene {
       selectedBtn.setClickDisabled();
       this.overlaySelectedSkillId = id;
     }
+    // Stun-type skills affect the boss cooldown — lift the boss CooldownIcon
+    // above the overlay backdrop and paint a gold stroke around it so the
+    // player sees exactly which ability is being delayed.
+    if ((cfg.stunTurns ?? 0) > 0 && this.cooldownIcon) {
+      this.cooldownIcon.setDepth(OVERLAY_SELECTED_SKILL_DEPTH);
+      this.cooldownIcon.setHighlight(true);
+      this.overlayHighlightedCooldownIcon = true;
+    }
     // Player HP bar — heal preview (green section showing HP to be gained)
     if (cfg.heal > 0 && this.playerHpBar) {
       this.playerHpBar.showPreview(this.playerHp, this.getEffectivePlayerHpMax(), cfg.heal);
@@ -2258,6 +2272,12 @@ export class GameScene extends Phaser.Scene {
         btn.setClickEnabled();
       }
       this.overlaySelectedSkillId = undefined;
+    }
+    // Reset CooldownIcon highlight + depth (set by stun-skill preview path)
+    if (this.overlayHighlightedCooldownIcon && this.cooldownIcon) {
+      this.cooldownIcon.setDepth(COOLDOWN_ICON_BASE_DEPTH);
+      this.cooldownIcon.setHighlight(false);
+      this.overlayHighlightedCooldownIcon = false;
     }
     // Clear bar previews
     this.playerHpBar?.clearPreview();
