@@ -1035,6 +1035,7 @@ All Phaser `setDepth()` values used in the game, from back to front:
 | **1000** | Game end UI / settings panel (v1) + CharacterGalleryScene modal (v2 legacy, to be aligned to 2100 in Phase 2B per R2B-2 #4) | Buttons, stats, modal |
 | **1001** | Confetti/particles | Victory/defeat particles |
 | **1500** | v1 SkillApplyOverlay (skill confirmation modal) | `src/ui/SkillApplyOverlay.ts` — between game-end UI and v2 Toast |
+| **1501** | v1 Selected SkillButton during open SkillApplyOverlay | `src/scenes/GameScene.ts openSkillHighlights` — lifts the tapped skill button above the overlay backdrop (1500) so it stays bright; restored to base depth 2 in `closeSkillHighlights`. Paired with `setClickDisabled()` / `setClickEnabled()` proxies to the inner Arc for no-op pointerdown while lifted (DECISIONS R-ARCH-1) |
 | **2000** | v2 Toast (non-blocking notifications) | `src/v2/ui/Toast.ts` — non-blocking notification layer, below blocking modals per R2B-3 |
 | **2100** | v2 ItemCardModal (blocking modal overlays) | `src/v2/ui/ItemCardModal.ts` — blocking modal overlay, above Toast per R2B-3 |
 

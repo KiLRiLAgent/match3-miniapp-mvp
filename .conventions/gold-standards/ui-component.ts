@@ -113,19 +113,66 @@
  *    - Redraw flash shape at current fill width before each flash
  *
  * 7. ICON-NEXT-TO-TEXT PATTERN (SkillButton mana cost)
- *    - When replacing text labels with sprite icons, reposition the icon
- *      after every setText() call since text width changes
- *    - Extract icon size as a module-level constant
- *    - Use a repositionX() helper method called after every setText:
  *
- *      const MANA_ICON_SIZE = 14;
+ *    Two variants depending on whether the badge needs to track text width.
  *
- *      private repositionManaIcon() {
- *        this.manaIcon.setX(this.costText.x + this.costText.width / 2 + MANA_ICON_SIZE / 2 + 2);
- *      }
+ *    7a. FIXED-POSITION BADGE ON ICON BORDER (current default)
  *
+ *      When the badge sits on the circle edge of a fixed-size icon (e.g.,
+ *      SkillButton's mana cost + SkillApplyOverlay's cost), place it at a
+ *      formula-driven diagonal from the icon centre. The cost number is
+ *      centred on the badge (`origin(0.5, 0.5)`), so digit-count changes
+ *      (30 → 100) don't require repositioning.
+ *
+ *        // Module-level constants — match across all icon-on-circle
+ *        // components so the visual geometry stays consistent.
+ *        const BADGE_BORDER_COS45 = 0.72;  // ≈ cos(45°), badge centre on circle border
+ *        const BADGE_SIZE_FACTOR  = 0.36;
+ *        const BADGE_FONT_FACTOR  = 0.17;
+ *        const BADGE_FONT_MIN_PX  = 10;
+ *        const BADGE_SIZE_MIN_PX  = 18;
+ *
+ *        // In the component constructor (iconRadius = size / 2):
+ *        const badgeOffset   = Math.round(iconRadius * BADGE_BORDER_COS45);
+ *        const badgeSize     = Math.max(BADGE_SIZE_MIN_PX, Math.round(size * BADGE_SIZE_FACTOR));
+ *        const badgeFontSize = Math.max(BADGE_FONT_MIN_PX, Math.round(size * BADGE_FONT_FACTOR));
+ *        this.manaIcon = scene.add.image(-badgeOffset, -badgeOffset, ASSET_KEYS.tiles[TileKind.Mana])
+ *          .setDisplaySize(badgeSize, badgeSize).setOrigin(0.5);
+ *        this.costText = scene.add.text(-badgeOffset, -badgeOffset, `${cost}`, { ... })
+ *          .setOrigin(0.5);
+ *
+ *      NO repositionX() helper needed — the badge position is invariant
+ *      under `setText()`. References: `src/ui/SkillButton.ts` (dynamic
+ *      `size` from UI_LAYOUT.skillButtonSize, so offsets scale per device),
+ *      `src/ui/SkillApplyOverlay.ts` (fixed `ICON_SIZE = 56`, so
+ *      `BADGE_OFFSET = Math.round((ICON_SIZE / 2) * 0.72)` is computed
+ *      once as a module constant).
+ *
+ *      ANTI-PATTERN: do not hardcode `BADGE_OFFSET = 23` on dynamic-size
+ *      components — the button circle ranges ~56–78 px across devices and
+ *      a constant 23 drifts off the border. Always derive from the
+ *      current icon radius.
+ *
+ *    7b. TEXT-WIDTH-DEPENDENT ICON (legacy, keep when needed)
+ *
+ *      When the icon MUST sit immediately adjacent to the cost number
+ *      (e.g., an inline "50 💧" label where the drop trails the number),
+ *      reposition after every setText() since text width changes:
+ *
+ *        const MANA_ICON_SIZE = 14;
+ *        private repositionManaIcon() {
+ *          this.manaIcon.setX(this.costText.x + this.costText.width / 2 + MANA_ICON_SIZE / 2 + 2);
+ *        }
+ *
+ *      Call `repositionManaIcon()` after every `setText`. This pattern
+ *      is appropriate ONLY when text width drives layout; for the
+ *      fixed-position case (7a), leaving a no-op `repositionManaIcon()`
+ *      is misleading dead code — prefer deleting it.
+ *
+ *    Common to both variants:
  *    - Sync icon alpha in ALL state branches (locked, cooldown, normal)
  *    - Use ASSET_KEYS for texture key, never hardcode strings
+ *    - Module-level constants UPPER_SNAKE_CASE (see naming.md)
  *
  * 8. NAMING
  *    - Public methods: camelCase (setValue, flash, drainDelta)

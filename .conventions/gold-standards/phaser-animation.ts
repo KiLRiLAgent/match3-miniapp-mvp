@@ -165,26 +165,48 @@
  *
  *    9c. LANDING FLASH AS A METHOD ON THE TARGET COMPONENT
  *
- *      The "I just got hit by a VFX" effect (white tintFill + scale
- *      yoyo) belongs on the target component, NOT in the VFX helper.
- *      This keeps VFX caller-agnostic and lets the component decide
- *      WHICH child element flashes (image vs text fallback):
+ *      The "I just got hit by a VFX" effect (tintFill + scale yoyo)
+ *      belongs on the target component, NOT in the VFX helper. This
+ *      keeps VFX caller-agnostic and lets the component decide WHICH
+ *      child element flashes (image vs text fallback). SkillButton
+ *      exposes TWO sibling methods distinguishing semantic flavour:
  *
- *        flashIconPulse(durationMs = 240): Promise<void> {
+ *        flashIconPulse(durationMs = 240): Promise<void>
+ *          // white tint (PULSE_FLASH_COLOR = 0xffffff)
+ *          // used for UNLOCK landings — "new skill appeared!"
+ *
+ *        flashIconUpgrade(durationMs = 240): Promise<void>
+ *          // gold tint (UPGRADE_FLASH_COLOR = 0xffd700)
+ *          // used for UPGRADE landings — "level up on existing skill"
+ *
+ *      Both share the same scale yoyo (`FLASH_SCALE = 1.25`) and timing
+ *      ratios (`FLASH_TINT_RATIO = 0.4`, `FLASH_TWEEN_RATIO = 0.45`) —
+ *      only the tint colour differs. Shared constants live at module
+ *      scope so the feel stays identical between the two variants:
+ *
+ *        const FLASH_SCALE = 1.25;
+ *        const FLASH_TINT_RATIO = 0.4;
+ *        const FLASH_TWEEN_RATIO = 0.45;
+ *        const PULSE_FLASH_COLOR = 0xffffff;   // unlock
+ *        const UPGRADE_FLASH_COLOR = 0xffd700; // upgrade
+ *
+ *      Template for either method:
+ *
+ *        flashIconUpgrade(durationMs = 240): Promise<void> {
  *          return new Promise<void>((resolve) => {
  *            if (!this.scene) { resolve(); return; }
  *            const target = this.iconImage?.visible
  *              ? this.iconImage : this.iconText;
  *            if (target instanceof Phaser.GameObjects.Image) {
- *              target.setTintFill(0xffffff);
- *              this.scene.time.delayedCall(durationMs * 0.4, () => {
+ *              target.setTintFill(UPGRADE_FLASH_COLOR);
+ *              this.scene.time.delayedCall(durationMs * FLASH_TINT_RATIO, () => {
  *                if (this.scene && target.scene) target.clearTint();
  *              });
  *            }
  *            this.scene.tweens.add({
  *              targets: this,
- *              scale: { from: 1, to: 1.25 },
- *              duration: durationMs * 0.45,
+ *              scale: { from: 1, to: FLASH_SCALE },
+ *              duration: durationMs * FLASH_TWEEN_RATIO,
  *              ease: "Quad.easeOut", yoyo: true,
  *              onComplete: () => {
  *                if (this.scene) this.setScale(1);
@@ -224,4 +246,64 @@
  *      helper grows past ~80 lines and obscures its caller. The
  *      reference VFX at `src/ui/FlyingTile.ts` IS extracted because
  *      both `animateClear` (player wave) and boss-ability paths use it.
+ *
+ *    9f. BRANCHED LANDING: UNLOCK vs UPGRADE (skipLandingFlash option)
+ *
+ *      When a VFX helper owns its landing flash (as `flyPerkSelectVfx`
+ *      does — it calls `targetBtn.flashIconPulse(...)` on arrival),
+ *      callers that need a DIFFERENT landing flash must be able to opt
+ *      out of the default. The canonical shape: optional options bag
+ *      with a `skipLandingFlash` boolean.
+ *
+ *        private async flyPerkSelectVfx(
+ *          sourceX: number,
+ *          sourceY: number,
+ *          skillId: SkillId,
+ *          options?: { skipLandingFlash?: boolean },
+ *        ): Promise<void> {
+ *          // ... transit animation ...
+ *          if (t >= 1) {
+ *            if (options?.skipLandingFlash) {
+ *              // Caller will follow up with a different flash.
+ *              finish();
+ *            } else {
+ *              targetBtn.flashIconPulse(PERK_LANDING_FLASH_MS).then(finish);
+ *            }
+ *          }
+ *        }
+ *
+ *      Consumer pattern — use the RESULT of the mutation (e.g.,
+ *      `PerkManager.applyPerk` returns `{ isNewUnlock: boolean, ... }`)
+ *      to pick the path. No extra `getLevel()` probe — the state
+ *      machine already tells you which branch you're on:
+ *
+ *        const result = this.perkManager.applyPerk(selectedPerk.skillId);
+ *        this.repositionSkillButtons();
+ *        this.updateHud();
+ *
+ *        // Unlock (0 → 1): built-in white flash ("new skill!")
+ *        // Upgrade (N → N+1): skip white, gold flash ("level up!")
+ *        await this.flyPerkSelectVfx(
+ *          sourceX, sourceY, selectedPerk.skillId,
+ *          result.isNewUnlock ? undefined : { skipLandingFlash: true },
+ *        );
+ *        if (!result.isNewUnlock) {
+ *          const targetBtn = this.skillButtons[selectedPerk.skillId];
+ *          if (targetBtn) await targetBtn.flashIconUpgrade(PERK_LANDING_FLASH_MS);
+ *        }
+ *
+ *      WHY a single shared `PERK_LANDING_FLASH_MS` constant: both
+ *      variants pull from the same module-level const so unlock and
+ *      upgrade feel the same. Don't let one path drift to 180 ms and
+ *      the other to 300 ms — the gold/white distinction is meaningful,
+ *      the pacing should not be.
+ *
+ *      WHY NOT fire both flashes: white + gold on the same landing
+ *      reads as a double-flash bug, not as "upgrade". Opt out of the
+ *      default flash explicitly when you're going to chain a
+ *      replacement (DECISIONS R-VFX-1).
+ *
+ *      References: `src/scenes/GameScene.ts` `flyPerkSelectVfx` +
+ *      `showPerkSelection` callback; DECISIONS
+ *      `.claude/teams/feature-skill-card-polish/DECISIONS.md` R-VFX-1.
  */

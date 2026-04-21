@@ -41,12 +41,34 @@
  *    visible through the lighter backdrop, letting the player see the
  *    delta previews on HP/MP bars.
  *
- *    Layout constants:
- *      CARD_W = 300, CARD_H = 150, CARD_RADIUS = 12
+ *    Layout constants (authoritative — `src/ui/SkillApplyOverlay.ts`):
+ *      CARD_W = 270, CARD_H = 150, CARD_RADIUS = 12
  *      BACKDROP_ALPHA = 0.35 (lighter than standard modal 0.7)
+ *      CARD_NAME_GAP = 12, CARD_TOP_SAFE_GAP = 8
  *
- *    Card position: `cardY = UI_LAYOUT.bossHpBarY + hpBarHeight + 20`
- *    (just below boss HP bar, above the game board).
+ *    CARD_H bumped 120 → 150 in feature-skill-card-polish to accommodate
+ *    hyphenated Russian descriptions that now wrap to 2–3 lines (see
+ *    `./text-hyphenation.ts` + DECISIONS R-CARD-1). Visually verified on
+ *    375×667, 480×800, 768×1024 — no collision with cooldown icon or
+ *    boss name.
+ *
+ *    Card position (authoritative — SkillApplyOverlay.ts:118–120):
+ *
+ *      const minTopY    = SAFE_AREA.top + CARD_H / 2 + CARD_TOP_SAFE_GAP;
+ *      const idealCardY = UI_LAYOUT.bossNameY - CARD_NAME_GAP - CARD_H / 2;
+ *      const cardY      = Math.max(minTopY, idealCardY);
+ *
+ *    Rationale for the clamp:
+ *    - `idealCardY` floats the card above the boss name so the boss HP bar
+ *      stays readable below the card; replaces the older below-HP-bar
+ *      layout (`UI_LAYOUT.bossHpBarY + hpBarHeight + 20`) that pushed the
+ *      card into the board at CARD_H=150.
+ *    - `minTopY` prevents the card from escaping the visible top of the
+ *      screen on devices with a safe-area inset (notch / status bar);
+ *      Math.max picks the lower (further-down) of the two so the card is
+ *      always fully on-screen.
+ *    - Do NOT reference `bossHpBarY + hpBarHeight + 20` — that formula
+ *      predates the CARD_H bump and collides with the board top row.
  *
  *    Card structure (left-to-right):
  *      [Icon circle + stars] | [Name, mana cost, cooldown, effect desc]
@@ -135,11 +157,24 @@
  *    - Apply button: separate from card, own pointerdown handler with
  *      stopPropagation, visually distinguished (green bg + stroke).
  *
- * 8. PULSE TWEEN TRACKING
+ * 8. PULSE TWEEN TRACKING (defensive — currently empty)
  *
- *    Infinite pulse tweens (icon bg, apply button) stored in
- *    `private pulseTweens: Tween[]` and stopped in `preDestroy()`.
- *    Pattern: `if (t && t.isPlaying()) t.stop()` then clear array.
+ *    Infinite pulse tweens would be stored in `private pulseTweens: Tween[]`
+ *    and stopped in `preDestroy()`. Pattern: `if (t && t.isPlaying()) t.stop()`
+ *    then clear array.
+ *
+ *    CURRENT STATE (post feature-skill-card-polish): SkillApplyOverlay pushes
+ *    ZERO infinite tweens. The overlay is intentionally "quiet" — motion is
+ *    reserved for the HP/MP bar delta previews (see section 9). User feedback
+ *    on the previous iteration (DECISIONS R-ARCH-1): «pulsation everywhere is
+ *    overwhelming». The selected SkillButton is now highlighted by depth
+ *    override (section 11), not by scale pulse.
+ *
+ *    KEEP the `pulseTweens[]` field + `preDestroy()` cleanup loop even when
+ *    the array stays empty: new overlay flavours (e.g., a danger-style
+ *    confirm) may want to push short-lived looping tweens here, and having
+ *    the deterministic cleanup hook in place up-front avoids a future bug
+ *    where a new pulse author forgets to add a stop-on-destroy path.
  *
  * 9. HP/MP BAR DELTA PREVIEW (onOpen/onClose hooks)
  *
@@ -171,4 +206,56 @@
  *    v1 confirmation overlays: depth 1500. Above HUD (5), settings
  *    panel (1000), end-game UI (1000); below Toast (2000) and
  *    ItemCardModal (2100). See CLAUDE.md depth map.
+ *
+ * 11. SELECTED-BUTTON DEPTH OVERRIDE (no scale pulse)
+ *
+ *    While the confirmation overlay is open, the SOURCE skill button
+ *    (the one the player tapped) is lifted ABOVE the backdrop via a
+ *    static depth bump — NOT a scale pulse. Authoritative call sites:
+ *    `openSkillHighlights` / `closeSkillHighlights` in GameScene.ts.
+ *
+ *      // GameScene.ts (module-level constants)
+ *      const SKILL_BUTTON_BASE_DEPTH = 2;
+ *      const OVERLAY_SELECTED_SKILL_DEPTH = 1501; // above overlay 1500
+ *
+ *      // openSkillHighlights
+ *      selectedBtn.setDepth(OVERLAY_SELECTED_SKILL_DEPTH);
+ *      selectedBtn.setClickDisabled();
+ *      this.overlaySelectedSkillId = id;
+ *
+ *      // closeSkillHighlights (idempotent — always restore)
+ *      if (this.overlaySelectedSkillId !== undefined) {
+ *        const btn = this.skillButtons[this.overlaySelectedSkillId];
+ *        if (btn) {
+ *          btn.setDepth(SKILL_BUTTON_BASE_DEPTH);
+ *          btn.setClickEnabled();
+ *        }
+ *        this.overlaySelectedSkillId = undefined;
+ *      }
+ *
+ *    WHY depth, not scale pulse (DECISIONS R-ARCH-1):
+ *    - User feedback on the previous iteration flagged ambient scale
+ *      pulses as distracting. Depth override keeps the selected button
+ *      visually prominent (stays bright through the dim backdrop) while
+ *      every other UI element is uniformly dimmed.
+ *    - Depth is a one-shot state change, no per-frame work — zero cost
+ *      compared to an infinite tween feeding into section 8's cleanup.
+ *
+ *    WHY disableInteractive during the overlay:
+ *    - The lifted button sits at depth 1501, the SkillApplyOverlay
+ *      backdrop at 1500. Without the disable, tapping the button again
+ *      races the re-entrancy guard (`if (this.skillApplyOverlay) return;`)
+ *      and on some pointer-move paths can still fire the Arc child's
+ *      pointerdown handler before the guard rejects it. `setClickDisabled`
+ *      proxies to the inner Arc so the click handler is a true no-op,
+ *      avoiding hand-cursor flicker and the race.
+ *    - Restored in closeSkillHighlights — idempotent by
+ *      `overlaySelectedSkillId !== undefined` sentinel.
+ *
+ *    SkillButton exposes this via a pair of paired proxies:
+ *      `setClickDisabled()` / `setClickEnabled()` — both forward to the
+ *      inner Arc's `disableInteractive()` / `setInteractive()` so callers
+ *      don't reach into the Container children.
+ *
+ *    See CLAUDE.md depth map entry **1501** for the reservation.
  */
