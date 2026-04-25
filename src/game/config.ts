@@ -99,6 +99,10 @@ export function loadGameParams() {
     const saved = localStorage.getItem("match3_params");
     if (saved) {
       const parsed = JSON.parse(saved);
+      // SECURITY (F1): Object.assign со вложенными объектами уязвим к prototype pollution
+      // если когда-то добавим nested merge. Сейчас GAME_PARAMS.* плоские, JSON.parse
+      // блокирует __proto__ — безопасно. background намеренно НЕ читается из
+      // localStorage (controls hardcoded by code).
       Object.assign(GAME_PARAMS.player, parsed.player || {});
       Object.assign(GAME_PARAMS.boss, parsed.boss || {});
       Object.assign(GAME_PARAMS.tiles, parsed.tiles || {});
