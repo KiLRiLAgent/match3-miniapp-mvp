@@ -58,7 +58,6 @@ export class HitsCounter extends Phaser.GameObjects.Container {
     }
 
     if (this.alpha < 1) {
-      this.fadeTween?.stop();
       this.fadeTween = this.scene.tweens.add({
         targets: this,
         alpha: 1,
@@ -94,8 +93,17 @@ export class HitsCounter extends Phaser.GameObjects.Container {
         return;
       }
       if (this.fadeTween && this.fadeTween.isPlaying()) {
-        // Already fading; piggyback on the existing tween's completion.
-        this.fadeTween.once(Phaser.Tweens.Events.TWEEN_COMPLETE, () => resolve());
+        // Already fading; piggyback on either COMPLETE (normal finish) or
+        // STOP (re-show interrupts). `settled` flag guarantees resolve fires
+        // exactly once even if both events arrive on the same tween.
+        let settled = false;
+        const settle = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        this.fadeTween.once(Phaser.Tweens.Events.TWEEN_COMPLETE, settle);
+        this.fadeTween.once(Phaser.Tweens.Events.TWEEN_STOP, settle);
         return;
       }
       this.fadeTween = this.scene.tweens.add({
