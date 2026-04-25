@@ -62,8 +62,12 @@ const MODE_BG_COLOR = 0x2a2358;
 const MODE_BG_HOVER_COLOR = 0x3a3078;
 const MODE_STROKE_COLOR = 0x6e4ac8;
 
-// Depth
-const PANEL_DEPTH = 100;
+// Depth ladder — see tech-lead T1 review: panel rect must NOT cover scroll
+// content. Four discrete layers prevent z-order regressions:
+const DEPTH_OVERLAY = 99;
+const DEPTH_PANEL_BG = 100;
+const DEPTH_SCROLL_CONTENT = 101;
+const DEPTH_PANEL_CHROME = 102;
 
 type ParamRow = {
   label: string;
@@ -134,16 +138,43 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     this.panelX = PANEL_MARGIN_X / 2;
     const panelY = PANEL_MARGIN_Y_TOP + SAFE_AREA.top;
 
+    // ── Layer 1: overlay (full-screen darken) at scene level, depth 99 ──
+    // Per tech-lead T1 review: overlay + panel must be SEPARATE scene-level
+    // objects with explicit depths, NOT children of `this` Container, so that
+    // scrollContainer (depth 101) renders ABOVE panel (depth 100) but BELOW
+    // chrome (title, close, scrollbar, apply — depth 102 via `this`).
     this.overlay = scene.add
       .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, OVERLAY_COLOR, OVERLAY_ALPHA)
       .setOrigin(0)
-      .setInteractive();
+      .setInteractive()
+      .setDepth(DEPTH_OVERLAY);
 
+    // ── Layer 2: panel rect (dark background) at scene level, depth 100 ──
     this.panel = scene.add
       .rectangle(this.panelX, panelY, this.panelWidth, panelHeight, PANEL_BG_COLOR, PANEL_BG_ALPHA)
       .setOrigin(0)
-      .setStrokeStyle(PANEL_STROKE_WIDTH, PANEL_STROKE_COLOR);
+      .setStrokeStyle(PANEL_STROKE_WIDTH, PANEL_STROKE_COLOR)
+      .setDepth(DEPTH_PANEL_BG);
 
+    // Scroll bounds
+    this.scrollAreaTop = panelY + HEADER_HEIGHT;
+    this.scrollAreaHeight = panelHeight - HEADER_HEIGHT - FOOTER_HEIGHT;
+
+    // Geometry mask shape — used to clip scrollContainer (which is top-level)
+    this.scrollMaskGfx = scene.add.graphics();
+    this.scrollMaskGfx.fillStyle(0xffffff);
+    this.scrollMaskGfx.fillRect(this.panelX, this.scrollAreaTop, this.panelWidth, this.scrollAreaHeight);
+    this.scrollMaskGfx.setVisible(false);
+
+    // ── Layer 3: scrollContainer at scene level, depth 101 ──
+    // R-T1-2: scrollContainer is a TOP-LEVEL scene child, NOT a child of this
+    // SettingsPanel. Geometry masks only work correctly on top-level objects.
+    // We hold a reference and destroy it manually in `close()`.
+    this.scrollContainer = scene.add.container(0, 0);
+    this.scrollContainer.setDepth(DEPTH_SCROLL_CONTENT);
+    this.scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(scene, this.scrollMaskGfx));
+
+    // ── Layer 4: chrome (title + close button) at depth 102 via `this` ──
     const title = scene.add
       .text(GAME_WIDTH / 2, panelY + 25, "⚙️ Настройки", {
         fontSize: "24px",
@@ -165,24 +196,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.close());
 
-    this.add([this.overlay, this.panel, title, closeBtn]);
-
-    // Scroll bounds
-    this.scrollAreaTop = panelY + HEADER_HEIGHT;
-    this.scrollAreaHeight = panelHeight - HEADER_HEIGHT - FOOTER_HEIGHT;
-
-    // Geometry mask shape — used to clip scrollContainer (which is top-level)
-    this.scrollMaskGfx = scene.add.graphics();
-    this.scrollMaskGfx.fillStyle(0xffffff);
-    this.scrollMaskGfx.fillRect(this.panelX, this.scrollAreaTop, this.panelWidth, this.scrollAreaHeight);
-    this.scrollMaskGfx.setVisible(false);
-
-    // R-T1-2: scrollContainer is a TOP-LEVEL scene child, NOT a child of this
-    // SettingsPanel. Geometry masks only work correctly on top-level objects.
-    // We hold a reference and destroy it manually in `close()`.
-    this.scrollContainer = scene.add.container(0, 0);
-    this.scrollContainer.setDepth(PANEL_DEPTH);
-    this.scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(scene, this.scrollMaskGfx));
+    this.add([title, closeBtn]);
 
     // Build params + populate scrollContainer
     const params = this.buildParamList();
@@ -218,10 +232,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       this.add(this.scrollbar);
     }
 
-    // Apply button — drawn on this Container (overlays scrollContainer because
-    // this.depth = PANEL_DEPTH but PANEL_DEPTH equals scrollContainer's depth.
-    // Phaser draws within-depth in z-order = creation order, so apply button
-    // created LAST overlays the scroll content correctly).
+    // Apply button — added to `this` Container (depth DEPTH_PANEL_CHROME=102),
+    // so it sits above scrollContainer (depth DEPTH_SCROLL_CONTENT=101).
     const applyBtnBg = scene.add
       .rectangle(GAME_WIDTH / 2, panelY + panelHeight - 35, this.panelWidth - 40, 50, APPLY_BG_COLOR, 1)
       .setOrigin(0.5)
@@ -247,7 +259,10 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     this.updateValues();
 
     scene.add.existing(this);
-    this.setDepth(PANEL_DEPTH + 1); // overlay/panel chrome above scrollContainer
+    // `this` Container holds chrome (title, closeBtn, scrollbar, applyBtn)
+    // — drawn ABOVE scrollContainer (DEPTH_SCROLL_CONTENT=101) per the depth
+    // ladder defined at the top of this file.
+    this.setDepth(DEPTH_PANEL_CHROME);
   }
 
   // ───────────────────────────────────────────────────────────────────────
@@ -661,9 +676,11 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       this.scene.input.off("wheel", this.wheelHandler);
     }
 
-    // R-T1-2: scrollContainer + maskGfx are top-level scene children, NOT
-    // children of this Container. Destroy them explicitly so they don't
-    // outlive the panel.
+    // overlay, panel, scrollContainer, scrollMaskGfx are all top-level scene
+    // children (per tech-lead T1 z-order fix), NOT children of this Container.
+    // Destroy them explicitly so they don't outlive the panel.
+    this.overlay.destroy();
+    this.panel.destroy();
     this.scrollContainer.destroy();
     this.scrollMaskGfx.destroy();
 
