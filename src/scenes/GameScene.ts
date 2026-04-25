@@ -79,9 +79,40 @@ const OVERLAY_SELECTED_SKILL_DEPTH = 2050;
 const COOLDOWN_ICON_BASE_DEPTH = 4;
 
 // Landing flash duration (ms) for perk-select VFX on the skill button.
-// Shared between the unlock path (`flashIconPulse`) and the upgrade path
-// (`flashIconUpgrade`) so both variants share the same feel.
-const PERK_LANDING_FLASH_MS = 240;
+// Split between unlock and upgrade — the brief explicitly asks for the
+// upgrade landing to read as a meaningfully bigger event than a fresh
+// unlock. Sister constants `FLASH_SCALE` (1.25) / `UPGRADE_FLASH_SCALE_PEAK`
+// (1.4) live in SkillButton.ts. See DECISIONS R-T3-2.
+const PERK_UNLOCK_FLASH_MS = 240;
+const PERK_UPGRADE_FLASH_MS = 320;
+
+// Flying-icon VFX (perk-select) tuning. Replaces the legacy generic gold
+// Mana-tile sprite — the brief asks for the actual skill icon to fly to
+// the slot. Trail (gold dot fade) is kept as a supporting accent, but
+// dimmed (was alpha 0.7 / radius 6) to read as secondary VFX.
+const PERK_VFX_FLY_DURATION_MS = 480;
+const PERK_VFX_FLY_DEPTH = 250;
+const PERK_VFX_TRAIL_DEPTH = 249;
+const PERK_VFX_GOLD_TINT = 0xffd700;
+const PERK_VFX_TRAIL_ALPHA_FACTOR = 0.4; // dimmed from 0.7
+const PERK_VFX_TRAIL_RADIUS = 4; // shrunk from 6
+const PERK_VFX_TRAIL_FADE_PER_FRAME = 0.08;
+const PERK_VFX_ICON_SIZE_PX = 36; // base size for image icon (1.0× scale)
+const PERK_VFX_ICON_TEXT_FONT_PX = 36; // emoji font size at 1.0× scale
+const PERK_VFX_ICON_START_SCALE = 1.5; // perspective: large source
+const PERK_VFX_ICON_END_SCALE = 0.8; // perspective: small target
+const PERK_VFX_ICON_SPIN_DEG = 180; // rotation across path
+const PERK_VFX_ARC_HEIGHT_PX = 60; // bezier mid-point lift above source/target line
+const PERK_VFX_TRAIL_FADE_DURATION_MS = 150; // post-landing trail fade-out
+
+// Radial gold burst on UPGRADE landing (scene-level, not on SkillButton —
+// dots need to escape the button's bounding rect). Fire-and-forget;
+// cleanup hooks SHUTDOWN per phaser-animation.ts §9d.
+const BURST_DOT_COUNT = 6;
+const BURST_DOT_RADIUS = 36; // px outward from centre
+const BURST_DOT_SIZE = 3;
+const BURST_DOT_DURATION_MS = 350;
+const BURST_DOT_DEPTH = 251; // above flying VFX
 
 // Tutorial: fixed 8x7 board for the first move
 // Player must swipe tile at (5,2) DOWN to (5,3) to complete 3 swords in a row at (3..5,3)
@@ -1395,27 +1426,50 @@ export class GameScene extends Phaser.Scene {
       // Update skill button UI with new costs/values
       this.updateHud();
 
-      // Gold VFX: fly from selected card -> destination skill button.
-      // Source coords were snapshotted in the click callback; target coords are
-      // sampled NOW (post-reposition) so a NEW unlock lands on the correct slot.
-      // Awaited to guarantee the landing flash is shown before fadeout starts.
+      // Pop-in unlock path: hide the freshly-unlocked button so the flying
+      // icon "becomes" the button on landing instead of double-rendering.
+      // Capture target ref + button-specific tween hooks BEFORE flying so
+      // the post-landing pop-in animates the now-positioned button.
+      const targetBtn = this.skillButtons[selectedPerk.skillId];
+      if (result.isNewUnlock && targetBtn) {
+        targetBtn.setScale(0).setAlpha(0);
+      }
+
+      // Gold VFX: fly the actual skill icon from selected card -> destination
+      // skill button. Source coords were snapshotted in the click callback;
+      // target coords are sampled NOW (post-reposition) so a NEW unlock lands
+      // on the correct slot. Awaited to guarantee landing before fadeout.
       //
-      // Split landing path (DECISIONS R-VFX-1):
-      //   - unlock (result.isNewUnlock = true): use built-in white flashIconPulse
-      //     inside flyPerkSelectVfx (signals "new skill appeared!").
-      //   - upgrade (result.isNewUnlock = false): skip the white flash and
-      //     follow up with gold flashIconUpgrade so the already-existing icon
-      //     reads as "level up" instead of "just unlocked".
-      await this.flyPerkSelectVfx(
-        selectedSourceX,
-        selectedSourceY,
-        selectedPerk.skillId,
-        result.isNewUnlock ? undefined : { skipLandingFlash: true },
-      );
-      if (!result.isNewUnlock) {
-        const targetBtn = this.skillButtons[selectedPerk.skillId];
-        if (targetBtn) {
-          await targetBtn.flashIconUpgrade(PERK_LANDING_FLASH_MS);
+      // Split landing path (DECISIONS R-T3-1 / R-T3-2 / R-T3-3):
+      //   - unlock (result.isNewUnlock = true): skip default white flash;
+      //     play playUnlockPopIn() instead — scale 0→1.2→1 + alpha 0→1.
+      //   - upgrade (result.isNewUnlock = false): skip default white flash;
+      //     follow up with stronger flashIconUpgrade + radial gold burst.
+      try {
+        await this.flyPerkSelectVfx(
+          selectedSourceX,
+          selectedSourceY,
+          selectedPerk.skillId,
+          { skipLandingFlash: true },
+        );
+        if (result.isNewUnlock) {
+          if (targetBtn) {
+            await targetBtn.playUnlockPopIn();
+          }
+        } else if (targetBtn) {
+          const landTarget = targetBtn.getIconWorldPosition();
+          this.burstGoldDots(landTarget.x, landTarget.y);
+          await targetBtn.flashIconUpgrade(PERK_UPGRADE_FLASH_MS);
+        }
+      } finally {
+        // Defensive restore: if VFX threw or SHUTDOWN raced past, an
+        // unlock-path button could be left at scale 0 / alpha 0, hiding the
+        // newly-unlocked skill from the player. playUnlockPopIn handles the
+        // happy path; this guard handles exception paths only.
+        if (result.isNewUnlock && targetBtn && targetBtn.scene) {
+          if (targetBtn.scaleX < 1 || targetBtn.alpha < 1) {
+            targetBtn.setScale(1).setAlpha(1);
+          }
         }
       }
 
@@ -1446,18 +1500,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Gold VFX trail flying from a selected perk card to the destination skill
-   * button, ending in a brief icon flash + scale pulse on landing.
+   * Perk-select VFX: a flying skill icon from the selected perk card to the
+   * destination skill button, accompanied by a dimmed gold trail and ending
+   * in a landing flash (or skipped, for the caller to chain a different
+   * flash). The flying icon is the **actual skill icon** — Phaser.Image
+   * when the skill has `iconTexture` (e.g., `tile_heal`), Phaser.Text with
+   * the emoji glyph otherwise.
    *
    * Called from `showPerkSelection` AFTER `repositionSkillButtons` so the
    * target coords reflect the *final* slot for newly-unlocked skills
-   * (Task #2 RISK-3 — sampling earlier would miss freshly-unlocked buttons).
+   * (phaser-animation.ts §9a — sampling earlier would miss freshly-
+   * unlocked buttons).
    *
    * `options.skipLandingFlash` — when true, the internal `flashIconPulse`
    * (white unlock VFX) is skipped so the caller can follow up with a
-   * different flash (e.g., `flashIconUpgrade` gold flash for upgrade path).
-   * Avoids white+gold double-flash when landing on an already-unlocked
-   * button. See DECISIONS R-VFX-1.
+   * different flash (e.g., `flashIconUpgrade` gold flash for upgrade path,
+   * or `playUnlockPopIn()` for unlock path). Avoids white+gold double-flash
+   * when landing on an already-unlocked button. See DECISIONS R-T3-1.
+   *
+   * Why emoji uses `setColor` instead of `setTint`: emoji glyphs are
+   * rendered as colored bitmap glyphs by the OS, and `setTint` is ignored
+   * in most browsers/canvases for them. We instead set the text colour at
+   * construction so the gold tint applies cross-platform (RISK-3).
    *
    * Pattern reference: `src/ui/FlyingTile.ts`. Inlined here as a single
    * fire-and-forget helper instead of factored out — only one call site.
@@ -1477,21 +1541,36 @@ export class GameScene extends Phaser.Scene {
 
     // Mid-arc point above the line for a graceful curve.
     const midX = (sourceX + target.x) / 2;
-    const midY = Math.min(sourceY, target.y) - 60;
+    const midY = Math.min(sourceY, target.y) - PERK_VFX_ARC_HEIGHT_PX;
 
-    // Gold sprite — small image, depth above overlays (overlay sits at depth 200,
-    // perk text at 201/202, so 250 keeps the spark visible during transit).
-    const VFX_DEPTH = 250;
-    const TRAIL_DEPTH = 249;
-    const DURATION = 480;
-    const SIZE = 26;
+    // Skill icon — branched render: Image for textured skills (tintable),
+    // Text for emoji-only skills (NOT tintable in most canvases — set
+    // colour at construction). Use BASE SKILL_CONFIG for icon/iconTexture
+    // since `getEffectiveSkillCfg` only overrides numeric stats.
+    const cfg = SKILL_CONFIG[skillId];
+    let iconObj: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+    if (cfg.iconTexture && this.textures.exists(cfg.iconTexture)) {
+      iconObj = this.add.image(sourceX, sourceY, cfg.iconTexture)
+        .setDisplaySize(PERK_VFX_ICON_SIZE_PX, PERK_VFX_ICON_SIZE_PX)
+        .setTint(PERK_VFX_GOLD_TINT)
+        .setOrigin(0.5);
+    } else {
+      iconObj = this.add.text(sourceX, sourceY, cfg.icon, {
+        fontSize: `${PERK_VFX_ICON_TEXT_FONT_PX}px`,
+        // Emoji glyphs ignore setTint; bake the gold colour in at construction.
+        // Non-emoji single chars (rare) will read as gold.
+        color: "#ffd700",
+        fontFamily: "'Exo 2', Arial, sans-serif",
+        resolution: 2,
+      }).setOrigin(0.5);
+    }
+    iconObj.setDepth(PERK_VFX_FLY_DEPTH).setScale(PERK_VFX_ICON_START_SCALE);
 
-    const sprite = this.add.image(sourceX, sourceY, ASSET_KEYS.tiles[TileKind.Mana])
-      .setDisplaySize(SIZE, SIZE)
-      .setTint(0xffd700)
-      .setDepth(VFX_DEPTH);
-    const trailGfx = this.add.graphics().setDepth(TRAIL_DEPTH);
+    const trailGfx = this.add.graphics().setDepth(PERK_VFX_TRAIL_DEPTH);
     const trailPoints: Array<{ x: number; y: number; alpha: number }> = [];
+
+    // Random spin sign for visual variety.
+    const spinSign = Math.random() < 0.5 ? -1 : 1;
 
     const startTime = this.time.now;
     let cleaned = false;
@@ -1502,16 +1581,14 @@ export class GameScene extends Phaser.Scene {
       cleaned = true;
       if (onUpdate) this.events.off("update", onUpdate);
       this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
-      sprite.destroy();
+      iconObj.destroy();
       trailGfx.destroy();
       // Always resolve from cleanup — guarantees the awaiter never hangs even
-      // when SHUTDOWN fires mid-flight (logic-reviewer Task #2 blocker).
+      // when SHUTDOWN fires mid-flight (phaser-animation.ts §9d).
       // Promise resolve is idempotent in JS — second call from the t>=1 path
       // is a no-op. This covers BOTH scenarios:
       //   A) SHUTDOWN during transit (t < 1): cleanup → resolve, awaiter unblocks.
-      //   B) SHUTDOWN after t>=1 but before flashIconPulse settles: same path,
-      //      flashIconPulse's .then(...) below would also resolve but cleaned=true
-      //      makes any further cleanup a no-op.
+      //   B) SHUTDOWN after t>=1 but before landing flash settles: same path.
       if (resolveFn) resolveFn();
     };
 
@@ -1522,36 +1599,41 @@ export class GameScene extends Phaser.Scene {
           cleanup();
           return;
         }
-        const t = Math.min(1, (this.time.now - startTime) / DURATION);
+        const t = Math.min(1, (this.time.now - startTime) / PERK_VFX_FLY_DURATION_MS);
         // Quadratic Bezier: source -> mid -> target, eased.
         const eased = 1 - Math.pow(1 - t, 2); // Quad.easeOut
         const oneMinus = 1 - eased;
         const x = oneMinus * oneMinus * sourceX + 2 * oneMinus * eased * midX + eased * eased * target.x;
         const y = oneMinus * oneMinus * sourceY + 2 * oneMinus * eased * midY + eased * eased * target.y;
-        sprite.setPosition(x, y);
+        // Perspective shrink + lazy spin.
+        const scale = PERK_VFX_ICON_START_SCALE
+          + (PERK_VFX_ICON_END_SCALE - PERK_VFX_ICON_START_SCALE) * eased;
+        iconObj.setPosition(x, y).setScale(scale);
+        iconObj.setAngle(eased * PERK_VFX_ICON_SPIN_DEG * spinSign);
 
         // Trail: append current point, fade existing, clear+redraw.
+        // Dimmed (alpha factor + radius) — secondary VFX behind the icon.
         trailPoints.push({ x, y, alpha: 1 });
         trailGfx.clear();
         for (const p of trailPoints) {
-          p.alpha -= 0.08;
+          p.alpha -= PERK_VFX_TRAIL_FADE_PER_FRAME;
           if (p.alpha > 0) {
-            trailGfx.fillStyle(0xffd700, p.alpha * 0.7);
-            trailGfx.fillCircle(p.x, p.y, 6 * p.alpha);
+            trailGfx.fillStyle(PERK_VFX_GOLD_TINT, p.alpha * PERK_VFX_TRAIL_ALPHA_FACTOR);
+            trailGfx.fillCircle(p.x, p.y, PERK_VFX_TRAIL_RADIUS * p.alpha);
           }
         }
         while (trailPoints.length > 0 && trailPoints[0].alpha <= 0) trailPoints.shift();
 
         if (t >= 1) {
-          // Sprite reached destination — finish trail fade-out and either
-          // fire the unlock-path white flash or skip it so the caller can
-          // run its own follow-up flash (upgrade path → flashIconUpgrade).
+          // Icon reached destination — finish trail fade-out and either fire
+          // the unlock-path white flash or skip it so the caller can run its
+          // own follow-up (upgrade → flashIconUpgrade, unlock → playUnlockPopIn).
           if (onUpdate) this.events.off("update", onUpdate);
-          sprite.destroy();
+          iconObj.destroy();
           this.tweens.add({
             targets: trailGfx,
             alpha: 0,
-            duration: 150,
+            duration: PERK_VFX_TRAIL_FADE_DURATION_MS,
             onComplete: () => trailGfx.destroy(),
           });
           const finish = () => {
@@ -1560,16 +1642,63 @@ export class GameScene extends Phaser.Scene {
             resolve();
           };
           if (options?.skipLandingFlash) {
-            // Caller (upgrade path) will follow up with flashIconUpgrade.
+            // Caller will follow up with a more specific flash.
             finish();
           } else {
-            targetBtn.flashIconPulse(PERK_LANDING_FLASH_MS).then(finish);
+            targetBtn.flashIconPulse(PERK_UNLOCK_FLASH_MS).then(finish);
           }
         }
       };
       this.events.on("update", onUpdate);
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
     });
+  }
+
+  /**
+   * Radial gold dot burst — fired at the moment of upgrade landing on an
+   * already-unlocked SkillButton. 6 dots spawn at (x, y) and animate outward
+   * to `BURST_DOT_RADIUS` while fading to alpha 0 over `BURST_DOT_DURATION_MS`.
+   *
+   * Spawned on scene depth (NOT inside SkillButton) so dots can escape the
+   * button's bounding rect — see DECISIONS R-T3-2.
+   *
+   * Fire-and-forget; cleanup hooks SHUTDOWN per phaser-animation.ts §9d so
+   * dots are reliably destroyed even mid-tween.
+   */
+  private burstGoldDots(x: number, y: number): void {
+    const dots: Phaser.GameObjects.Arc[] = [];
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+      dots.forEach((d) => d.scene && d.destroy());
+    };
+    // Register SHUTDOWN listener BEFORE spawning dots so a SHUTDOWN that
+    // fires mid-loop (between dot creations) still cleans up everything
+    // that's been added so far. See security review F6.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+
+    for (let i = 0; i < BURST_DOT_COUNT; i++) {
+      const angle = (i / BURST_DOT_COUNT) * Math.PI * 2;
+      const tx = x + Math.cos(angle) * BURST_DOT_RADIUS;
+      const ty = y + Math.sin(angle) * BURST_DOT_RADIUS;
+      const dot = this.add.circle(x, y, BURST_DOT_SIZE, PERK_VFX_GOLD_TINT, 1)
+        .setDepth(BURST_DOT_DEPTH);
+      dots.push(dot);
+      this.tweens.add({
+        targets: dot,
+        x: tx,
+        y: ty,
+        alpha: 0,
+        duration: BURST_DOT_DURATION_MS,
+        ease: "Quad.easeOut",
+        onComplete: () => {
+          if (dot.scene) dot.destroy();
+          if (dots.every((d) => !d.scene)) cleanup();
+        },
+      });
+    }
   }
 
   private applyDamageToBoss(damage: number, skipSlash = false, muteHitSfx = false) {

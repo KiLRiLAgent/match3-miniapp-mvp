@@ -28,12 +28,30 @@ const BADGE_FONT_FACTOR = 0.22;
 const BADGE_FONT_MIN_PX = 13;
 const BADGE_SIZE_MIN_PX = 24;
 
-// Landing flash — shared scale/timing; only tint colour differs between variants.
-const FLASH_SCALE = 1.25;
+// Landing flash — split between unlock (white pulse) and upgrade (gold,
+// stronger). Unlock keeps the original tuning (scale 1.25, 240ms). Upgrade
+// has been intentionally amped (scale 1.4, 320ms) so the level-up landing
+// reads as a meaningfully bigger event than a fresh unlock — see
+// DECISIONS R-T3-2 and `.conventions/gold-standards/phaser-animation.ts §9c`.
+const FLASH_SCALE = 1.25; // legacy unlock peak (used by flashIconPulse)
+const UPGRADE_FLASH_SCALE_PEAK = 1.4; // upgrade peak — explicitly stronger
 const FLASH_TINT_RATIO = 0.4;
 const FLASH_TWEEN_RATIO = 0.45;
+const UPGRADE_FLASH_TWEEN_RATIO = 0.5; // slightly slower upgrade pulse
 const PULSE_FLASH_COLOR = 0xffffff; // flashIconPulse — unlock VFX (new skill)
 const UPGRADE_FLASH_COLOR = 0xffd700; // flashIconUpgrade — upgrade VFX (level +1)
+
+// Pop-in (unlock landing) — scale 0 → POP_PEAK → 1, alpha 0 → 1.
+// Used by `playUnlockPopIn` to give a freshly-unlocked SkillButton an
+// "appear" beat distinct from the upgrade landing. The total duration is
+// split between two tween phases:
+//   - PEAK phase (scale 0 → POP_PEAK + alpha 0 → 1) with Back.easeOut
+//   - SETTLE phase (scale POP_PEAK → 1) with Quad.easeOut
+// Ratios sum to 1.0; tuned so the snappy overshoot dominates the timing.
+const UNLOCK_POP_IN_SCALE_PEAK = 1.2;
+const UNLOCK_POP_IN_DURATION_MS = 280;
+const UNLOCK_POP_IN_PEAK_RATIO = 0.65;
+const UNLOCK_POP_IN_SETTLE_RATIO = 0.35;
 
 export class SkillButton extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Arc;
@@ -165,11 +183,16 @@ export class SkillButton extends Phaser.GameObjects.Container {
   /**
    * Golden landing flash used when an upgrade-VFX lands on an ALREADY-unlocked
    * skill button (skill level +1). Mirrors `flashIconPulse` structure but with
-   * gold tint (0xffd700) instead of white. One-shot yoyo, returns Promise.
+   * gold tint (0xffd700) and an INTENTIONALLY stronger peak (scale 1.4 vs
+   * 1.25 for unlock, 320ms vs 240ms) — the brief explicitly asks the upgrade
+   * landing to outshine the unlock landing.
    *
-   * Paired with `flashIconPulse` (unlock path). See phaser-animation.ts §9c.
+   * The radial golden particle burst that accompanies this flash lives on the
+   * caller (GameScene.burstGoldDots) — dots need to escape SkillButton's
+   * bounding rect, so they're spawned on scene depth instead of inside the
+   * Container. See DECISIONS R-T3-2 / phaser-animation.ts §9c.
    */
-  flashIconUpgrade(durationMs = 240): Promise<void> {
+  flashIconUpgrade(durationMs = 320): Promise<void> {
     return new Promise<void>((resolve) => {
       if (!this.scene) { resolve(); return; }
       const target: Phaser.GameObjects.GameObject =
@@ -182,13 +205,50 @@ export class SkillButton extends Phaser.GameObjects.Container {
       }
       this.scene.tweens.add({
         targets: this,
-        scale: { from: 1, to: FLASH_SCALE },
-        duration: durationMs * FLASH_TWEEN_RATIO,
+        scale: { from: 1, to: UPGRADE_FLASH_SCALE_PEAK },
+        duration: durationMs * UPGRADE_FLASH_TWEEN_RATIO,
         ease: "Quad.easeOut",
         yoyo: true,
         onComplete: () => {
           if (this.scene) this.setScale(1);
           resolve();
+        },
+      });
+    });
+  }
+
+  /**
+   * Pop-in animation for a freshly-unlocked SkillButton landing in its slot.
+   * Plays scale 0 → 1.2 → 1 + alpha 0 → 1 over ~280ms with `Back.easeOut`
+   * for a snappy "appear" beat. Used by GameScene's perk-select unlock path
+   * INSTEAD of the white flashIconPulse — pop-in already conveys the
+   * "new skill" semantic without the white tint.
+   *
+   * Caller is responsible for resetting `setScale(0).setAlpha(0)` BEFORE
+   * the flying VFX starts so the button is invisible during transit and
+   * pops in on landing.
+   */
+  playUnlockPopIn(durationMs = UNLOCK_POP_IN_DURATION_MS): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (!this.scene) { resolve(); return; }
+      this.scene.tweens.add({
+        targets: this,
+        scale: { from: 0, to: UNLOCK_POP_IN_SCALE_PEAK },
+        alpha: { from: 0, to: 1 },
+        duration: durationMs * UNLOCK_POP_IN_PEAK_RATIO,
+        ease: "Back.easeOut",
+        onComplete: () => {
+          if (!this.scene) { resolve(); return; }
+          this.scene.tweens.add({
+            targets: this,
+            scale: 1,
+            duration: durationMs * UNLOCK_POP_IN_SETTLE_RATIO,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+              if (this.scene) this.setScale(1);
+              resolve();
+            },
+          });
         },
       });
     });
