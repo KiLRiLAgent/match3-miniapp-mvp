@@ -33,6 +33,33 @@ const PREVIEW_PADDING = 12;
 const SCROLL_DRAG_THRESHOLD_PX = 5;
 const WHEEL_SCROLL_SCALE = 0.5;
 
+// Header / footer chrome offsets (relative to panel rect)
+const HEADER_TITLE_Y = 25;
+const CLOSE_BTN_Y = 15;
+const CLOSE_BTN_INSET_X = 20;
+const APPLY_BTN_FOOTER_Y_FROM_BOTTOM = 35;
+const APPLY_BTN_INSET_X = 40;
+const APPLY_BTN_HEIGHT = 50;
+const APPLY_BTN_STROKE_WIDTH = 2;
+const SCROLLBAR_RIGHT_INSET = 4;
+
+// Param-row x-offsets (measured from panelX, given panelWidth)
+const ROW_INSET_X = 15;
+const ROW_MINUS_X_FROM_RIGHT = 115;
+const ROW_VALUE_X_FROM_RIGHT = 65;
+const ROW_PLUS_X_FROM_RIGHT = 20;
+
+// Mode block offsets
+const MODE_LABEL_Y_OFFSET = 6;
+const MODE_VALUE_X_INSET = 15;
+const MODE_BTN_Y_OFFSET = 42;
+const MODE_BTN_INSET_X = 30;
+const MODE_BTN_STROKE_WIDTH = 2;
+
+// Preview block offsets
+const PREVIEW_INSET_X = 15;
+const PREVIEW_BLOCK_INSET_TOTAL = 30; // sum of left+right insets
+
 // Visual constants
 const PANEL_BG_COLOR = 0x1a1a2e;
 const PANEL_BG_ALPHA = 0.98;
@@ -77,6 +104,9 @@ type ParamRow = {
   max: number;
   step: number;
   isPattern?: boolean;
+  // Marks K-multiplier rows so the HP preview block can be inserted right
+  // after the LAST one without label-string sniffing (M3 from quality-reviewer).
+  isMultiplier?: boolean;
   format?: (v: number) => string;
 };
 
@@ -176,7 +206,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
 
     // ── Layer 4: chrome (title + close button) at depth 102 via `this` ──
     const title = scene.add
-      .text(GAME_WIDTH / 2, panelY + 25, "⚙️ Настройки", {
+      .text(GAME_WIDTH / 2, panelY + HEADER_TITLE_Y, "⚙️ Настройки", {
         fontSize: "24px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -186,7 +216,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .setOrigin(0.5);
 
     const closeBtn = scene.add
-      .text(this.panelX + this.panelWidth - 20, panelY + 15, "✕", {
+      .text(this.panelX + this.panelWidth - CLOSE_BTN_INSET_X, panelY + CLOSE_BTN_Y, "✕", {
         fontSize: "28px",
         color: "#ff6666",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -227,24 +257,25 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     if (this.maxScrollY > 0) {
       const scrollbarHeight = (this.scrollAreaHeight / this.contentHeight) * this.scrollAreaHeight;
       this.scrollbar = scene.add
-        .rectangle(this.panelX + this.panelWidth - 4, this.scrollAreaTop, SCROLLBAR_WIDTH, scrollbarHeight, SCROLLBAR_COLOR, SCROLLBAR_ALPHA)
+        .rectangle(this.panelX + this.panelWidth - SCROLLBAR_RIGHT_INSET, this.scrollAreaTop, SCROLLBAR_WIDTH, scrollbarHeight, SCROLLBAR_COLOR, SCROLLBAR_ALPHA)
         .setOrigin(0.5, 0);
       this.add(this.scrollbar);
     }
 
     // Apply button — added to `this` Container (depth DEPTH_PANEL_CHROME=102),
     // so it sits above scrollContainer (depth DEPTH_SCROLL_CONTENT=101).
+    const applyBtnY = panelY + panelHeight - APPLY_BTN_FOOTER_Y_FROM_BOTTOM;
     const applyBtnBg = scene.add
-      .rectangle(GAME_WIDTH / 2, panelY + panelHeight - 35, this.panelWidth - 40, 50, APPLY_BG_COLOR, 1)
+      .rectangle(GAME_WIDTH / 2, applyBtnY, this.panelWidth - APPLY_BTN_INSET_X, APPLY_BTN_HEIGHT, APPLY_BG_COLOR, 1)
       .setOrigin(0.5)
-      .setStrokeStyle(2, APPLY_STROKE_COLOR)
+      .setStrokeStyle(APPLY_BTN_STROKE_WIDTH, APPLY_STROKE_COLOR)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => this.applyAndRestart())
       .on("pointerover", () => applyBtnBg.setFillStyle(APPLY_BG_HOVER_COLOR))
       .on("pointerout", () => applyBtnBg.setFillStyle(APPLY_BG_COLOR));
 
     const applyBtn = scene.add
-      .text(GAME_WIDTH / 2, panelY + panelHeight - 35, "💾 Сохранить и перезапустить", {
+      .text(GAME_WIDTH / 2, applyBtnY, "💾 Сохранить и перезапустить", {
         fontSize: "18px",
         color: "#88ff88",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -300,6 +331,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         min: 0.1,
         max: 10.0,
         step: 0.1,
+        isMultiplier: true,
         format: (v) => `x${v.toFixed(1)}`,
       });
     }
@@ -351,12 +383,13 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   /**
    * Find the index of the last layer-multiplier param. The HP preview block
    * is inserted immediately AFTER this row so users see the live computed
-   * HP array right under the K-coefficient inputs.
+   * HP array right under the K-coefficient inputs. Detection is by the
+   * `isMultiplier` flag (M3 from quality-reviewer) — no fragile label sniffing.
    */
   private findLastMultiplierIdx(params: ParamRow[]): number {
     let idx = -1;
     params.forEach((p, i) => {
-      if (p.label.startsWith("📊 K")) idx = i;
+      if (p.isMultiplier) idx = i;
     });
     return idx;
   }
@@ -366,8 +399,12 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   // ───────────────────────────────────────────────────────────────────────
 
   private createParamRow(scene: Phaser.Scene, param: ParamRow, y: number) {
+    const minusX = this.panelX + this.panelWidth - ROW_MINUS_X_FROM_RIGHT;
+    const valueX = this.panelX + this.panelWidth - ROW_VALUE_X_FROM_RIGHT;
+    const plusX = this.panelX + this.panelWidth - ROW_PLUS_X_FROM_RIGHT;
+
     const label = scene.add
-      .text(this.panelX + 15, y, param.label, {
+      .text(this.panelX + ROW_INSET_X, y, param.label, {
         fontSize: "16px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -376,7 +413,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .setOrigin(0, 0.5);
 
     const minusBg = scene.add
-      .rectangle(this.panelX + this.panelWidth - 115, y, BUTTON_SIZE, BUTTON_SIZE, MINUS_BG_COLOR, 1)
+      .rectangle(minusX, y, BUTTON_SIZE, BUTTON_SIZE, MINUS_BG_COLOR, 1)
       .setOrigin(0.5)
       .setStrokeStyle(1, MINUS_STROKE_COLOR)
       .setInteractive({ useHandCursor: true })
@@ -385,7 +422,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .on("pointerout", () => minusBg.setFillStyle(MINUS_BG_COLOR));
 
     const minus = scene.add
-      .text(this.panelX + this.panelWidth - 115, y, "−", {
+      .text(minusX, y, "−", {
         fontSize: "24px",
         color: "#ff8888",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -396,7 +433,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
 
     const displayValue = this.formatParamValue(param);
     const value = scene.add
-      .text(this.panelX + this.panelWidth - 65, y, displayValue, {
+      .text(valueX, y, displayValue, {
         fontSize: (param.isPattern || param.format) ? "12px" : "16px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -406,7 +443,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .setOrigin(0.5);
 
     const plusBg = scene.add
-      .rectangle(this.panelX + this.panelWidth - 20, y, BUTTON_SIZE, BUTTON_SIZE, PLUS_BG_COLOR, 1)
+      .rectangle(plusX, y, BUTTON_SIZE, BUTTON_SIZE, PLUS_BG_COLOR, 1)
       .setOrigin(0.5)
       .setStrokeStyle(1, PLUS_STROKE_COLOR)
       .setInteractive({ useHandCursor: true })
@@ -415,7 +452,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .on("pointerout", () => plusBg.setFillStyle(PLUS_BG_COLOR));
 
     const plus = scene.add
-      .text(this.panelX + this.panelWidth - 20, y, "+", {
+      .text(plusX, y, "+", {
         fontSize: "24px",
         color: "#88ff88",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -456,8 +493,8 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   ) {
     const lines = this.buildHpPreviewLines();
     const blockHeight = lines.length * PREVIEW_ROW_HEIGHT + PREVIEW_PADDING * 2;
-    const blockWidth = panelWidth - 30;
-    const blockX = panelX + 15;
+    const blockWidth = panelWidth - PREVIEW_BLOCK_INSET_TOTAL;
+    const blockX = panelX + PREVIEW_INSET_X;
 
     this.hpPreviewBg = scene.add
       .rectangle(blockX, blockY, blockWidth, blockHeight, PREVIEW_BG_COLOR, PREVIEW_BG_ALPHA)
@@ -610,7 +647,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
         : "⟳ Переключить на v1 Классика";
 
     const label = scene.add
-      .text(panelX + 15, blockY + 6, "🔮 Режим игры", {
+      .text(panelX + ROW_INSET_X, blockY + MODE_LABEL_Y_OFFSET, "🔮 Режим игры", {
         fontSize: "16px",
         color: "#ffffff",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -620,7 +657,7 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .setOrigin(0, 0);
 
     const valueText = scene.add
-      .text(panelX + panelWidth - 15, blockY + 6, currentLabel, {
+      .text(panelX + panelWidth - MODE_VALUE_X_INSET, blockY + MODE_LABEL_Y_OFFSET, currentLabel, {
         fontSize: "14px",
         color: "#e6c068",
         fontFamily: "'Exo 2', Arial, sans-serif",
@@ -629,14 +666,14 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       })
       .setOrigin(1, 0);
 
-    const btnY = blockY + 42;
-    const btnWidth = panelWidth - 30;
+    const btnY = blockY + MODE_BTN_Y_OFFSET;
+    const btnWidth = panelWidth - MODE_BTN_INSET_X;
     const btnX = panelX + panelWidth / 2;
 
     const btnBg = scene.add
       .rectangle(btnX, btnY, btnWidth, MODE_BUTTON_HEIGHT, MODE_BG_COLOR, 1)
       .setOrigin(0.5)
-      .setStrokeStyle(2, MODE_STROKE_COLOR)
+      .setStrokeStyle(MODE_BTN_STROKE_WIDTH, MODE_STROKE_COLOR)
       .setInteractive({ useHandCursor: true })
       .on("pointerdown", () => {
         setActiveMode(targetMode);
