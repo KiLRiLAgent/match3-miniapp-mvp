@@ -23,7 +23,6 @@ import {
   getBossLayerHpArray,
   getBossLayerIndex,
   BOSS_LAYER_COLORS,
-  CRIT_MULTIPLIERS,
 } from "../game/config";
 import {
   ANIMATION_DURATIONS,
@@ -41,6 +40,7 @@ import { SkillButton } from "../ui/SkillButton";
 import { SkillApplyOverlay } from "../ui/SkillApplyOverlay";
 import { SettingsPanel } from "../ui/SettingsPanel";
 import { CooldownIcon } from "../ui/CooldownIcon";
+import { HitsCounter } from "../ui/HitsCounter";
 import { showDamageNumber } from "../ui/DamageNumber";
 import { BossAbilityManager } from "../game/BossAbility";
 import { PerkManager, PERKS_TO_OFFER } from "../game/PerkManager";
@@ -194,7 +194,7 @@ export class GameScene extends Phaser.Scene {
 
   private cascadeCount = 0;
   private cascadeHitCount = 0;
-  private hitCounterText?: Phaser.GameObjects.Text;
+  private hitsCounter?: HitsCounter;
 
   // Hint glow sprites (white silhouette clones)
   private hintOverlays: Phaser.GameObjects.Image[] = [];
@@ -987,9 +987,6 @@ export class GameScene extends Phaser.Scene {
         this.showCascadeCounter(this.cascadeCount);
       }
 
-      // Show CRIT floating text BEFORE tiles fly (at collapse moment)
-      this.showCritTexts(outcome.transforms);
-
       // Determine CRIT wave count from transforms
       const maxMultiplier = outcome.transforms.reduce(
         (max, t) => Math.max(max, t.multiplier ?? 1), 1
@@ -1005,7 +1002,7 @@ export class GameScene extends Phaser.Scene {
       if (didDamage) {
         this.cascadeHitCount++;
         if (this.cascadeHitCount >= 2) {
-          this.updateHitCounter(this.cascadeHitCount);
+          this.showHitsCounter(this.cascadeHitCount);
         }
       }
 
@@ -1020,7 +1017,7 @@ export class GameScene extends Phaser.Scene {
           this.applyCritWaveDamage(baseDamage, actor, true);
           if (actor === "player" && baseDamage > 0 && this.bossShieldDuration <= 0) {
             this.cascadeHitCount++;
-            this.updateHitCounter(this.cascadeHitCount);
+            this.showHitsCounter(this.cascadeHitCount);
           }
         }
       }
@@ -1075,7 +1072,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Fade out hit counter after cascades
-    this.fadeOutHitCounter();
+    this.hideHitsCounter();
 
     // Crossfade damage art back to idle after all cascades finish
     if (!this.gameOver) {
@@ -1133,44 +1130,6 @@ export class GameScene extends Phaser.Scene {
     }
     this.updateHud();
     this.checkGameOver();
-  }
-
-  private showCritTexts(transforms: Array<{ pos: Position; multiplier?: number }>) {
-    for (const t of transforms) {
-      if (!t.multiplier || t.multiplier <= 1) continue;
-      const world = this.toWorld(t.pos);
-      const isMega = t.multiplier >= CRIT_MULTIPLIERS.match5;
-      const label = isMega ? `MEGA CRIT! x${t.multiplier}` : `CRIT! x${t.multiplier}`;
-      const text = this.add
-        .text(world.x, world.y - CELL_SIZE * 0.8, label, {
-          fontSize: isMega ? "28px" : "24px",
-          color: "#ffd700",
-          fontFamily: "'Exo 2', Arial, sans-serif",
-          fontStyle: "bold",
-          stroke: "#000000",
-          strokeThickness: 5,
-          resolution: 2,
-        })
-        .setOrigin(0.5)
-        .setDepth(100)
-        .setScale(0.5);
-
-      this.tweens.add({
-        targets: text,
-        scale: 1,
-        duration: 200,
-        ease: "Back.easeOut",
-      });
-      this.tweens.add({
-        targets: text,
-        y: text.y - 50,
-        alpha: 0,
-        duration: 800,
-        delay: 300,
-        ease: "Quad.easeOut",
-        onComplete: () => text.destroy(),
-      });
-    }
   }
 
   // --- Red vignette (low HP warning) ---
@@ -2530,6 +2489,8 @@ export class GameScene extends Phaser.Scene {
   private showVictory() {
     if (this.gameOver) return;
     this.stopHintTimer();
+    this.hitsCounter?.destroy();
+    this.hitsCounter = undefined;
     this.gameOver = true;
     this.busy = true;
     // TODO: replace with ASSET_KEYS.sfx.victory when Victory.mp3 is delivered
@@ -3783,6 +3744,8 @@ export class GameScene extends Phaser.Scene {
   private showDefeat() {
     if (this.gameOver) return;
     this.stopHintTimer();
+    this.hitsCounter?.destroy();
+    this.hitsCounter = undefined;
     this.gameOver = true;
     this.busy = true;
     this.sfx(ASSET_KEYS.sfx.defeat);
@@ -4050,58 +4013,36 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private updateHitCounter(count: number): void {
-    const L = UI_LAYOUT;
-    const x = L.bossHpBarX + L.hpBarWidth;
-    const y = L.bossNameY - 16;
-
-    if (this.hitCounterText) {
-      this.hitCounterText.setText(`${count} Hits!`);
-      // Scale bounce on update
-      this.hitCounterText.setScale(0.8);
-      this.tweens.add({
-        targets: this.hitCounterText,
-        scale: 1,
-        duration: 150,
-        ease: "Back.easeOut",
-      });
-      return;
+  private showHitsCounter(count: number): void {
+    // Drop stale reference if previous instance was destroyed by SHUTDOWN
+    // or finished its fade-out.
+    if (this.hitsCounter && !this.hitsCounter.active) {
+      this.hitsCounter = undefined;
     }
-
-    this.hitCounterText = this.add
-      .text(x, y, `${count} Hits!`, {
-        fontSize: "22px",
-        color: "#ffd700",
-        fontFamily: "'Exo 2', Arial, sans-serif",
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 4,
-        resolution: 2,
-      })
-      .setOrigin(1, 0.5)
-      .setDepth(100)
-      .setScale(0);
-
-    this.tweens.add({
-      targets: this.hitCounterText,
-      scale: 1,
-      duration: 200,
-      ease: "Back.easeOut",
-    });
+    if (!this.hitsCounter) {
+      const L = UI_LAYOUT;
+      const x = L.bossHpBarX + L.hpBarWidth;
+      const y = L.bossNameY - 24;
+      this.hitsCounter = new HitsCounter(this, x, y);
+      this.hitsCounter.setDepth(100);
+    }
+    this.hitsCounter.showHits(count);
   }
 
-  private fadeOutHitCounter(): void {
-    if (!this.hitCounterText) return;
-    const text = this.hitCounterText;
-    this.hitCounterText = undefined;
-    this.tweens.add({
-      targets: text,
-      alpha: 0,
-      y: text.y - 20,
-      duration: 400,
-      ease: "Quad.easeOut",
-      onComplete: () => text.destroy(),
-    });
+  private hideHitsCounter(): void {
+    const counter = this.hitsCounter;
+    if (!counter) return;
+    counter
+      .hide()
+      .catch((err) => console.error("HitsCounter hide failed:", err))
+      .finally(() => {
+        // Release the reference only if this instance was actually destroyed.
+        // A re-show during the fade would have cancelled hide() — `counter`
+        // is still alive and visible, so keep the reference.
+        if (this.hitsCounter === counter && !counter.active) {
+          this.hitsCounter = undefined;
+        }
+      });
   }
 
   private async checkAndReshuffle(): Promise<void> {
