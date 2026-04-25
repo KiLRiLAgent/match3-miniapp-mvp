@@ -425,4 +425,98 @@
  *
  *     Reference: src/ui/Meter.ts, src/ui/LayeredMeter.ts
  *     Cross-ref: ./confirmation-overlay.ts section 9 (wiring pattern)
+ *
+ * 15. SCROLLABLE PANEL WITHOUT GEOMETRY MASK IN CONTAINER
+ *
+ *     Authoritative reference: `src/ui/SettingsPanel.ts` after T1
+ *     ivan-batch-1 (commits `06066d3`, `fa02077`, `c9aea12`).
+ *
+ *     A UI panel that holds a scrollable list (param rows, item rows,
+ *     gallery cards, etc) naturally wants `setMask(geometryMask)` on a
+ *     scroll container so off-viewport children clip. This works ONLY
+ *     when the scroll container is a TOP-LEVEL scene child — `setMask`
+ *     fails silently on iOS / Telegram WebView when the masked object is
+ *     a Phaser.GameObjects.Container child of another Container. Same
+ *     root cause as the Meter/LayeredMeter case
+ *     (.conventions/anti-patterns/avoid-container-mask.md): Phaser
+ *     Containers and geometry masks don't compose.
+ *
+ *     The panel itself can still extend Container — only the
+ *     scroll-content + mask graphic move out:
+ *
+ *       class SettingsPanel extends Phaser.GameObjects.Container {
+ *         private scrollContainer: Phaser.GameObjects.Container;
+ *         private scrollMaskGfx: Phaser.GameObjects.Graphics;
+ *         private overlayRect: Phaser.GameObjects.Rectangle;
+ *         private panelBgRect: Phaser.GameObjects.Rectangle;
+ *
+ *         constructor(scene: Phaser.Scene) {
+ *           super(scene, ...);
+ *
+ *           // Scene-level (NOT this.add'd) so the mask works.
+ *           this.overlayRect = scene.add.rectangle(...).setDepth(DEPTH_OVERLAY);
+ *           this.panelBgRect = scene.add.rectangle(...).setDepth(DEPTH_PANEL_BG);
+ *           this.scrollContainer = scene.add.container(0, 0)
+ *             .setDepth(DEPTH_SCROLL_CONTENT);
+ *           this.scrollMaskGfx = scene.add.graphics();
+ *           this.scrollMaskGfx.fillRect(scrollX, scrollY, scrollW, scrollH);
+ *           this.scrollContainer.setMask(this.scrollMaskGfx.createGeometryMask());
+ *
+ *           // Chrome (title, close button, scrollbar handle, apply
+ *           // button) STAYS as Container children — none of them are
+ *           // masked, and chrome moves with the panel as a unit.
+ *           this.add([titleText, closeBtn, scrollbar, applyBtn]);
+ *           this.setDepth(DEPTH_PANEL_CHROME);
+ *         }
+ *
+ *         close(): void {
+ *           // Manual destroy — scene-level children are NOT auto-cleaned
+ *           // when `this` is destroyed.
+ *           this.overlayRect.destroy();
+ *           this.panelBgRect.destroy();
+ *           this.scrollContainer.destroy();
+ *           this.scrollMaskGfx.destroy();
+ *           this.destroy();
+ *         }
+ *       }
+ *
+ *     Four-band depth layout. When chrome lives inside `this` and other
+ *     pieces live on the scene, you must pick depths explicitly so the
+ *     panel rect doesn't render over the scroll content (a real
+ *     regression caught in T1 review):
+ *
+ *       const DEPTH_OVERLAY        = 99;   // full-screen darken
+ *       const DEPTH_PANEL_BG       = 100;  // panel rect
+ *       const DEPTH_SCROLL_CONTENT = 101;  // rows + their mask
+ *       const DEPTH_PANEL_CHROME   = 102;  // title/close/scrollbar/apply
+ *
+ *     Drag-vs-tap discrimination on touch surfaces. A 5 px movement
+ *     threshold prevents `+` / `−` button taps from priming a parasitic
+ *     scroll. Without it, the brief pointermove between pointerdown and
+ *     pointerup of a tap is misread as the start of a drag, the next
+ *     pointerdown is consumed as scroll completion, and the button click
+ *     never fires:
+ *
+ *       const DRAG_THRESHOLD_PX = 5;
+ *       let dragStartedAt: number | null = null;
+ *       let isDragging = false;
+ *
+ *       scene.input.on("pointerdown", (p) => { dragStartedAt = p.y; });
+ *       scene.input.on("pointermove", (p) => {
+ *         if (dragStartedAt === null) return;
+ *         if (Math.abs(p.y - dragStartedAt) > DRAG_THRESHOLD_PX) {
+ *           isDragging = true;
+ *         }
+ *         if (isDragging) { /* shift scrollContainer.y */ }
+ *       });
+ *       scene.input.on("pointerup", () => {
+ *         dragStartedAt = null;
+ *         isDragging = false;
+ *       });
+ *
+ *     Cross-references:
+ *     - .conventions/anti-patterns/avoid-container-mask.md "Scrollable
+ *       Panel Case" — failure-mode walkthrough.
+ *     - feature-ivan-batch-1 DECISIONS R-T1-2.
+ *     - logic-reviewer F3 (drag threshold rationale).
  */

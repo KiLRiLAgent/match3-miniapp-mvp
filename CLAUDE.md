@@ -1024,8 +1024,9 @@ All Phaser `setDepth()` values used in the game, from back to front:
 | **4** | HUD elements | HP/MP bars, boss name, cooldown icon |
 | **5** | Mute/settings buttons | Top-right controls |
 | **8–12** | Shuffle animation | Temporary elevated tiles |
-| **100** | Tips, bomb flash, floating text | SpeechBubble, effects |
+| **100** | Tips, bomb flash, floating text, HitsCounter | SpeechBubble, effects, `src/ui/HitsCounter.ts` (cascade «N Hits!» label per ivan-batch-1 T2) |
 | **200–202** | Skill unlock tutorial | Overlay + button + bubble |
+| **249–251** | Perk-select VFX (trail / icon / burst) | `flyPerkSelectVfx` trail (249), flying skill icon (250), `burstGoldDots` upgrade burst (251) — ivan-batch-1 T3 |
 | **499** | Attack ability overlay | Black rect behind attack art |
 | **500** | Cutscene overlay | Black rect behind ability art (alpha 0.6) |
 | **500.5** | Cutscene boss glow layer | Fullscreen back texture |

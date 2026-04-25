@@ -7,10 +7,11 @@
  *    - All animation methods return Promise<void>
  *    - Game flow uses async/await for sequencing:
  *
- *      showCritTexts(outcome.transforms);         // CRIT text before flight
+ *      // (CRIT-визуал «CRIT! xN» удалён в T2 ivan-batch-1; cascade hits
+ *      // теперь рендерит HitsCounter near boss — см. hit-counter.ts.)
  *      await animateClear(outcome, actor);         // tile flight
  *      applyMatchResults(outcome.counts, actor);   // wave 1 damage + resources
- *      // ... CRIT additional waves with delay
+ *      // ... CRIT additional waves with delay (multipliers in outcome.transforms)
  *      // ... perk selection (mid-cascade interrupt)
  *      await animateCollapse(collapse);            // collapse + refill
  *
@@ -169,30 +170,39 @@
  *      belongs on the target component, NOT in the VFX helper. This
  *      keeps VFX caller-agnostic and lets the component decide WHICH
  *      child element flashes (image vs text fallback). SkillButton
- *      exposes TWO sibling methods distinguishing semantic flavour:
+ *      exposes TWO sibling methods distinguishing semantic flavour
+ *      AND deliberately uses DIFFERENT scale + duration tunings — the
+ *      upgrade feel is meant to read stronger than unlock:
  *
  *        flashIconPulse(durationMs = 240): Promise<void>
  *          // white tint (PULSE_FLASH_COLOR = 0xffffff)
+ *          // scale 1.0 → FLASH_SCALE (1.25) → 1.0
  *          // used for UNLOCK landings — "new skill appeared!"
  *
- *        flashIconUpgrade(durationMs = 240): Promise<void>
+ *        flashIconUpgrade(durationMs = 320): Promise<void>
  *          // gold tint (UPGRADE_FLASH_COLOR = 0xffd700)
+ *          // scale 1.0 → UPGRADE_FLASH_SCALE_PEAK (1.4) → 1.0
  *          // used for UPGRADE landings — "level up on existing skill"
+ *          // intentionally amplified vs flashIconPulse
  *
- *      Both share the same scale yoyo (`FLASH_SCALE = 1.25`) and timing
- *      ratios (`FLASH_TINT_RATIO = 0.4`, `FLASH_TWEEN_RATIO = 0.45`) —
- *      only the tint colour differs. Shared constants live at module
- *      scope so the feel stays identical between the two variants:
+ *      The tint timing is shared (`FLASH_TINT_RATIO = 0.4`); the tween
+ *      ratio differs slightly (`FLASH_TWEEN_RATIO = 0.45` for unlock,
+ *      `UPGRADE_FLASH_TWEEN_RATIO = 0.5` for upgrade — slightly slower
+ *      so the bigger scale lands rather than blurs):
  *
  *        const FLASH_SCALE = 1.25;
+ *        const UPGRADE_FLASH_SCALE_PEAK = 1.4;   // amplified
  *        const FLASH_TINT_RATIO = 0.4;
- *        const FLASH_TWEEN_RATIO = 0.45;
- *        const PULSE_FLASH_COLOR = 0xffffff;   // unlock
- *        const UPGRADE_FLASH_COLOR = 0xffd700; // upgrade
+ *        const FLASH_TWEEN_RATIO = 0.45;         // unlock
+ *        const UPGRADE_FLASH_TWEEN_RATIO = 0.5;  // upgrade
+ *        const PULSE_FLASH_COLOR = 0xffffff;     // unlock
+ *        const UPGRADE_FLASH_COLOR = 0xffd700;   // upgrade
  *
- *      Template for either method:
+ *      Template for either method (note the explicit constant for the
+ *      scale peak — the unlock variant uses FLASH_SCALE, the upgrade
+ *      variant uses UPGRADE_FLASH_SCALE_PEAK):
  *
- *        flashIconUpgrade(durationMs = 240): Promise<void> {
+ *        flashIconUpgrade(durationMs = 320): Promise<void> {
  *          return new Promise<void>((resolve) => {
  *            if (!this.scene) { resolve(); return; }
  *            const target = this.iconImage?.visible
@@ -205,8 +215,8 @@
  *            }
  *            this.scene.tweens.add({
  *              targets: this,
- *              scale: { from: 1, to: FLASH_SCALE },
- *              duration: durationMs * FLASH_TWEEN_RATIO,
+ *              scale: { from: 1, to: UPGRADE_FLASH_SCALE_PEAK },
+ *              duration: durationMs * UPGRADE_FLASH_TWEEN_RATIO,
  *              ease: "Quad.easeOut", yoyo: true,
  *              onComplete: () => {
  *                if (this.scene) this.setScale(1);
@@ -215,6 +225,17 @@
  *            });
  *          });
  *        }
+ *
+ *      WHY split the scale/duration constants instead of one shared
+ *      `FLASH_SCALE`: the brief explicitly asked for the upgrade
+ *      landing to outshine the unlock landing. Keeping a single
+ *      constant would force one or the other to compromise. The
+ *      gold/white tint distinction stays meaningful regardless.
+ *      See feature-ivan-batch-1 DECISIONS R-T3-2.
+ *
+ *      For the upgrade path, callers chain a radial particle burst
+ *      (see §9h) at the moment of landing — the gold dot ring is
+ *      what truly amplifies the "level-up!" beat over the unlock pulse.
  *
  *    9d. CLEANUP: cleaned flag + SHUTDOWN listener
  *
@@ -267,43 +288,251 @@
  *              // Caller will follow up with a different flash.
  *              finish();
  *            } else {
- *              targetBtn.flashIconPulse(PERK_LANDING_FLASH_MS).then(finish);
+ *              targetBtn.flashIconPulse(PERK_UNLOCK_FLASH_MS).then(finish);
  *            }
  *          }
  *        }
  *
- *      Consumer pattern — use the RESULT of the mutation (e.g.,
- *      `PerkManager.applyPerk` returns `{ isNewUnlock: boolean, ... }`)
- *      to pick the path. No extra `getLevel()` probe — the state
- *      machine already tells you which branch you're on:
+ *      Consumer pattern (current) — both paths skip the default flash
+ *      and chain their own follow-up so each variant gets its bespoke
+ *      effect. Use the RESULT of the mutation (e.g., `applyPerk`
+ *      returns `{ isNewUnlock: boolean }`) to pick the branch:
  *
  *        const result = this.perkManager.applyPerk(selectedPerk.skillId);
- *        this.repositionSkillButtons();
+ *        if (result.isNewUnlock) this.repositionSkillButtons();
  *        this.updateHud();
  *
- *        // Unlock (0 → 1): built-in white flash ("new skill!")
- *        // Upgrade (N → N+1): skip white, gold flash ("level up!")
- *        await this.flyPerkSelectVfx(
- *          sourceX, sourceY, selectedPerk.skillId,
- *          result.isNewUnlock ? undefined : { skipLandingFlash: true },
- *        );
- *        if (!result.isNewUnlock) {
- *          const targetBtn = this.skillButtons[selectedPerk.skillId];
- *          if (targetBtn) await targetBtn.flashIconUpgrade(PERK_LANDING_FLASH_MS);
+ *        // Hide newly-unlocked button so the flying icon "becomes" it.
+ *        const targetBtn = this.skillButtons[selectedPerk.skillId];
+ *        if (result.isNewUnlock && targetBtn) {
+ *          targetBtn.setScale(0).setAlpha(0);
  *        }
  *
- *      WHY a single shared `PERK_LANDING_FLASH_MS` constant: both
- *      variants pull from the same module-level const so unlock and
- *      upgrade feel the same. Don't let one path drift to 180 ms and
- *      the other to 300 ms — the gold/white distinction is meaningful,
- *      the pacing should not be.
+ *        try {
+ *          await this.flyPerkSelectVfx(
+ *            sourceX, sourceY, selectedPerk.skillId,
+ *            { skipLandingFlash: true },
+ *          );
+ *          if (result.isNewUnlock) {
+ *            if (targetBtn) await targetBtn.playUnlockPopIn();
+ *          } else if (targetBtn) {
+ *            const land = targetBtn.getIconWorldPosition();
+ *            this.burstGoldDots(land.x, land.y);          // §9h
+ *            await targetBtn.flashIconUpgrade(PERK_UPGRADE_FLASH_MS);
+ *          }
+ *        } finally {
+ *          // §9i — defensive restore so a thrown VFX or SHUTDOWN race
+ *          //         never leaves the unlock-path button invisible.
+ *          if (result.isNewUnlock && targetBtn && targetBtn.scene) {
+ *            if (targetBtn.scaleX < 1 || targetBtn.alpha < 1) {
+ *              targetBtn.setScale(1).setAlpha(1);
+ *            }
+ *          }
+ *        }
+ *
+ *      WHY split `PERK_UNLOCK_FLASH_MS` (240) and `PERK_UPGRADE_FLASH_MS`
+ *      (320): the brief explicitly asked the upgrade landing to outshine
+ *      the unlock landing. The pacing IS the differentiator alongside
+ *      gold/white. Don't unify back to a single constant unless the
+ *      design changes.
  *
  *      WHY NOT fire both flashes: white + gold on the same landing
- *      reads as a double-flash bug, not as "upgrade". Opt out of the
- *      default flash explicitly when you're going to chain a
- *      replacement (DECISIONS R-VFX-1).
+ *      reads as a double-flash bug, not as "upgrade". Both branches
+ *      pass `skipLandingFlash: true` and chain their own follow-up.
  *
  *      References: `src/scenes/GameScene.ts` `flyPerkSelectVfx` +
- *      `showPerkSelection` callback; DECISIONS
- *      `.claude/teams/feature-skill-card-polish/DECISIONS.md` R-VFX-1.
+ *      `showPerkSelection` callback; feature-ivan-batch-1 DECISIONS
+ *      R-T3-1, R-T3-2, R-T3-3.
+ *
+ *    9g. FLYING-ICON COMPANION TO TRAIL VFX
+ *
+ *      When a VFX symbolises a TRANSFER of a specific entity (skill
+ *      icon, item sprite, currency token), the flying object should be
+ *      the actual entity sprite — not a generic placeholder. The trail
+ *      becomes accompaniment, not the headline.
+ *
+ *      Authoritative reference: `flyPerkSelectVfx` in GameScene.ts
+ *      (Task #3 ivan-batch-1). Pre-T3, the helper flew a generic gold
+ *      Mana sprite. Post-T3 it spawns the actual skill icon — Image
+ *      (tintable) when the skill has `iconTexture`, Text (color baked
+ *      in) when it's emoji-only.
+ *
+ *      Branched render — handles both texture-backed and emoji-only
+ *      sources without falling back to a placeholder:
+ *
+ *        const cfg = SKILL_CONFIG[skillId];
+ *        let iconObj: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+ *        if (cfg.iconTexture && this.textures.exists(cfg.iconTexture)) {
+ *          iconObj = this.add.image(sourceX, sourceY, cfg.iconTexture)
+ *            .setDisplaySize(PERK_VFX_ICON_SIZE_PX, PERK_VFX_ICON_SIZE_PX)
+ *            .setTint(PERK_VFX_GOLD_TINT)        // works on Image
+ *            .setOrigin(0.5);
+ *        } else {
+ *          iconObj = this.add.text(sourceX, sourceY, cfg.icon, {
+ *            fontSize: `${PERK_VFX_ICON_TEXT_FONT_PX}px`,
+ *            color: "#ffd700",  // bake in — setTint is ignored on emoji
+ *            fontFamily: "'Exo 2', Arial, sans-serif",
+ *            resolution: 2,
+ *          }).setOrigin(0.5);
+ *        }
+ *        iconObj.setDepth(PERK_VFX_FLY_DEPTH).setScale(PERK_VFX_ICON_START_SCALE);
+ *
+ *      WHY `setTint` doesn't work on emoji Text: emoji glyphs are
+ *      rendered as colour bitmap fonts by the OS / browser. Phaser
+ *      tint is a multiplicative shader on a single-channel mask;
+ *      colour bitmap pixels skip the multiply step in canvas, so the
+ *      tint visibly fails. Cross-platform fix: set `color` at Text
+ *      construction. Texture-backed Image isn't subject to this — its
+ *      pixels go through the tint shader normally.
+ *
+ *      Animation tunings: perspective scale shrinks 1.5 → 0.8 along
+ *      the same Bezier path the trail follows; an optional ±180°
+ *      lazy spin adds variety without distracting from motion. The
+ *      trail (which was the headline pre-T3) is dimmed — alpha factor
+ *      0.7 → 0.4, radius 6 → 4 — so it reads as a wake, not the lead:
+ *
+ *        const PERK_VFX_ICON_START_SCALE = 1.5;
+ *        const PERK_VFX_ICON_END_SCALE = 0.8;
+ *        const PERK_VFX_ICON_SPIN_DEG = 180;
+ *        const PERK_VFX_ARC_HEIGHT_PX = 60;        // bezier mid lift
+ *        const PERK_VFX_FLY_DURATION_MS = 480;
+ *        const PERK_VFX_TRAIL_ALPHA_FACTOR = 0.4;  // dimmed
+ *        const PERK_VFX_TRAIL_RADIUS = 4;          // shrunk
+ *        const PERK_VFX_TRAIL_FADE_DURATION_MS = 150;
+ *        const PERK_VFX_TRAIL_FADE_PER_FRAME = 0.08;
+ *
+ *      Random spin direction (`Math.random() < 0.5 ? -1 : 1`) avoids
+ *      a metronome feel when multiple icons fly in succession.
+ *
+ *      Cleanup: §9d still applies. The flying icon shares the same
+ *      `cleaned` flag and SHUTDOWN listener as the trail. Both Image
+ *      and Text branches respond to `iconObj.destroy()` because
+ *      `Phaser.GameObjects.GameObject.destroy()` is the shared base
+ *      method.
+ *
+ *    9h. RADIAL PARTICLE BURST AS LANDING ACCENT
+ *
+ *      When a landing flash needs to read as MORE than a pulse — for
+ *      example, an upgrade vs an unlock — accompany it with a radial
+ *      gold-dot burst at the same moment. NOT Phaser.Particles
+ *      (heavyweight emitter API for a one-shot burst); just N
+ *      `Phaser.GameObjects.Arc` circles + parallel tweens.
+ *
+ *      Authoritative reference: `burstGoldDots(x, y)` in GameScene.ts
+ *      (Task #3 ivan-batch-1). Fire-and-forget; caller does NOT await.
+ *
+ *      Spawn dots on SCENE depth, not inside the target Container —
+ *      dots need to escape the target's bounding rect. Use a depth
+ *      one above the flying VFX (`PERK_VFX_FLY_DEPTH = 250` →
+ *      `BURST_DOT_DEPTH = 251`).
+ *
+ *        const BURST_DOT_COUNT = 6;       // 5–8 reads as a "ring"
+ *        const BURST_DOT_RADIUS = 36;     // px outward from centre
+ *        const BURST_DOT_SIZE = 3;
+ *        const BURST_DOT_DURATION_MS = 350;
+ *        const BURST_DOT_DEPTH = 251;     // above flying VFX
+ *
+ *      Skeleton (with §9d cleanup):
+ *
+ *        private burstGoldDots(x: number, y: number): void {
+ *          const dots: Phaser.GameObjects.Arc[] = [];
+ *          let cleaned = false;
+ *          const cleanup = () => {
+ *            if (cleaned) return;
+ *            cleaned = true;
+ *            this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+ *            dots.forEach((d) => d.scene && d.destroy());
+ *          };
+ *          // CRITICAL: register listener BEFORE the spawn loop so a
+ *          // SHUTDOWN that fires mid-loop still cleans every dot
+ *          // created so far. Order matters (security review F6).
+ *          this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+ *
+ *          for (let i = 0; i < BURST_DOT_COUNT; i++) {
+ *            const angle = (i / BURST_DOT_COUNT) * Math.PI * 2;
+ *            const tx = x + Math.cos(angle) * BURST_DOT_RADIUS;
+ *            const ty = y + Math.sin(angle) * BURST_DOT_RADIUS;
+ *            const dot = this.add.circle(x, y, BURST_DOT_SIZE, 0xffd700, 1)
+ *              .setDepth(BURST_DOT_DEPTH);
+ *            dots.push(dot);
+ *            this.tweens.add({
+ *              targets: dot,
+ *              x: tx, y: ty, alpha: 0,
+ *              duration: BURST_DOT_DURATION_MS,
+ *              ease: "Quad.easeOut",
+ *              onComplete: () => {
+ *                if (dot.scene) dot.destroy();
+ *                if (dots.every((d) => !d.scene)) cleanup();
+ *              },
+ *            });
+ *          }
+ *        }
+ *
+ *      WHY `dots.every((d) => !d.scene)` works as the "all done"
+ *      signal: Phaser sets `GameObject.scene = undefined` in
+ *      `destroy()`. The last dot's onComplete sees every prior dot's
+ *      scene=undefined and triggers cleanup; idempotent guard
+ *      prevents the SHUTDOWN listener from firing it again.
+ *
+ *    9i. DEFENSIVE RESTORE FOR PRE-HIDDEN TARGET BUTTONS
+ *
+ *      When the consumer hides a target component before the VFX
+ *      starts (e.g. `targetBtn.setScale(0).setAlpha(0)` on the unlock
+ *      path so the flying icon "becomes" the button), wrap the VFX
+ *      sequence in `try/finally` and restore on exception or SHUTDOWN
+ *      race. Otherwise a thrown tween or interrupted shutdown leaves
+ *      the player staring at an invisible button:
+ *
+ *        try {
+ *          await this.flyPerkSelectVfx(..., { skipLandingFlash: true });
+ *          if (result.isNewUnlock && targetBtn) {
+ *            await targetBtn.playUnlockPopIn();   // happy path: scale/alpha → 1
+ *          }
+ *          // ... upgrade branch ...
+ *        } finally {
+ *          // Only the unlock branch hides the button; only it needs restore.
+ *          // Guard `targetBtn.scene` so we don't touch a destroyed object
+ *          // mid-shutdown.
+ *          if (result.isNewUnlock && targetBtn && targetBtn.scene) {
+ *            if (targetBtn.scaleX < 1 || targetBtn.alpha < 1) {
+ *              targetBtn.setScale(1).setAlpha(1);
+ *            }
+ *          }
+ *        }
+ *
+ *      The `scaleX < 1 || alpha < 1` check makes the restore a no-op
+ *      on the happy path (where popIn already settled to 1) — only
+ *      the exception/cancelled path actually needs it.
+ *
+ *      Equivalent rule for any "hide target → fly → reveal target"
+ *      VFX: the hide and the reveal MUST be paired by a try/finally
+ *      so a fault in between can't strand the user with a missing
+ *      element.
+ *
+ *      Reference: `showPerkSelection` in GameScene.ts; Task #3
+ *      logic-reviewer pass.
+ *
+ * 10. SETTINGS UI LIVE-PREVIEW (cross-ref)
+ *
+ *    Not strictly an animation pattern, but bundled here because it
+ *    shows up in the same surface area: when a settings panel exposes
+ *    inputs that drive *computed downstream values* (per-layer HP from
+ *    base × multipliers, encounter difficulty curves, etc.), the
+ *    editor MUST render the computed array live. Recompute on every
+ *    input-changed callback — no caching, no memoization, no chart
+ *    framework for ≤20-element arrays.
+ *
+ *    Authoritative reference and full discussion:
+ *    `.conventions/gold-standards/param-derived-ui-display.ts`. Short
+ *    rule: input changes, preview block recomputes from the SAME
+ *    helpers the runtime uses, no parallel formula in the panel.
+ *
+ *    Trigger this pattern when the user could reasonably mistake an
+ *    input value for the output (e.g., "I set base = 1000, the HUD
+ *    shows 15500, where did 15500 come from?"). The preview makes the
+ *    derivation visible and removes the «I set 1000 but see 15500»
+ *    confusion class.
+ *
+ *    Reference: `src/ui/SettingsPanel.ts` HP preview block;
+ *    feature-ivan-batch-1 R-T1-1.
  */
