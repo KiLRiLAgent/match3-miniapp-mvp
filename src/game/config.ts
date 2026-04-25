@@ -117,7 +117,6 @@ export function loadGameParams() {
         if (parsed.skillCosts.heal !== undefined) SKILL_CONFIG.heal.cost = parsed.skillCosts.heal;
         if (parsed.skillCosts.hammer !== undefined) SKILL_CONFIG.hammer.cost = parsed.skillCosts.hammer;
       }
-      // background параметры не загружаем из localStorage — они контролируются кодом
 
       // Валидация критических значений
       GAME_PARAMS.player.hpMax = clamp(GAME_PARAMS.player.hpMax, 1, 10000);
