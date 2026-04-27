@@ -1548,22 +1548,33 @@ export class GameScene extends Phaser.Scene {
     const midX = (sourceX + target.x) / 2;
     const midY = Math.min(sourceY, target.y) - PERK_VFX_ARC_HEIGHT_PX;
 
-    // Skill icon — branched render: Image for textured skills (tintable),
-    // Text for emoji-only skills (NOT tintable in most canvases — set
-    // colour at construction). Use BASE SKILL_CONFIG for icon/iconTexture
-    // since `getEffectiveSkillCfg` only overrides numeric stats.
+    // Skill icon — emoji glyph via `cfg.icon` is the PRIMARY render path
+    // because all four skills have a recognisable emoji and the gold tint
+    // bakes cleanly via Text colour. Texture fallback (Image.setTint) is
+    // kept for skills that ever ship without an emoji, but right now
+    // even Heal (`tile_heal` PNG) reads better as the 💚 emoji at this
+    // scale than as a tinted realistic icon. Use BASE SKILL_CONFIG —
+    // `getEffectiveSkillCfg` only overrides numeric stats.
     const cfg = SKILL_CONFIG[skillId];
     let iconObj: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
-    if (cfg.iconTexture && this.textures.exists(cfg.iconTexture)) {
+    if (cfg.icon) {
+      iconObj = this.add.text(sourceX, sourceY, cfg.icon, {
+        fontSize: `${PERK_VFX_ICON_TEXT_FONT_PX}px`,
+        // Emoji glyphs ignore setTint; bake the gold colour in at construction.
+        // Non-emoji single chars (rare) will read as gold.
+        color: "#ffd700",
+        fontFamily: "'Exo 2', Arial, sans-serif",
+        resolution: 2,
+      }).setOrigin(0.5);
+    } else if (cfg.iconTexture && this.textures.exists(cfg.iconTexture)) {
       iconObj = this.add.image(sourceX, sourceY, cfg.iconTexture)
         .setDisplaySize(PERK_VFX_ICON_SIZE_PX, PERK_VFX_ICON_SIZE_PX)
         .setTint(PERK_VFX_GOLD_TINT)
         .setOrigin(0.5);
     } else {
-      iconObj = this.add.text(sourceX, sourceY, cfg.icon, {
+      // Should not happen — every SKILL_CONFIG entry has at least an emoji.
+      iconObj = this.add.text(sourceX, sourceY, "★", {
         fontSize: `${PERK_VFX_ICON_TEXT_FONT_PX}px`,
-        // Emoji glyphs ignore setTint; bake the gold colour in at construction.
-        // Non-emoji single chars (rare) will read as gold.
         color: "#ffd700",
         fontFamily: "'Exo 2', Arial, sans-serif",
         resolution: 2,

@@ -299,21 +299,25 @@ export class PerkCard extends Phaser.GameObjects.Container {
   }
 
   playSelect(): Promise<void> {
+    // Two-phase «collapse to a point»: short pop up so the chosen card
+    // registers as picked, then a brisk shrink to scale 0 with alpha 0.
+    // Visually the card vanishes into the spawn position of the flying
+    // perk icon — the VFX takes over from there without a visible gap.
     return new Promise<void>((resolve) => {
       if (!this.scene) { resolve(); return; }
       this.scene.tweens.add({
         targets: this,
-        scale: 1.15,
-        duration: 150,
+        scale: PLAY_SELECT_POP_SCALE,
+        duration: PLAY_SELECT_POP_DURATION_MS,
         ease: "Quad.easeOut",
         onComplete: () => {
           if (!this.scene) { resolve(); return; }
           this.scene.tweens.add({
             targets: this,
+            scale: PLAY_SELECT_COLLAPSE_SCALE,
             alpha: 0,
-            scale: 1.3,
-            duration: 200,
-            ease: "Quad.easeIn",
+            duration: PLAY_SELECT_COLLAPSE_DURATION_MS,
+            ease: "Back.easeIn",
             onComplete: () => resolve(),
           });
         },
