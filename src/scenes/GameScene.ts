@@ -97,11 +97,16 @@ const PERK_VFX_GOLD_TINT = 0xffd700;
 const PERK_VFX_TRAIL_ALPHA_FACTOR = 0.4; // dimmed from 0.7
 const PERK_VFX_TRAIL_RADIUS = 4; // shrunk from 6
 const PERK_VFX_TRAIL_FADE_PER_FRAME = 0.08;
-const PERK_VFX_ICON_SIZE_PX = 36; // base size for image icon (1.0× scale)
-const PERK_VFX_ICON_TEXT_FONT_PX = 36; // emoji font size at 1.0× scale
-const PERK_VFX_ICON_START_SCALE = 1.5; // perspective: large source
-const PERK_VFX_ICON_END_SCALE = 0.8; // perspective: small target
-const PERK_VFX_ICON_SPIN_DEG = 180; // rotation across path
+// Flying icon — earlier tuning (base 36 × start scale 1.5 = 54 px on screen)
+// read as "icon bigger than the slot it's flying to". Pulled the start
+// scale down to 1.0 (size = base, ~32 px) and the end scale to 0.7 so
+// the perspective shrink is still readable but the source frame is no
+// longer oversized. Spin halved 180 → 90° at the smaller size.
+const PERK_VFX_ICON_SIZE_PX = 32; // base size for image icon (1.0× scale)
+const PERK_VFX_ICON_TEXT_FONT_PX = 32; // emoji font size at 1.0× scale
+const PERK_VFX_ICON_START_SCALE = 1.0; // perspective: source matches base
+const PERK_VFX_ICON_END_SCALE = 0.7; // perspective: shrunk on landing
+const PERK_VFX_ICON_SPIN_DEG = 90; // rotation across path
 const PERK_VFX_ARC_HEIGHT_PX = 60; // bezier mid-point lift above source/target line
 const PERK_VFX_TRAIL_FADE_DURATION_MS = 150; // post-landing trail fade-out
 
