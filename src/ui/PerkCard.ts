@@ -23,6 +23,15 @@ const CARD_COLORS = {
 const STAR_CHAR = "\u2605"; // ★
 const STAR_EMPTY_CHAR = "\u2606"; // ☆
 
+// playSelect — collapse-to-point animation (was scale-to-1.3 + fade);
+// the new sequence pops the card briefly then shrinks it into the spawn
+// position of the flying perk-VFX icon so the handoff reads as "the
+// card became the icon".
+const PLAY_SELECT_POP_SCALE = 1.12;
+const PLAY_SELECT_POP_DURATION_MS = 130;
+const PLAY_SELECT_COLLAPSE_SCALE = 0.0;
+const PLAY_SELECT_COLLAPSE_DURATION_MS = 220;
+
 export interface PerkCardOptions {
   width?: number;
   height?: number;
