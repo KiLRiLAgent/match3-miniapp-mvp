@@ -222,8 +222,18 @@ export class LayeredMeter extends Phaser.GameObjects.Container {
     // Counter text
     this.counterText.setText(layerIdx > 1 ? `x${layerIdx}` : "");
 
-    // HP label
-    this.label.setText(`${Math.floor(this.currentHp)}/${this.totalHp}`);
+    // HP label — show CURRENT-LAYER HP (e.g. «800/1000» on the top layer
+    // when the boss has lost 200 of the first 1000), not cumulative
+    // boss HP. Once the layer is fully drained (layerIdx == 0 → boss
+    // dead) we render «0/0» so nothing weird shows on the dead bar.
+    if (layerIdx === 0) {
+      this.label.setText("0/0");
+    } else {
+      const layerHp = this.layerHpArray[layerIdx - 1];
+      const prevCumulative = layerIdx >= 2 ? this.cumulativeHp[layerIdx - 2] : 0;
+      const hpInLayer = Phaser.Math.Clamp(this.currentHp - prevCumulative, 0, layerHp);
+      this.label.setText(`${Math.floor(hpInLayer)}/${layerHp}`);
+    }
   }
 
   private drawDelta() {
