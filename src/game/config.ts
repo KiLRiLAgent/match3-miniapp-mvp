@@ -54,12 +54,30 @@ export const GAME_PARAMS = {
     magAttack: 10,
   },
   boss: {
-    hpMax: 1000,
+    // hpMax / hpPerLayer recalculated from layerCount × baseHpPerLayer ×
+    // layerMultipliers by recalcBossHpMax() at boot — kept here for type
+    // shape. With the defaults below hpMax lands at 19000.
+    hpMax: 19000,
     physAttack: 10,
     layerCount: 10,
-    hpPerLayer: 100,
-    baseHpPerLayer: 100,
-    layerMultipliers: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] as number[],
+    hpPerLayer: 1900,
+    baseHpPerLayer: 1000,
+    // Layer ordering: arr index 0 is the BOTTOM layer (last to deplete —
+    // the boss's "second wind"); index N-1 is the TOP layer (first to
+    // break). User-visible numbering inverts this (top = x10, bottom =
+    // x1), so the multiplier ramp is set so the BOTTOM layer is toughest.
+    //
+    //   user x10 (top)    -> idx 9 -> 1.0  -> 1000 HP   ← first to break
+    //   user x9           -> idx 8 -> 1.2  -> 1200 HP
+    //   user x8           -> idx 7 -> 1.4  -> 1400 HP
+    //   user x7           -> idx 6 -> 1.6  -> 1600 HP
+    //   user x6           -> idx 5 -> 1.8  -> 1800 HP
+    //   user x5           -> idx 4 -> 2.0  -> 2000 HP
+    //   user x4           -> idx 3 -> 2.2  -> 2200 HP
+    //   user x3           -> idx 2 -> 2.4  -> 2400 HP
+    //   user x2           -> idx 1 -> 2.6  -> 2600 HP
+    //   user x1 (bottom)  -> idx 0 -> 2.8  -> 2800 HP   ← last to break
+    layerMultipliers: [2.8, 2.6, 2.4, 2.2, 2.0, 1.8, 1.6, 1.4, 1.2, 1.0] as number[],
   },
   tiles: {
     hpPerTile: 2,
