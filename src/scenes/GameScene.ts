@@ -1024,10 +1024,11 @@ export class GameScene extends Phaser.Scene {
       // Track max cascade for stats
       this.stats.maxCascade = Math.max(this.stats.maxCascade, this.cascadeCount);
 
-      // Show cascade counter (x2, x3, ...)
-      if (this.cascadeCount >= 2) {
-        this.showCascadeCounter(this.cascadeCount);
-      }
+      // No mid-board «xN» cascade counter — Ivan asked it removed.
+      // The HitsCounter near the boss now communicates cascade depth;
+      // the CRIT multiplier still flashes ON tile sprites (transform
+      // indicator) and the floating damage numbers handle per-hit
+      // feedback. Mid-board floating text would just create visual noise.
 
       // Determine CRIT wave count from transforms
       const maxMultiplier = outcome.transforms.reduce(
@@ -4141,42 +4142,6 @@ export class GameScene extends Phaser.Scene {
         });
       }
     }
-  }
-
-  private showCascadeCounter(count: number): void {
-    const fontSize = Math.min(36 + (count - 2) * 10, 64);
-    const center = this.boardCenter;
-    const text = this.add
-      .text(center.x, center.y, `x${count}`, {
-        fontSize: `${fontSize}px`,
-        color: "#ffdd44",
-        fontFamily: "'Exo 2', Arial, sans-serif",
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 4,
-        resolution: 2,
-      })
-      .setOrigin(0.5)
-      .setDepth(100)
-      .setScale(0);
-
-    this.tweens.add({
-      targets: text,
-      scale: 1,
-      duration: 250,
-      ease: "Back.easeOut",
-      onComplete: () => {
-        this.tweens.add({
-          targets: text,
-          y: text.y - 40,
-          alpha: 0,
-          duration: 500,
-          delay: 200,
-          ease: "Quad.easeOut",
-          onComplete: () => text.destroy(),
-        });
-      },
-    });
   }
 
   private showHitsCounter(count: number): void {
