@@ -105,13 +105,11 @@ const PERK_VFX_TRAIL_RADIUS = 7;
 const PERK_VFX_TRAIL_GLOW_ALPHA_FACTOR = 0.30; // outer halo alpha (× per-point fade)
 const PERK_VFX_TRAIL_GLOW_RADIUS_FACTOR = 1.8; // outer halo radius (× core radius)
 const PERK_VFX_TRAIL_FADE_PER_FRAME = 0.05;
-// Flying icon — earlier tuning (base 36 × start scale 1.5 = 54 px on screen)
-// read as "icon bigger than the slot it's flying to". Pulled the start
-// scale down to 1.0 (size = base, ~32 px) and the end scale to 0.7 so
-// the perspective shrink is still readable but the source frame is no
-// longer oversized. Spin halved 180 → 90° at the smaller size.
-const PERK_VFX_ICON_SIZE_PX = 32; // base size for image icon (1.0× scale)
-const PERK_VFX_ICON_TEXT_FONT_PX = 32; // emoji font size at 1.0× scale
+// Flying icon — base size bumped 32 → 40 («чуть побольше» per user) so
+// the picked perk reads clearly during flight. Start scale stays at 1.0
+// (no oversized source) and end scale 0.7 keeps the perspective shrink.
+const PERK_VFX_ICON_SIZE_PX = 40; // base size for image icon (1.0× scale)
+const PERK_VFX_ICON_TEXT_FONT_PX = 40; // emoji font size at 1.0× scale
 const PERK_VFX_ICON_START_SCALE = 1.0; // perspective: source matches base
 const PERK_VFX_ICON_END_SCALE = 0.7; // perspective: shrunk on landing
 const PERK_VFX_ICON_SPIN_DEG = 90; // rotation across path
@@ -1636,12 +1634,19 @@ export class GameScene extends Phaser.Scene {
         iconObj.setAngle(eased * PERK_VFX_ICON_SPIN_DEG * spinSign);
 
         // Trail: append current point, fade existing, clear+redraw.
-        // Two passes per point: outer halo (soft glow) under inner core
-        // (bright gold). Together they read as a chunky golden comet tail.
+        // Two passes per point — outer halo + inner core — give a chunky
+        // golden comet tail. We SKIP the just-pushed point on this frame
+        // so the trail starts strictly BEHIND the icon, never overlaying
+        // it (depth 249 already places the trail layer below the icon at
+        // 250, but the just-pushed point sits at the icon's exact (x, y)
+        // and its halo would otherwise leak past the icon edge).
         trailPoints.push({ x, y, alpha: 1 });
         trailGfx.clear();
-        for (const p of trailPoints) {
+        const lastIdx = trailPoints.length - 1;
+        for (let i = 0; i < trailPoints.length; i++) {
+          const p = trailPoints[i];
           p.alpha -= PERK_VFX_TRAIL_FADE_PER_FRAME;
+          if (i === lastIdx) continue; // freshly-pushed point lives under the icon — skip render
           if (p.alpha > 0) {
             // Outer halo — soft, larger, dimmer.
             trailGfx.fillStyle(PERK_VFX_GOLD_TINT, p.alpha * PERK_VFX_TRAIL_GLOW_ALPHA_FACTOR);
