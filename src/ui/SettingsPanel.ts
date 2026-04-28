@@ -33,6 +33,12 @@ const PREVIEW_PADDING = 12;
 const SCROLL_DRAG_THRESHOLD_PX = 5;
 const WHEEL_SCROLL_SCALE = 0.5;
 
+// Hold-to-repeat on +/- buttons. Initial delay before auto-repeat kicks in
+// so a single tap stays a single increment; interval drives the rate of
+// fire while the pointer is held down.
+const HOLD_REPEAT_INITIAL_DELAY_MS = 380;
+const HOLD_REPEAT_INTERVAL_MS = 70;
+
 // Header / footer chrome offsets (relative to panel rect)
 const HEADER_TITLE_Y = 25;
 const CLOSE_BTN_Y = 15;
@@ -148,6 +154,10 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   // Live HP preview
   private hpPreviewText: Phaser.GameObjects.Text | null = null;
   private hpPreviewBg: Phaser.GameObjects.Rectangle | null = null;
+
+  // Hold-to-repeat timers spawned by attachHoldRepeat — tracked so close()
+  // can kill any in-flight delayedCall / addEvent that didn't see pointerup.
+  private holdRepeatTimers = new Set<Phaser.Time.TimerEvent>();
 
   // Scroll state
   private dragStartY = 0;
@@ -417,9 +427,9 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .setOrigin(0.5)
       .setStrokeStyle(1, MINUS_STROKE_COLOR)
       .setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.adjustParam(param, -1))
       .on("pointerover", () => minusBg.setFillStyle(MINUS_BG_HOVER_COLOR))
       .on("pointerout", () => minusBg.setFillStyle(MINUS_BG_COLOR));
+    this.attachHoldRepeat(minusBg, () => this.adjustParam(param, -1));
 
     const minus = scene.add
       .text(minusX, y, "−", {
@@ -447,9 +457,9 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       .setOrigin(0.5)
       .setStrokeStyle(1, PLUS_STROKE_COLOR)
       .setInteractive({ useHandCursor: true })
-      .on("pointerdown", () => this.adjustParam(param, 1))
       .on("pointerover", () => plusBg.setFillStyle(PLUS_BG_HOVER_COLOR))
       .on("pointerout", () => plusBg.setFillStyle(PLUS_BG_COLOR));
+    this.attachHoldRepeat(plusBg, () => this.adjustParam(param, 1));
 
     const plus = scene.add
       .text(plusX, y, "+", {
@@ -699,7 +709,58 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
   // Cleanup
   // ───────────────────────────────────────────────────────────────────────
 
+  /**
+   * Hold-to-repeat: pointerdown fires `action` once immediately, then after
+   * HOLD_REPEAT_INITIAL_DELAY_MS starts auto-repeating at HOLD_REPEAT_INTERVAL_MS
+   * until pointerup / pointerout / pointerupoutside cancels. Both timers are
+   * registered in `holdRepeatTimers` so `close()` can kill any leftover.
+   */
+  private attachHoldRepeat(target: Phaser.GameObjects.Rectangle, action: () => void) {
+    let initialTimer: Phaser.Time.TimerEvent | undefined;
+    let intervalTimer: Phaser.Time.TimerEvent | undefined;
+
+    const stop = () => {
+      if (initialTimer) {
+        initialTimer.remove();
+        this.holdRepeatTimers.delete(initialTimer);
+        initialTimer = undefined;
+      }
+      if (intervalTimer) {
+        intervalTimer.remove();
+        this.holdRepeatTimers.delete(intervalTimer);
+        intervalTimer = undefined;
+      }
+    };
+
+    target.on("pointerdown", () => {
+      action(); // immediate single-tap behaviour
+      initialTimer = this.scene.time.delayedCall(HOLD_REPEAT_INITIAL_DELAY_MS, () => {
+        if (initialTimer) {
+          this.holdRepeatTimers.delete(initialTimer);
+          initialTimer = undefined;
+        }
+        action();
+        intervalTimer = this.scene.time.addEvent({
+          delay: HOLD_REPEAT_INTERVAL_MS,
+          loop: true,
+          callback: action,
+        });
+        this.holdRepeatTimers.add(intervalTimer);
+      });
+      this.holdRepeatTimers.add(initialTimer);
+    });
+    target.on("pointerup", stop);
+    target.on("pointerout", stop);
+    target.on("pointerupoutside", stop);
+  }
+
   private close() {
+    // Kill any auto-repeat timers still in flight from a held +/- button.
+    for (const timer of this.holdRepeatTimers) {
+      timer.remove();
+    }
+    this.holdRepeatTimers.clear();
+
     if (this.pointerDownHandler) {
       this.scene.input.off("pointerdown", this.pointerDownHandler);
     }
