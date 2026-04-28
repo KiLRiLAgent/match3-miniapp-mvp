@@ -94,9 +94,17 @@ const PERK_VFX_FLY_DURATION_MS = 480;
 const PERK_VFX_FLY_DEPTH = 250;
 const PERK_VFX_TRAIL_DEPTH = 249;
 const PERK_VFX_GOLD_TINT = 0xffd700;
-const PERK_VFX_TRAIL_ALPHA_FACTOR = 0.4; // dimmed from 0.7
-const PERK_VFX_TRAIL_RADIUS = 4; // shrunk from 6
-const PERK_VFX_TRAIL_FADE_PER_FRAME = 0.08;
+// Golden trail — earlier tuning was «secondary VFX» (alpha 0.4, r 4).
+// User asked for a more present gold trail behind the icon, so:
+//  - core alpha 0.4 → 0.85 + radius 4 → 7 (chunky bright spine)
+//  - outer halo (TRAIL_GLOW_*) draws a soft 1.8× radius gold blur under
+//    the core — gives the gold "glow" feel without resorting to shaders
+//  - fade per frame 0.08 → 0.05 so the tail trails further behind the icon
+const PERK_VFX_TRAIL_ALPHA_FACTOR = 0.85;
+const PERK_VFX_TRAIL_RADIUS = 7;
+const PERK_VFX_TRAIL_GLOW_ALPHA_FACTOR = 0.30; // outer halo alpha (× per-point fade)
+const PERK_VFX_TRAIL_GLOW_RADIUS_FACTOR = 1.8; // outer halo radius (× core radius)
+const PERK_VFX_TRAIL_FADE_PER_FRAME = 0.05;
 // Flying icon — earlier tuning (base 36 × start scale 1.5 = 54 px on screen)
 // read as "icon bigger than the slot it's flying to". Pulled the start
 // scale down to 1.0 (size = base, ~32 px) and the end scale to 0.7 so
@@ -1628,12 +1636,20 @@ export class GameScene extends Phaser.Scene {
         iconObj.setAngle(eased * PERK_VFX_ICON_SPIN_DEG * spinSign);
 
         // Trail: append current point, fade existing, clear+redraw.
-        // Dimmed (alpha factor + radius) — secondary VFX behind the icon.
+        // Two passes per point: outer halo (soft glow) under inner core
+        // (bright gold). Together they read as a chunky golden comet tail.
         trailPoints.push({ x, y, alpha: 1 });
         trailGfx.clear();
         for (const p of trailPoints) {
           p.alpha -= PERK_VFX_TRAIL_FADE_PER_FRAME;
           if (p.alpha > 0) {
+            // Outer halo — soft, larger, dimmer.
+            trailGfx.fillStyle(PERK_VFX_GOLD_TINT, p.alpha * PERK_VFX_TRAIL_GLOW_ALPHA_FACTOR);
+            trailGfx.fillCircle(
+              p.x, p.y,
+              PERK_VFX_TRAIL_RADIUS * p.alpha * PERK_VFX_TRAIL_GLOW_RADIUS_FACTOR,
+            );
+            // Inner core — bright gold spine.
             trailGfx.fillStyle(PERK_VFX_GOLD_TINT, p.alpha * PERK_VFX_TRAIL_ALPHA_FACTOR);
             trailGfx.fillCircle(p.x, p.y, PERK_VFX_TRAIL_RADIUS * p.alpha);
           }
