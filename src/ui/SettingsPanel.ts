@@ -331,11 +331,15 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
       { label: "👊 Атака босса", getValue: () => GAME_PARAMS.boss.physAttack, setValue: (v) => GAME_PARAMS.boss.physAttack = v, min: 1, max: 50, step: 1 },
     ];
 
-    // Layer multipliers (dynamic count)
+    // Layer multipliers (dynamic count). User-visible numbering matches the
+    // bar layer label «xN» (x10 = top = first to break, x1 = bottom = last
+    // to break). Code-side index i still maps to layerMultipliers[i] —
+    // arr index 0 is the bottom, so layerNumber = i + 1 directly equals
+    // the user's «xN» tag.
     for (let i = 0; i < GAME_PARAMS.boss.layerCount; i++) {
       const idx = i;
       params.push({
-        label: `📊 K${idx + 1} (полоска ${idx + 1})`,
+        label: `📊 x${idx + 1}`,
         getValue: () => Math.round(GAME_PARAMS.boss.layerMultipliers[idx] * 10) / 10,
         setValue: (v) => { GAME_PARAMS.boss.layerMultipliers[idx] = Math.round(v * 10) / 10; recalcBossHpMax(); },
         min: 0.1,
@@ -483,9 +487,12 @@ export class SettingsPanel extends Phaser.GameObjects.Container {
     const arr = getBossLayerHpArray();
     const total = arr.reduce((s, v) => s + v, 0);
     const lines: string[] = [];
-    arr.forEach((hp, i) => {
-      lines.push(`Полоска ${i + 1}: ${hp} HP`);
-    });
+    // Render top-down — x{N} (top, first to break) at the top, x1 (bottom,
+    // last to break) at the bottom. Matches the on-screen HP bar reading
+    // order and the «xN» label on the layer counter.
+    for (let i = arr.length - 1; i >= 0; i--) {
+      lines.push(`x${i + 1}: ${arr[i]} HP`);
+    }
     lines.push(`Итого: ${total} HP`);
     return lines;
   }
