@@ -231,6 +231,7 @@ export class GameScene extends Phaser.Scene {
   private tutorialHand?: Phaser.GameObjects.Image;
   private tutorialHandChain?: Phaser.Tweens.TweenChain;
   private tutorialHandDelay?: Phaser.Time.TimerEvent;
+  private tutorialFallbackTimer?: Phaser.Time.TimerEvent;
   private tutorialHintOverlays: Phaser.GameObjects.Image[] = [];
   private tutorialHintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
 
@@ -3074,6 +3075,11 @@ export class GameScene extends Phaser.Scene {
       loop: -1,
     });
     this.tutorialHintTweens.push(glowPulse);
+
+    // Fallback: auto-skip tutorial after 10s of no valid swap (unblocks stuck users)
+    this.tutorialFallbackTimer = this.time.delayedCall(10_000, () => {
+      if (this.tutorialActive) this.clearTutorial();
+    });
   }
 
   private clearTutorial() {
@@ -3096,6 +3102,10 @@ export class GameScene extends Phaser.Scene {
     if (this.tutorialHandDelay) {
       this.tutorialHandDelay.destroy();
       this.tutorialHandDelay = undefined;
+    }
+    if (this.tutorialFallbackTimer) {
+      this.tutorialFallbackTimer.destroy();
+      this.tutorialFallbackTimer = undefined;
     }
     if (this.tutorialHandChain) {
       this.tutorialHandChain.stop();
