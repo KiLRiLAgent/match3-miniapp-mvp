@@ -231,7 +231,6 @@ export class GameScene extends Phaser.Scene {
   private tutorialHand?: Phaser.GameObjects.Image;
   private tutorialHandChain?: Phaser.Tweens.TweenChain;
   private tutorialHandDelay?: Phaser.Time.TimerEvent;
-  private tutorialFallbackTimer?: Phaser.Time.TimerEvent;
   private tutorialHintOverlays: Phaser.GameObjects.Image[] = [];
   private tutorialHintTweens: (Phaser.Tweens.Tween | Phaser.Tweens.TweenChain)[] = [];
 
@@ -504,8 +503,13 @@ export class GameScene extends Phaser.Scene {
       totalDamageDealt: 0, totalDamageReceived: 0, totalHealDone: 0,
       maxCascade: 0, turnsPlayed: 0, skillsUsed: 0, bombsDefused: 0,
     };
-    // v2: skip tutorial flow when launched from CombatBridgeScene
-    this.tutorialActive = !this.encounterContext;
+    // First-move tutorial temporarily disabled (2026-06-09).
+    // Reason: speech bubble overlaps hand-hint, players get stuck — see showFirstMoveTutorial().
+    // To re-enable: revert this line to `!this.encounterContext` and either
+    //   (a) reposition the bubble outside board area, or
+    //   (b) add a fallback timeout / dismissable bubble.
+    // showFirstMoveTutorial() / clearTutorial() and TUTORIAL_FROM/TO constants are kept intact.
+    this.tutorialActive = false;
     // v2: reset chain counter + first turn flag
     this.v2ChainsBroken = 0;
     this.isFirstTurn = true;
@@ -3075,11 +3079,6 @@ export class GameScene extends Phaser.Scene {
       loop: -1,
     });
     this.tutorialHintTweens.push(glowPulse);
-
-    // Fallback: auto-skip tutorial after 10s of no valid swap (unblocks stuck users)
-    this.tutorialFallbackTimer = this.time.delayedCall(10_000, () => {
-      if (this.tutorialActive) this.clearTutorial();
-    });
   }
 
   private clearTutorial() {
@@ -3102,10 +3101,6 @@ export class GameScene extends Phaser.Scene {
     if (this.tutorialHandDelay) {
       this.tutorialHandDelay.destroy();
       this.tutorialHandDelay = undefined;
-    }
-    if (this.tutorialFallbackTimer) {
-      this.tutorialFallbackTimer.destroy();
-      this.tutorialFallbackTimer = undefined;
     }
     if (this.tutorialHandChain) {
       this.tutorialHandChain.stop();
